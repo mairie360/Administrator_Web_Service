@@ -1,19 +1,19 @@
-# name: {Front} Web Service CICD #change front name
+name: Administrator Web Service CICD
 
-# on:
-#   push:
-#   pull_request:
-#   workflow_dispatch:
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
 
-# permissions:
-#   contents: write
-#   packages: write
-#   id-token: write
+permissions:
+  contents: write
+  packages: write
+  id-token: write
 
-# jobs:
-#   CICD:
-#     uses: mairie360/CICD/.github/workflows/frontend-cicd.yml@main
-#     with:
-#       package_name: "{front}-front" #change front name
-#       node_version: 23
-#     secrets: inherit
+jobs:
+  CICD:
+    uses: mairie360/CICD/.github/workflows/frontend-cicd.yml@main
+    with:
+      package_name: "administrator-front" #change front name
+      node_version: 23
+    secrets: inherit
