@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@mairie360/lib-components": "^0.0.9",
+    "@mairie360/lib-components": "^0.1.2",
     "next": "15.5.20",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
