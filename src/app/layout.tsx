@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import "@mairie360/lib-components/dist/styles.css";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Administration Mairie360",
+  title: "Administration | Mairie360",
   description: "Interface d'administration Mairie360",
 };
 
