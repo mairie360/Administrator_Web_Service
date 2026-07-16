@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AdministrationModule,
   Footer,
   Header,
   Sidebar,
 } from "@mairie360/lib-components";
 import { logoutAndReload, useAuthSession } from "@/lib/auth-session";
+import { AdministrationConsole } from "@/components/administration-console";
 import { adminUser } from "@/lib/current-user";
 import { navigateToPage } from "@/lib/navigation";
 import { sidebarItems } from "@/lib/sidebar-items";
@@ -71,7 +71,7 @@ export default function Home() {
 
         <main className="min-h-0 flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-[1520px]">
-            <AdministrationModule className="bg-transparent" />
+            <AdministrationConsole />
           </div>
         </main>
 

@@ -1,5 +1,15 @@
 import { getStoredAuthorizationHeader } from "./auth-token";
 
+export class BffRequestError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Erreur BFF (${status})`);
+    this.name = "BffRequestError";
+    this.status = status;
+  }
+}
+
 function createRequestHeaders(init: RequestInit) {
   const headers = new Headers(init.headers);
 
@@ -29,7 +39,7 @@ export async function requestBff<T>(path: string, init: RequestInit = {}) {
   });
 
   if (!response.ok) {
-    throw new Error(`Erreur BFF (${response.status})`);
+    throw new BffRequestError(response.status);
   }
 
   if (response.status === 204) return undefined as T;
