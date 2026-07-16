@@ -13,6 +13,29 @@ export type AdministrationGroup = {
   owner_id: number;
 };
 
+export type AdministrationUserRole = Pick<AdministrationRole, "id" | "name">;
+
+export type AdministrationUser = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone_number?: string | null;
+  status: string;
+  is_archived: boolean;
+  roles: AdministrationUserRole[];
+};
+
+export type AdministrationUsersPage = {
+  users: AdministrationUser[];
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+};
+
+export type AdministrationGroupMember = Omit<AdministrationUser, "roles">;
+
 export type AdministrationSession = {
   id: string;
   device_info: string;
@@ -102,6 +125,45 @@ function isGroup(value: unknown): value is AdministrationGroup {
   );
 }
 
+function isUserRole(value: unknown): value is AdministrationUserRole {
+  const role = asRecord(value);
+  return role !== null && typeof role.id === "number" && typeof role.name === "string";
+}
+
+function isAdministrationUser(value: unknown): value is AdministrationUser {
+  const user = asRecord(value);
+  return (
+    user !== null &&
+    typeof user.id === "number" &&
+    typeof user.first_name === "string" &&
+    typeof user.last_name === "string" &&
+    typeof user.email === "string" &&
+    (user.phone_number === undefined ||
+      user.phone_number === null ||
+      typeof user.phone_number === "string") &&
+    typeof user.status === "string" &&
+    typeof user.is_archived === "boolean" &&
+    Array.isArray(user.roles) &&
+    user.roles.every(isUserRole)
+  );
+}
+
+function isGroupMember(value: unknown): value is AdministrationGroupMember {
+  const user = asRecord(value);
+  return (
+    user !== null &&
+    typeof user.id === "number" &&
+    typeof user.first_name === "string" &&
+    typeof user.last_name === "string" &&
+    typeof user.email === "string" &&
+    (user.phone_number === undefined ||
+      user.phone_number === null ||
+      typeof user.phone_number === "string") &&
+    typeof user.status === "string" &&
+    typeof user.is_archived === "boolean"
+  );
+}
+
 function isSession(value: unknown): value is AdministrationSession {
   const session = asRecord(value);
   return (
@@ -126,6 +188,31 @@ function positiveInteger(value: number, label: string) {
 }
 
 export const administrationApi = {
+  async listUsers({ page = 1, search = "" }: { page?: number; search?: string } = {}) {
+    const params = new URLSearchParams({
+      page: String(positiveInteger(page, "La page")),
+      page_size: "20",
+    });
+    if (search.trim()) params.set("search", search.trim());
+
+    const response = await requestAdmin<unknown>(`/users?${params.toString()}`);
+    const record = asRecord(response);
+    const users = extractArray(response, ["users", "items"]).filter(isAdministrationUser);
+
+    return {
+      users,
+      page: typeof record?.page === "number" ? record.page : page,
+      page_size: typeof record?.page_size === "number" ? record.page_size : 20,
+      total: typeof record?.total === "number" ? record.total : users.length,
+      total_pages:
+        typeof record?.total_pages === "number"
+          ? record.total_pages
+          : users.length > 0
+            ? 1
+            : 0,
+    } satisfies AdministrationUsersPage;
+  },
+
   async listRoles() {
     const response = await requestAdmin<unknown>("/roles");
     return extractArray(response, ["roles"]).filter(isRole);
@@ -174,6 +261,16 @@ export const administrationApi = {
     return requestAdmin<void>("/groups", jsonRequest("POST", input));
   },
 
+  async updateGroup(groupId: number, input: GroupInput) {
+    const response = await requestAdmin<unknown>(
+      `/groups/${positiveInteger(groupId, "L’identifiant du groupe")}`,
+      jsonRequest("PATCH", input),
+    );
+    const record = asRecord(response);
+    const group = record?.group ?? response;
+    return isGroup(group) ? group : null;
+  },
+
   deleteGroup(groupId: number) {
     return requestAdmin<void>(
       `/groups/${positiveInteger(groupId, "L’identifiant du groupe")}`,
@@ -185,9 +282,7 @@ export const administrationApi = {
     const response = await requestAdmin<unknown>(
       `/groups/${positiveInteger(groupId, "L’identifiant du groupe")}/users`,
     );
-    return extractArray(response, ["users"]).filter(
-      (userId): userId is number => Number.isInteger(userId) && Number(userId) > 0,
-    );
+    return extractArray(response, ["users"]).filter(isGroupMember);
   },
 
   addUserToGroup(groupId: number, userId: number) {
@@ -217,6 +312,20 @@ export const administrationApi = {
     return requestAdmin<void>(
       `/users/${positiveInteger(userId, "L’identifiant utilisateur")}`,
       jsonRequest("PATCH", input),
+    );
+  },
+
+  resetUserPassword(userId: number, newPassword: string) {
+    return requestAdmin<void>(
+      `/users/${positiveInteger(userId, "L’identifiant utilisateur")}/password`,
+      jsonRequest("PATCH", { new_password: newPassword }),
+    );
+  },
+
+  deleteUser(userId: number) {
+    return requestAdmin<void>(
+      `/users/${positiveInteger(userId, "L’identifiant utilisateur")}`,
+      { method: "DELETE" },
     );
   },
 

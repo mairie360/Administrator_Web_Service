@@ -44,5 +44,11 @@ export async function requestBff<T>(path: string, init: RequestInit = {}) {
 
   if (response.status === 204) return undefined as T;
 
-  return (await response.json()) as T;
+  const body = await response.text();
+  if (!body) return undefined as T;
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) return body as T;
+
+  return JSON.parse(body) as T;
 }

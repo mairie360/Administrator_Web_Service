@@ -84,6 +84,10 @@ export function POST(request: NextRequest, context: RouteContext) {
   return proxyBffRequest(request, context);
 }
 
+export function PUT(request: NextRequest, context: RouteContext) {
+  return proxyBffRequest(request, context);
+}
+
 export function PATCH(request: NextRequest, context: RouteContext) {
   return proxyBffRequest(request, context);
 }
