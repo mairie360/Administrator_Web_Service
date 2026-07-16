@@ -3,25 +3,23 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AdministrationModule,
   Footer,
   Header,
   Sidebar,
 } from "@mairie360/lib-components";
+import { logoutAndReload, useAuthSession } from "@/lib/auth-session";
+import { AdministrationConsole } from "@/components/administration-console";
 import { adminUser } from "@/lib/current-user";
-import { getPageHref } from "@/lib/navigation";
+import { navigateToPage } from "@/lib/navigation";
 import { sidebarItems } from "@/lib/sidebar-items";
 
 export default function Home() {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const session = useAuthSession(adminUser);
 
   const handlePageChange = (page: string) => {
-    const href = getPageHref(page);
-
-    if (href) {
-      router.push(href);
-    }
+    navigateToPage(page, router.push);
   };
 
   const handleSidebarItemSelect = (item: { id: string }) => {
@@ -34,7 +32,7 @@ export default function Home() {
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block">
         <Sidebar
           activeItem="admin"
-          isAdmin
+          isAdmin={session.isAdmin}
           items={sidebarItems}
           brandLogoSrc={null}
           onItemSelect={handleSidebarItemSelect}
@@ -52,7 +50,7 @@ export default function Home() {
           <div className="relative z-10">
             <Sidebar
               activeItem="admin"
-              isAdmin
+              isAdmin={session.isAdmin}
               items={sidebarItems}
               brandLogoSrc={null}
               onItemSelect={handleSidebarItemSelect}
@@ -63,16 +61,17 @@ export default function Home() {
 
       <div className="flex h-screen min-w-0 flex-col lg:pl-[260px]">
         <Header
-          user={adminUser}
-          isAdmin
+          user={session.user}
+          isAdmin={session.isAdmin}
           setSidebarOpen={setSidebarOpen}
           profileHref="/profile"
           onPageChange={handlePageChange}
+          onLogout={() => void logoutAndReload()}
         />
 
         <main className="min-h-0 flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-[1520px]">
-            <AdministrationModule className="bg-transparent" />
+            <AdministrationConsole />
           </div>
         </main>
 
