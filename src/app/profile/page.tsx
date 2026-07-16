@@ -3,18 +3,14 @@
 import { UserProfilePage } from "@mairie360/lib-components";
 import { useRouter } from "next/navigation";
 import { adminUser } from "@/lib/current-user";
-import { getPageHref } from "@/lib/navigation";
+import { navigateToPage } from "@/lib/navigation";
 import { sidebarItems } from "@/lib/sidebar-items";
 
 export default function ProfilePage() {
   const router = useRouter();
 
   const handlePageChange = (page: string) => {
-    const href = getPageHref(page);
-
-    if (href) {
-      router.push(href);
-    }
+    navigateToPage(page, router.push);
   };
 
   return (

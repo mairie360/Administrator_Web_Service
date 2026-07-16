@@ -9,7 +9,7 @@ import {
   Sidebar,
 } from "@mairie360/lib-components";
 import { adminUser } from "@/lib/current-user";
-import { getPageHref } from "@/lib/navigation";
+import { navigateToPage } from "@/lib/navigation";
 import { sidebarItems } from "@/lib/sidebar-items";
 
 export default function Home() {
@@ -17,11 +17,7 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handlePageChange = (page: string) => {
-    const href = getPageHref(page);
-
-    if (href) {
-      router.push(href);
-    }
+    navigateToPage(page, router.push);
   };
 
   const handleSidebarItemSelect = (item: { id: string }) => {
