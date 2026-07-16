@@ -31,6 +31,12 @@ export default function ProfilePage() {
       footerProps={{
         version: "2.1.0",
       }}
+      profileProps={{
+        editable: false,
+        loading: session.loading,
+        error: session.error,
+        subtitle: "Informations réelles du compte connecté",
+      }}
     />
   );
 }
