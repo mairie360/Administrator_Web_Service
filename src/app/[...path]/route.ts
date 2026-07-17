@@ -11,6 +11,7 @@ const DEFAULT_BFF_BASE_URL = "http://localhost:4004";
 function getBffBaseUrl() {
   return (
     process.env.BFF_ADMIN_BASE_URL ??
+    process.env.USER_BFF_URL ??
     process.env.NEXT_PUBLIC_BFF_ADMIN_BASE_URL ??
     DEFAULT_BFF_BASE_URL
   ).replace(/\/+$/, "");
