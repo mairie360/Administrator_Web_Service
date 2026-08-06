@@ -10,7 +10,6 @@ import {
 import { AlertCircle, LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { logoutAndReload, useAuthSession } from "@/lib/auth-session";
-import { adminUser } from "@/lib/current-user";
 import { navigateToPage } from "@/lib/navigation";
 import { sidebarItems } from "@/lib/sidebar-items";
 
@@ -20,7 +19,7 @@ const profileSubtitle = "Informations réelles du compte connecté";
 export default function ProfilePage() {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const session = useAuthSession(adminUser);
+  const session = useAuthSession();
 
   const handlePageChange = (page: string) => {
     navigateToPage(page, router.push);

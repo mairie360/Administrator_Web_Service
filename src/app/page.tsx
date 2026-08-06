@@ -9,14 +9,13 @@ import {
 } from "@mairie360/lib-components";
 import { logoutAndReload, useAuthSession } from "@/lib/auth-session";
 import { AdministrationConsole } from "@/components/administration-console";
-import { adminUser } from "@/lib/current-user";
 import { navigateToPage } from "@/lib/navigation";
 import { sidebarItems } from "@/lib/sidebar-items";
 
 export default function Home() {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const session = useAuthSession(adminUser);
+  const session = useAuthSession();
 
   const handlePageChange = (page: string) => {
     navigateToPage(page, router.push);
