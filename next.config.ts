@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
     MESSAGE_FRONT_URL: process.env.MESSAGE_FRONT_URL ?? devFrontUrl("message"),
     ELEARNING_FRONT_URL: process.env.ELEARNING_FRONT_URL ?? devFrontUrl("elearning"),
     ADMINISTRATION_FRONT_URL: process.env.ADMINISTRATION_FRONT_URL ?? devFrontUrl("admin"),
+    SETTINGS_FRONT_URL: process.env.SETTINGS_FRONT_URL ?? devFrontUrl("settings"),
   },
 };
 

@@ -12,8 +12,9 @@ permissions:
 
 jobs:
   CICD:
-    uses: mairie360/CICD/.github/workflows/frontend-cicd.yml@main
+    uses: mairie360/CICD/.github/workflows/frontend-cicd.yml@v1.11.1
     with:
       package_name: "administrator-front" #change front name
       node_version: 23
+      cicd_version: "v1.11.1"
     secrets: inherit

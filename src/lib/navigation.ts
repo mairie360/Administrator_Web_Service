@@ -7,7 +7,8 @@ const pageRoutes: Partial<Record<string, string>> = {
   training: process.env.ELEARNING_FRONT_URL,
   calendar: process.env.CALENDAR_FRONT_URL,
   admin: process.env.ADMINISTRATION_FRONT_URL,
-  profile: "/profile",
+  profile: process.env.SETTINGS_FRONT_URL,
+  settings: process.env.SETTINGS_FRONT_URL,
 };
 
 export function getPageHref(page: string) {
