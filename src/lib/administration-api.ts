@@ -1,49 +1,20 @@
+import type { components } from '@/contracts/bff';
+type Schemas = components['schemas'];
 import { requestBff } from "./bff-client";
 
-export type AdministrationRole = {
-  id: number;
-  name: string;
-  description: string;
-};
+export type AdministrationRole = Schemas['AdministrationRole'];
 
-export type AdministrationGroup = {
-  id: number;
-  name: string;
-  description?: string | null;
-  owner_id: number;
-};
+export type AdministrationGroup = Schemas['AdministrationGroup'];
 
 export type AdministrationUserRole = Pick<AdministrationRole, "id" | "name">;
 
-export type AdministrationUser = {
-  id: number;
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone_number?: string | null;
-  status: string;
-  is_archived: boolean;
-  roles: AdministrationUserRole[];
-};
+export type AdministrationUser = Schemas['AdministrationUser'];
 
-export type AdministrationUsersPage = {
-  users: AdministrationUser[];
-  page: number;
-  page_size: number;
-  total: number;
-  total_pages: number;
-};
+export type AdministrationUsersPage = Schemas['AdministrationUsersPage'];
 
-export type AdministrationGroupMember = Omit<AdministrationUser, "roles">;
+export type AdministrationGroupMember = Schemas['AdministrationGroupMember'];
 
-export type AdministrationSession = {
-  id: string;
-  device_info: string;
-  ip_address: string;
-  created_at: string;
-  expires_at: string;
-  revoked_at?: string | null;
-};
+export type AdministrationSession = Schemas['AdministrationSession'];
 
 export type CreateUserInput = {
   email: string;
