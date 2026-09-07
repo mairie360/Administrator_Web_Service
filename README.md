@@ -1,5 +1,7 @@
 ## Contrats de données
 
+Contrat des routes et données, synchronisation BFF/web et limites de disponibilité : [BFF.md](BFF.md).
+
 [BFF.md](BFF.md) décrit les routes et données nécessaires au front ; [BACKEND.md](BACKEND.md) liste les tables et routes backend correspondantes. Les contrats communs sont harmonisés entre les dix Web Services et distinguent l'existant des propositions.
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
