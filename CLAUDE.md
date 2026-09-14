@@ -20,17 +20,19 @@ npm run test:contracts                   # same tests, no coverage
 node --test --test-name-pattern="<name>" tests/proxy.test.cjs   # single test
 ```
 
-Tests are plain CommonJS `node:test` files: they transpile `src/**/*.ts` on the fly with `typescript.transpileModule` via a temporary `require.extensions['.ts']` hook and stub `global.fetch`. No Jest/Vitest, no DOM tests; new tests must follow that pattern and match `tests/*.test.cjs`.
+Tests are plain CommonJS `node:test` files: they transpile `src/**/*.ts` on the fly with `typescript.transpileModule` via a temporary `require.extensions['.ts']` hook and stub `global.fetch`. No Jest/Vitest, no DOM tests; new tests must follow that pattern and match `tests/*.test.cjs`. The hook does not resolve the `@/*` tsconfig alias, so a module loaded by a test must use relative runtime imports (`import type … from '@/…'` is fine, it is erased). Only `bff-proxy.ts` is covered today.
 
 ### OpenAPI contract
 
 `contracts/openapi.json` is a committed copy of BFF_user's contract and `src/contracts/bff.d.ts` is generated from it (`openapi-typescript@7.10.1`, pinned in `scripts/contracts.mjs`). Never hand-edit either file.
 
 ```bash
-npm run contracts:sync      # copy from ../BFF_user/contracts (or $BFF_CONTRACT_DIR) and regenerate types
+BFF_CONTRACT_DIR=../../BFFs/BFF_user/contracts npm run contracts:sync   # copy the BFF contract and regenerate types
 npm run contracts:generate  # regenerate types from the local snapshot
-npm run contracts:check     # fail if types are stale, or if a neighbouring BFF checkout has a different contract
+npm run contracts:check     # fail if types are stale, or if the BFF checkout at $BFF_CONTRACT_DIR has a different contract
 ```
+
+The script's default source `../BFF_user/contracts` resolves to `Fronts/BFF_user`, which does not exist in the EIP checkout, so always set `BFF_CONTRACT_DIR` (without it, `check` silently skips the BFF comparison). All three commands `npm exec` `openapi-typescript`, so they need network access.
 
 ## Architecture
 
@@ -38,17 +40,18 @@ npm run contracts:check     # fail if types are stale, or if a neighbouring BFF 
 - **`forwardToBff`** strips hop-by-hop headers and the `cookie` header, turns the `accessToken` cookie into `Authorization: Bearer` when no Authorization header is present, keeps the query string and raw (binary) body, uses `redirect: 'manual'`, a 15 s timeout and `Cache-Control: no-store`, preserves upstream status/headers (including `Set-Cookie`, empty 204/205/304 bodies) and returns a controlled 502 JSON error when the BFF is unreachable. `tests/proxy.test.cjs` pins this behaviour.
 - **BFF URL** — `BFF_ADMIN_BASE_URL` → `USER_BFF_URL` → `BFF_USER_API_URL` → `NEXT_PUBLIC_BFF_ADMIN_BASE_URL` (fallback `http://localhost:4000`); resolved at request time on the server.
 - **Session adapters** — `src/app/api/{user/me,auth/me,auth/session,auth/logout}/route.ts` call `userBffRequest` (`src/lib/user-bff-proxy.ts`), which reuses `forwardToBff` against BFF User (`USER_BFF_URL` → `BFF_USER_API_URL`, fallback `http://localhost:4000`). `src/lib/auth-session.ts` (`useAuthSession`) loads `/api/user/me`, normalises roles (`Admin`/`Responsable`/`Maire`/`User`/`Guest`, with FR/EN aliases) and on 401 calls `logoutAndReload()`.
-- **Auth gate** — `src/middleware.ts` redirects every page request (matcher excludes `/api`, `/_next/*` and paths with a dot) to `LOGIN_FRONT_URL` when the `accessToken` cookie is missing or its JWT `exp` is past, clearing the cookie on `COOKIE_DOMAIN`. It only decodes the payload; signature validation is the BFF/Core's job. Note that the catch-all data routes (e.g. `/health`) also pass through it.
-- **Client calls** — pages call same-origin paths (e.g. `/me`, `/session/me`) through clients that parse `{ error: { message } }` / `{ message }` bodies into typed errors and, when no Authorization header is set, add a Bearer token stored in `localStorage` (`mairie360.auth.jwt`, see `src/lib/auth-token.ts`); in normal use the proxy relies on the cookie.
-- `src/app/page.tsx` mounts `AdministrationModule` from `@mairie360/lib-components`; most screen behaviour lives in that shared package, so check its version before debugging UI logic here.
-- `src/lib/administration-api.ts` is a typed client for the `/bff/admin/*` routes (the data contract is the BFF_user OpenAPI, same file as Login_Web_Service).
+- **Auth gate** — `src/middleware.ts` redirects every page request (matcher excludes `/api`, `/_next/*` and paths with a dot) to `LOGIN_FRONT_URL` when the `accessToken` cookie is missing or its JWT `exp` is past, clearing the cookie on `COOKIE_DOMAIN`. It only decodes the payload; signature validation is the BFF/Core's job. For authenticated requests it also sets a per-request nonce `Content-Security-Policy` (built in `src/lib/content-security-policy.ts`, forwarded to Next.js via request headers), which is why `src/app/layout.tsx` forces dynamic rendering: a prerendered page would carry no nonce and its scripts would be blocked. Any new external origin (images, fonts, browser-side API calls) must be added to that policy. The catch-all data routes (e.g. `/health`, `/bff/admin/*`) also pass through it, so a data call without a valid cookie gets a redirect to Login, not a 401.
+- **Client calls** — `requestBff` (`src/lib/bff-client.ts`) calls same-origin paths, adds `Accept`/`Content-Type` JSON headers and, when no Authorization header is set, a Bearer token from `localStorage` (`mairie360.auth.jwt`, legacy `mairie360.projects.jwt` is migrated; see `src/lib/auth-token.ts`). On a non-2xx response it throws `BffRequestError(status)` and does **not** parse the error body. In normal use the proxy relies on the cookie.
+- **Pages** — both are Client Components that wire the lib's `Sidebar`/`Header`/`Footer` to `useAuthSession` and `navigation.ts`. `/` (`src/app/page.tsx`) mounts `AdministrationModule` from `@mairie360/lib-components` with no data callbacks, so screen behaviour lives in that package (pinned `0.2.1`); check its version before debugging UI logic here. `/profile` renders the lib's `UserProfile` read-only, but the `/` header's profile link and the `profile` sidebar id both point to `SETTINGS_FRONT_URL`, not to `/profile`.
+- **Unused local admin UI** — `src/components/administration-console.tsx` (users/roles/groups/sessions tabs) and its typed client `src/lib/administration-api.ts` (`/bff/admin/*`, types from `src/contracts/bff.d.ts`) are no longer imported by any page since the switch to the shared module (#28). Editing them changes nothing on screen.
 - `src/lib/navigation.ts` / `src/lib/sidebar-items.ts` build the cross-module sidebar from the `*_FRONT_URL` values injected by `next.config.ts`.
-- `next.config.ts` sets `output: 'standalone'` (required by the Dockerfile) and inlines the `*_FRONT_URL` values at **build time** (defaults `https://<module>.dev.mairie360-eip.fr/`), so changing them requires a rebuild.
+- `next.config.ts` sets `output: 'standalone'` (required by the Dockerfile), `poweredByHeader: false` and static security headers on every route (`tests/security-headers.test.cjs` pins them, and the ZAP baseline fails without them), and inlines the `*_FRONT_URL` values at **build time** (defaults `https://<module>.dev.mairie360-eip.fr/`), so changing them requires a rebuild.
 
 ## CI/CD
 
 - `.github/workflows/cicd.yml` calls `mairie360/CICD/.github/workflows/frontend-cicd.yml@v2.0.0` (`package_name: administrator-front`, `node_version: "23"`, `cicd_version: v2.0.0`, `secrets: inherit`). Up to the dev release it runs: `npm ci` → `npm run lint` + `npm audit --audit-level=high` (high/critical advisories block) → `npm run build` → `npm test --if-present` (uploads `coverage/lcov.info` to Codecov) → on `main`, builds `Dockerfile` with `NODE_AUTH_TOKEN` as build-arg and pushes `ghcr.io/mairie360/administrator-front:dev-<sha>` / `dev-latest`. Some jobs set up Node without a registry, so the committed `.npmrc` must keep the `@mairie360` registry + `${NODE_AUTH_TOKEN}` lines.
 - `.github/workflows/contracts.yml` (Node 22) runs `contracts:check` and `test:contracts` on every push/PR.
+- `.releaserc.json`: semantic-release on `main` (conventionalcommits preset, GitHub release only, no npm publish), so commit types drive versions. `.github/workflows/auto-approve.yml` auto-approves `renovate[bot]` PRs.
 - `Dockerfile`: two-stage `node:<ver>-bookworm-slim` build, standalone output, non-root `nextjs` user, `PORT=5000`, `CMD node server.js`.
 
 ## Isolated security & performance tests
