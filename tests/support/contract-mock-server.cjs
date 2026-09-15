@@ -1,6 +1,6 @@
 const http = require('node:http');
 
-// Faux BFF User servi en HTTP réel, piloté par contracts/openapi.json (même principe que
+// Faux BFF User servi en HTTP réel, piloté par le contrat publié de BFF User (même principe que
 // BFF_user/tests/support/contract-mock-server.ts) : chaque requête reçue du front est vérifiée
 // contre le contrat (chemin, méthode, paramètres, query, corps JSON) et chaque réponse mockée est
 // validée contre le schéma du statut renvoyé. Les écarts sont collectés dans `violations`.
@@ -100,7 +100,8 @@ class ContractMockServer {
     if (!reply.outOfContract) {
       const { documented, schema } = this.contract.responseSchema(match, status);
       if (!documented) this.violations.push(`[${this.service}] ${method} ${match.template} : statut ${status} non documenté`);
-      if (schema && reply.raw === undefined) {
+      // 204/205/304 n'ont jamais de corps : la plage `2XX` d'orval ne porte qu'un schéma de corps éventuel.
+      if (schema && reply.raw === undefined && ![204, 205, 304].includes(status)) {
         this.contract.validate(schema, reply.body).forEach((error) => this.violations.push(`[${this.service}] réponse ${status} ${method} ${match.template} ${error}`));
       }
     }

@@ -7,6 +7,8 @@ const ROOT = path.join(__dirname, '..', '..');
 const SRC = path.join(ROOT, 'src');
 const APP = path.join(SRC, 'app');
 const FRONT_ORIGIN = 'http://administration.mairie360.test';
+// Variables lues par configuredBffUrl (src/lib/bff-proxy.ts), dans l'ordre de priorité.
+const BFF_URL_VARIABLES = ['BFF_ADMIN_BASE_URL', 'USER_BFF_URL', 'BFF_USER_API_URL', 'NEXT_PUBLIC_BFF_ADMIN_BASE_URL'];
 
 /**
  * Charge des modules TypeScript de src/ en CommonJS (transpileModule, sans vérification de types).
@@ -77,16 +79,20 @@ class FrontHarness {
 
   install() {
     this.originalFetch = global.fetch;
-    process.env.BFF_ADMIN_BASE_URL = this.bff.url;
-    process.env.USER_BFF_URL = this.bff.url;
+    this.useBffUrl(this.bff.url);
     global.fetch = (input, init) => this.fetch(input, init);
     return this;
   }
 
   uninstall() {
     global.fetch = this.originalFetch;
-    delete process.env.BFF_ADMIN_BASE_URL;
-    delete process.env.USER_BFF_URL;
+    BFF_URL_VARIABLES.forEach((name) => delete process.env[name]);
+  }
+
+  /** Configure l'URL de l'unique BFF comme en déploiement : une seule variable, les autres absentes. */
+  useBffUrl(url, variable = 'BFF_ADMIN_BASE_URL') {
+    BFF_URL_VARIABLES.forEach((name) => delete process.env[name]);
+    process.env[variable] = url;
   }
 
   reset() {
@@ -95,8 +101,7 @@ class FrontHarness {
     this.serverCalls.length = 0;
     this.violations.length = 0;
     this.allowedOrigins.clear();
-    process.env.BFF_ADMIN_BASE_URL = this.bff.url;
-    process.env.USER_BFF_URL = this.bff.url;
+    this.useBffUrl(this.bff.url);
   }
 
   async fetch(input, init = {}) {
@@ -158,4 +163,4 @@ async function waitFor(predicate, timeout = 3000) {
   }
 }
 
-module.exports = { FRONT_ORIGIN, FrontHarness, ROOT, SRC, discoverRouteFiles, jwt, loadTs, waitFor };
+module.exports = { BFF_URL_VARIABLES, FRONT_ORIGIN, FrontHarness, ROOT, SRC, discoverRouteFiles, jwt, loadTs, waitFor };

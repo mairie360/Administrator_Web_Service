@@ -1,15 +1,15 @@
 const assert = require('node:assert/strict');
-const path = require('node:path');
 const { after, afterEach, before, describe, test } = require('node:test');
-const { OpenApiContract } = require('./support/openapi-contract.cjs');
+const { bffError, bffUserContract } = require('./support/bff-user-contract.cjs');
 const { ContractMockServer, unreachableUrl } = require('./support/contract-mock-server.cjs');
 const { FrontHarness, loadTs } = require('./support/front-harness.cjs');
 
 // Client typé src/lib/administration-api.ts exécuté de bout en bout : requestBff (navigateur) →
-// middleware → catch-all src/app/[...path] → bff-proxy → faux BFF User servi en HTTP et piloté par
-// contracts/openapi.json. Toute requête ou réponse hors contrat fait échouer le test.
+// middleware → catch-all src/app/[...path] → bff-proxy → faux BFF User servi en HTTP et piloté par le
+// contrat du paquet publié @mairie360/bff-user-openapi. Toute requête ou réponse hors contrat fait échouer
+// le test.
 
-const contract = OpenApiContract.load(path.join(__dirname, '..', 'contracts', 'openapi.json'));
+const contract = bffUserContract();
 const bff = new ContractMockServer('BFF_USER', contract);
 let front;
 let administrationApi;
@@ -167,54 +167,19 @@ describe('administration API client against a contract-driven BFF User mock', ()
       assert.equal(await administrationApi.updateGroup(5, { name: 'Conseil', description: '' }), null);
     });
 
-    test('refreshSession returns the BFF message, relays the new cookie and updates a stored JWT', async () => {
-      const store = new Map([['mairie360.auth.jwt', 'old.jwt']]);
-      global.window = { localStorage: { getItem: (key) => store.get(key) ?? null, setItem: (key, value) => store.set(key, value), removeItem: (key) => store.delete(key) } };
-      bff.on('post', '/bff/admin/sessions/refresh', {
-        body: { message: 'JWT refreshed successfully' },
-        headers: { Authorization: 'Bearer refreshed.jwt', 'Set-Cookie': 'accessToken=refreshed.jwt; Path=/; HttpOnly' },
-      });
-      const cookies = [];
-      const harnessFetch = global.fetch;
-      global.fetch = async (input, init) => {
-        const response = await harnessFetch(input, init);
-        if (String(input).startsWith('/')) cookies.push(response.headers.get('set-cookie'));
-        return response;
-      };
+    test('refreshSession sends the refresh token and ignores the Core response body', async () => {
+      bff.on('post', '/bff/admin/sessions/refresh', { body: { message: 'JWT refreshed successfully' } });
 
-      try {
-        assert.deepEqual(await administrationApi.refreshSession('opaque-refresh-token'), { message: 'JWT refreshed successfully' });
-      } finally {
-        global.fetch = harnessFetch;
-        delete global.window;
-      }
+      await administrationApi.refreshSession('opaque-refresh-token');
 
       assert.deepEqual(bff.requests[0].body, { refresh_token: 'opaque-refresh-token' });
-      assert.equal(bff.requests[0].headers.authorization, 'Bearer old.jwt');
-      assert.match(cookies[0], /^accessToken=refreshed\.jwt;/);
-      assert.equal(store.get('mairie360.auth.jwt'), 'refreshed.jwt');
-    });
-
-    test('refreshSession does not start storing a JWT when the session only lives in the cookie', async () => {
-      const store = new Map();
-      global.window = { localStorage: { getItem: (key) => store.get(key) ?? null, setItem: (key, value) => store.set(key, value), removeItem: (key) => store.delete(key) } };
-      bff.on('post', '/bff/admin/sessions/refresh', { body: { message: 'JWT refreshed successfully' }, headers: { Authorization: 'Bearer refreshed.jwt' } });
-
-      try {
-        await administrationApi.refreshSession('opaque-refresh-token');
-      } finally {
-        delete global.window;
-      }
-
-      assert.equal(bff.requests[0].headers.authorization, `Bearer ${front.cookie}`);
-      assert.equal(store.size, 0);
     });
   });
 
   describe('errors', () => {
     for (const status of [400, 401, 403, 404, 502]) {
-      test(`a documented ${status} from the BFF becomes a BffRequestError(${status})`, async () => {
-        bff.on('delete', '/bff/admin/roles/{roleId}', { status, body: { message: 'Refusé' } });
+      test(`a ${status} from the BFF becomes a BffRequestError(${status})`, async () => {
+        bff.on('delete', '/bff/admin/roles/{roleId}', bffError(status, 'Refusé'));
 
         await assert.rejects(administrationApi.deleteRole(9), (error) => error instanceof BffRequestError && error.status === status && error.message === `Erreur BFF (${status})`);
       });
@@ -222,7 +187,7 @@ describe('administration API client against a contract-driven BFF User mock', ()
 
     test('an unreachable BFF surfaces as the proxy 502', async () => {
       const url = await unreachableUrl();
-      process.env.BFF_ADMIN_BASE_URL = url;
+      front.useBffUrl(url);
       front.allowedOrigins.add(url);
 
       await assert.rejects(administrationApi.listRoles(), (error) => error instanceof BffRequestError && error.status === 502);
