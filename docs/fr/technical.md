@@ -88,11 +88,11 @@ Ces chemins de données sont exposés à la même origine par le proxy; les page
 | --- | --- | --- | --- |
 | GET | `/health` | — | 200 |
 | GET | `/check_apis` | — | 200, 502 |
-| POST | `/auth/login` | application/json | 200, 401, 412, 500 |
-| POST | `/auth/register` | application/json | 201, 400, 409, 500 |
-| POST | `/auth/force_change_password` | application/json | 204, 400, 401, 500 |
+| POST | `/auth/login` | application/json | 200, 400, 401, 412, 500, 502 |
+| POST | `/auth/register` | application/json | 201, 400, 409, 500, 502 |
+| POST | `/auth/force_change_password` | application/json | 204, 400, 401, 403, 500, 502 |
 | POST | `/auth/logout` | — | 200, 500 |
-| GET | `/user/{userId}/about` | — | 200, 400, 401, 500 |
+| GET | `/user/{userId}/about` | — | 200, 400, 401, 500, 502 |
 | GET | `/bff/admin/users` | — | 200, 201, 204, 400, 401, 403, 404, 502 |
 | POST | `/bff/admin/users` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
 | PATCH | `/bff/admin/users/{userId}` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
@@ -117,8 +117,8 @@ Ces chemins de données sont exposés à la même origine par le proxy; les page
 | GET | `/bff/admin/sessions/history` | — | 200, 201, 204, 400, 401, 403, 404, 502 |
 | POST | `/bff/admin/sessions/refresh` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
 | POST | `/bff/admin/sessions/revoke` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
-| GET | `/me` | — | 200, 401 |
-| GET | `/session/me` | — | 200, 401 |
+| GET | `/me` | — | 200, 401, 502 |
+| GET | `/session/me` | — | 200, 401, 502 |
 
 ### Pages et adaptateurs locaux
 
@@ -136,7 +136,9 @@ Ces chemins de données sont exposés à la même origine par le proxy; les page
 
 ## Session, permissions et erreurs
 
-Les adaptateurs `/api/auth/me`, `/api/auth/session` et `/api/user/me` utilisent BFF User pour la session; `/api/auth/logout` relaie la déconnexion. Le proxy générique utilise le Bearer explicite ou, en son absence, le cookie `accessToken`. Les permissions métier restent celles du BFF et de ses sources.
+Les adaptateurs `/api/auth/me`, `/api/auth/session` et `/api/user/me` utilisent BFF User pour la session; `/api/auth/logout` relaie la déconnexion. Le proxy générique utilise le Bearer explicite ou, en son absence, le cookie `accessToken`. Les permissions métier restent celles du BFF et de ses sources : toutes les routes `/bff/admin/*` exigent le rôle administrateur (403 sinon) et `/me` répond 401 sans session, le BFF n’utilisant plus de jeton par défaut.
+
+Le client `src/lib/administration-api.ts` rejette avant tout appel les saisies hors des bornes du contrat (recherche de plus de 100 caractères, mot de passe hors 8 à 255 caractères, nom de groupe vide ou de plus de 64 caractères, description de plus de 2000 caractères). `POST /bff/admin/sessions/refresh` renvoie le JWT rafraîchi dans l’en-tête `Authorization` et remplace le cookie `accessToken` (le proxy conserve `Set-Cookie`) ; si un JWT est conservé dans le stockage local, `refreshSession` le remplace aussi, sinon `requestBff` continuerait d’envoyer l’ancien.
 
 Le proxy générique répond 400 pour un chemin invalide, 404 pour un chemin hors contrat, 405 pour une méthode interdite et 502 si le service est injoignable ou dépasse le délai. Les réponses amont sont conservées, y compris les corps vides 204/205/304.
 
@@ -154,7 +156,9 @@ npm run lint
 npm run build
 ```
 
-`contracts:sync` copie le contrat BFF et régénère `src/contracts/bff.d.ts`. `contracts:check` compare aussi le BFF voisin lorsqu’il est présent; dans un checkout isolé, il vérifie les types contre la copie locale versionnée. `test:contracts` exécute les tests Node du proxy.
+`contracts:sync` copie le contrat BFF et régénère `src/contracts/bff.d.ts`. `contracts:check` compare aussi le BFF voisin lorsqu’il est présent; dans un checkout isolé, il vérifie les types contre la copie locale versionnée. `test:contracts` exécute les tests Node (`tests/*.test.cjs`) sans couverture; `npm test` les exécute avec un seuil de couverture de 60 % (lignes, branches, fonctions) sur les modules de `src/` chargés par les tests, et échoue en dessous.
+
+Les tests `tests/*.bff-mock.test.cjs` et `tests/network-contract.test.cjs` exécutent le vrai code du front contre un faux BFF User servi en HTTP local et piloté par `contracts/openapi.json` (`tests/support/contract-mock-server.cjs`, même validateur que les tests des BFFs). Le harnais `tests/support/front-harness.cjs` simule le navigateur : un `fetch` relatif passe par `src/middleware.ts` puis par le route handler de `src/app` correspondant, et un `fetch` serveur n'est autorisé que vers le faux BFF. Chaque requête reçue (chemin, méthode, paramètres, query, corps JSON) et chaque réponse simulée est validée contre le contrat; tout écart, appel non mocké ou appel réseau vers un autre hôte fait échouer le test. Les tests vérifient aussi que chaque opération du contrat est relayée par le proxy, que toutes les opérations `/bff/admin/*` sont couvertes par `src/lib/administration-api.ts`, que les chemins et méthodes hors contrat n'atteignent jamais le BFF, et que seuls `bff-client.ts`, `auth-session.ts` et `bff-proxy.ts` appellent `fetch`. Seuls `/openapi.json` et `/swagger.json` sont relayés hors contrat.
 
 Le générateur de types est fixé à `openapi-typescript@7.10.1` dans `scripts/contracts.mjs` et s’exécute via npm. Pour une modification uniquement documentaire, vérifier les liens, l’exactitude des deux langues et `git diff --check`; ne pas régénérer les contrats sans modification de leur source.
 

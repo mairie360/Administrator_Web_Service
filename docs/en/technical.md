@@ -88,11 +88,11 @@ These data paths are exposed at the same origin through the proxy; Next.js pages
 | --- | --- | --- | --- |
 | GET | `/health` | — | 200 |
 | GET | `/check_apis` | — | 200, 502 |
-| POST | `/auth/login` | application/json | 200, 401, 412, 500 |
-| POST | `/auth/register` | application/json | 201, 400, 409, 500 |
-| POST | `/auth/force_change_password` | application/json | 204, 400, 401, 500 |
+| POST | `/auth/login` | application/json | 200, 400, 401, 412, 500, 502 |
+| POST | `/auth/register` | application/json | 201, 400, 409, 500, 502 |
+| POST | `/auth/force_change_password` | application/json | 204, 400, 401, 403, 500, 502 |
 | POST | `/auth/logout` | — | 200, 500 |
-| GET | `/user/{userId}/about` | — | 200, 400, 401, 500 |
+| GET | `/user/{userId}/about` | — | 200, 400, 401, 500, 502 |
 | GET | `/bff/admin/users` | — | 200, 201, 204, 400, 401, 403, 404, 502 |
 | POST | `/bff/admin/users` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
 | PATCH | `/bff/admin/users/{userId}` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
@@ -117,8 +117,8 @@ These data paths are exposed at the same origin through the proxy; Next.js pages
 | GET | `/bff/admin/sessions/history` | — | 200, 201, 204, 400, 401, 403, 404, 502 |
 | POST | `/bff/admin/sessions/refresh` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
 | POST | `/bff/admin/sessions/revoke` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
-| GET | `/me` | — | 200, 401 |
-| GET | `/session/me` | — | 200, 401 |
+| GET | `/me` | — | 200, 401, 502 |
+| GET | `/session/me` | — | 200, 401, 502 |
 
 ### Pages and local adapters
 
@@ -136,7 +136,9 @@ These data paths are exposed at the same origin through the proxy; Next.js pages
 
 ## Session, permissions and errors
 
-The `/api/auth/me`, `/api/auth/session` and `/api/user/me` adapters use BFF User for session access; `/api/auth/logout` forwards logout. The generic proxy uses an explicit Bearer header or, when absent, the `accessToken` cookie. Business permissions remain those of the BFF and its sources.
+The `/api/auth/me`, `/api/auth/session` and `/api/user/me` adapters use BFF User for session access; `/api/auth/logout` forwards logout. The generic proxy uses an explicit Bearer header or, when absent, the `accessToken` cookie. Business permissions remain those of the BFF and its sources: every `/bff/admin/*` route requires the administrator role (403 otherwise) and `/me` answers 401 without a session, as the BFF no longer uses a default token.
+
+The `src/lib/administration-api.ts` client rejects inputs outside the contract bounds before any call (search longer than 100 characters, password outside 8 to 255 characters, empty group name or longer than 64 characters, description longer than 2000 characters). `POST /bff/admin/sessions/refresh` returns the refreshed JWT in the `Authorization` header and replaces the `accessToken` cookie (the proxy keeps `Set-Cookie`); when a JWT is kept in local storage, `refreshSession` replaces it as well, otherwise `requestBff` would keep sending the old one.
 
 The generic proxy returns 400 for an invalid path, 404 for a path outside the contract, 405 for a disallowed method and 502 when the service is unreachable or times out. Upstream responses are preserved, including empty 204/205/304 bodies.
 
@@ -154,7 +156,9 @@ npm run lint
 npm run build
 ```
 
-`contracts:sync` copies the BFF contract and regenerates `src/contracts/bff.d.ts`. `contracts:check` also compares a neighboring BFF when present; in an isolated checkout, it checks types against the local committed snapshot. `test:contracts` runs the Node proxy tests.
+`contracts:sync` copies the BFF contract and regenerates `src/contracts/bff.d.ts`. `contracts:check` also compares a neighboring BFF when present; in an isolated checkout, it checks types against the local committed snapshot. `test:contracts` runs the Node tests (`tests/*.test.cjs`) without coverage; `npm test` runs them with a 60% coverage threshold (lines, branches, functions) on the `src/` modules loaded by the tests, and fails below it.
+
+The `tests/*.bff-mock.test.cjs` and `tests/network-contract.test.cjs` tests run the real front code against a fake BFF User served over local HTTP and driven by `contracts/openapi.json` (`tests/support/contract-mock-server.cjs`, same validator as the BFF tests). The `tests/support/front-harness.cjs` harness simulates the browser: a relative `fetch` goes through `src/middleware.ts` and then the matching `src/app` route handler, and a server-side `fetch` is only allowed towards the fake BFF. Every received request (path, method, parameters, query, JSON body) and every mocked response is validated against the contract; any mismatch, unmocked call or network call to another host fails the test. The tests also check that every contract operation is relayed by the proxy, that all `/bff/admin/*` operations are covered by `src/lib/administration-api.ts`, that paths and methods outside the contract never reach the BFF, and that only `bff-client.ts`, `auth-session.ts` and `bff-proxy.ts` call `fetch`. Only `/openapi.json` and `/swagger.json` are relayed outside the contract.
 
 The type generator is pinned to `openapi-typescript@7.10.1` in `scripts/contracts.mjs` and runs through npm. For documentation-only changes, check links, accuracy in both languages and `git diff --check`; do not regenerate contracts without changing their source.
 
