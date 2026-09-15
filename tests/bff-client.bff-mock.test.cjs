@@ -1,15 +1,13 @@
 const assert = require('node:assert/strict');
-const path = require('node:path');
 const { after, afterEach, before, describe, test } = require('node:test');
-const { OpenApiContract } = require('./support/openapi-contract.cjs');
+const { bffError, bffUserContract } = require('./support/bff-user-contract.cjs');
 const { ContractMockServer } = require('./support/contract-mock-server.cjs');
 const { FrontHarness, loadTs } = require('./support/front-harness.cjs');
 
 // requestBff (src/lib/bff-client.ts) et le jeton stocké côté navigateur (src/lib/auth-token.ts),
-// contre le faux BFF User piloté par contracts/openapi.json.
+// contre le faux BFF User piloté par le contrat du paquet publié @mairie360/bff-user-openapi.
 
-const contract = OpenApiContract.load(path.join(__dirname, '..', 'contracts', 'openapi.json'));
-const bff = new ContractMockServer('BFF_USER', contract);
+const bff = new ContractMockServer('BFF_USER', bffUserContract());
 let front;
 let requestBff;
 let authToken;
@@ -63,7 +61,7 @@ describe('requestBff', () => {
   });
 
   test('a stored JWT wins over the session cookie, and an explicit Authorization header wins over both', async () => {
-    bff.on('get', '/me', { status: 401 });
+    bff.on('get', '/me', bffError(401));
     installStorage({ 'mairie360.auth.jwt': ' stored.jwt ' });
 
     await assert.rejects(requestBff('/me'));

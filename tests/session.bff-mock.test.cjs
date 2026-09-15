@@ -1,16 +1,14 @@
 const assert = require('node:assert/strict');
-const path = require('node:path');
 const { after, afterEach, before, beforeEach, describe, test } = require('node:test');
-const { OpenApiContract } = require('./support/openapi-contract.cjs');
+const { bffError, bffUserContract } = require('./support/bff-user-contract.cjs');
 const { ContractMockServer, unreachableUrl } = require('./support/contract-mock-server.cjs');
 const { FrontHarness, loadTs, waitFor } = require('./support/front-harness.cjs');
 
-// Adaptateurs de session src/app/api/** et hook useAuthSession (src/lib/auth-session.ts) contre un
-// faux BFF User piloté par contracts/openapi.json. Sans DOM : `react` est remplacé par un rendu minimal
-// qui exécute les effets une fois et applique les mises à jour d'état.
+// Adaptateurs de session src/app/api/** et hook useAuthSession (src/lib/auth-session.ts) contre un faux
+// BFF User piloté par le contrat du paquet publié @mairie360/bff-user-openapi. Sans DOM : `react` est
+// remplacé par un rendu minimal qui exécute les effets une fois et applique les mises à jour d'état.
 
-const contract = OpenApiContract.load(path.join(__dirname, '..', 'contracts', 'openapi.json'));
-const bff = new ContractMockServer('BFF_USER', contract);
+const bff = new ContractMockServer('BFF_USER', bffUserContract());
 let front;
 let authSession;
 
@@ -106,7 +104,7 @@ describe('session adapters forward to BFF User contract operations', () => {
 
   test('session adapters are not behind the page middleware: a missing cookie reaches the BFF 401', async () => {
     front.cookie = undefined;
-    bff.on('get', '/me', { status: 401 });
+    bff.on('get', '/me', bffError(401, 'Invalid or missing session token'));
 
     const response = await fetch('/api/user/me');
 
@@ -158,7 +156,7 @@ describe('useAuthSession', () => {
   });
 
   test('a 401 logs out through /api/auth/logout, clears storage and reloads the page', async () => {
-    bff.on('get', '/me', { status: 401 })
+    bff.on('get', '/me', bffError(401))
       .on('post', '/auth/logout', { body: { message: 'Logged out successfully' } });
 
     const hook = renderHook(() => authSession.useAuthSession());
@@ -170,14 +168,14 @@ describe('useAuthSession', () => {
   });
 
   for (const [label, prepare] of [
-    ['a BFF error', () => bff.on('get', '/me', { status: 502, body: { message: 'Core API indisponible' } })],
+    ['a BFF error', () => bff.on('get', '/me', bffError(502, 'Core API indisponible'))],
     ['an unreachable BFF', async () => {
       const url = await unreachableUrl();
-      process.env.USER_BFF_URL = url;
+      front.useBffUrl(url);
       front.allowedOrigins.add(url);
     }],
   ]) {
-    test(`reports ${label} without leaving the loading state`, async () => {
+    test(`reports ${label} and stops loading`, async () => {
       await prepare();
 
       const hook = renderHook(() => authSession.useAuthSession());

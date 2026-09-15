@@ -36,14 +36,13 @@ Private `@mairie360/*` dependencies require GitHub Packages access. Set `NODE_AU
 npm ci
 ```
 
-Create `.env.local` in the repository root. Example for BFFs running on the same machine:
+Create `.env.local` in the repository root. Example for BFF User running on the same machine:
 
 ```dotenv
 BFF_ADMIN_BASE_URL=http://localhost:4000
-USER_BFF_URL=http://localhost:4000
 ```
 
-Start the associated BFF and BFF User for session flows, then start the web service. Port `5010` below is an explicit local choice to avoid collisions; it is not a claim about ports in every Compose file.
+Start BFF User, the only BFF called by this web service, then start the web service. Port `5010` below is an explicit local choice to avoid collisions; it is not a claim about ports in every Compose file.
 
 ```bash
 npm run dev -- --port 5010
@@ -62,9 +61,7 @@ Values below are local examples or explicitly described behavior, not production
 
 | Variable or precedence | Example / stated fallback | Purpose |
 | --- | --- | --- |
-| `BFF_ADMIN_BASE_URL` → `USER_BFF_URL` → `BFF_USER_API_URL` → `NEXT_PUBLIC_BFF_ADMIN_BASE_URL` | http://localhost:4000 | Left-to-right proxy precedence; the URL shown is the local fallback. |
-| `USER_BFF_URL` → `BFF_USER_API_URL` | http://localhost:4000 | Separate precedence used by session adapters targeting BFF User. |
-| `BFF_CONTRACT_DIR` | ../BFF_user/contracts | BFF contract directory for synchronization and checking scripts. |
+| `BFF_ADMIN_BASE_URL` → `USER_BFF_URL` → `BFF_USER_API_URL` → `NEXT_PUBLIC_BFF_ADMIN_BASE_URL` | http://localhost:4000 | URL of BFF User, the front's only BFF, resolved by `configuredBffUrl` for both the proxy and the session adapters (left-to-right precedence); the URL shown is the local fallback. |
 | `COOKIE_DOMAIN` | — | Cookie domain; keep it consistent with Login and BFF User. |
 | `ADMINISTRATION_FRONT_URL` | — | Navigation destination; see the source file that reads it. Variables injected by `next.config.ts` or prefixed `NEXT_PUBLIC_` are public and consumed at build time. |
 | `CALENDAR_FRONT_URL` | — | Navigation destination; see the source file that reads it. Variables injected by `next.config.ts` or prefixed `NEXT_PUBLIC_` are public and consumed at build time. |
@@ -80,45 +77,45 @@ Inside a container, `localhost` refers to that container. Use the BFF service DN
 
 ## Routes and data contract
 
-Inventory extracted from `contracts/openapi.json`. Replace brace parameters with real identifiers. Detailed types, required fields, responses and any examples are defined in that contract; table statuses are the declared statuses, not an exhaustive list of transport or validation errors.
+Inventory extracted from `contracts/openapi.json`, rebuilt from the published `@mairie360/bff-user-openapi` package pinned in `package.json`. Replace brace parameters with real identifiers. Detailed types and required fields are defined in that contract. The package (orval output) only types success responses, shown as `2XX`, plus responses modelled per status such as `412`: errors, formats and response headers are not part of it.
 
 These data paths are exposed at the same origin through the proxy; Next.js pages are separate. `/openapi.json` and `/swagger.json` are also forwarded. Open the `/docs` Swagger UI directly on the BFF.
 
 | Method | Path | Declared body | Declared statuses |
 | --- | --- | --- | --- |
-| GET | `/health` | — | 200 |
-| GET | `/check_apis` | — | 200, 502 |
-| POST | `/auth/login` | application/json | 200, 400, 401, 412, 500, 502 |
-| POST | `/auth/register` | application/json | 201, 400, 409, 500, 502 |
-| POST | `/auth/force_change_password` | application/json | 204, 400, 401, 403, 500, 502 |
-| POST | `/auth/logout` | — | 200, 500 |
-| GET | `/user/{userId}/about` | — | 200, 400, 401, 500, 502 |
-| GET | `/bff/admin/users` | — | 200, 201, 204, 400, 401, 403, 404, 502 |
-| POST | `/bff/admin/users` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
-| PATCH | `/bff/admin/users/{userId}` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
-| DELETE | `/bff/admin/users/{userId}` | — | 200, 201, 204, 400, 401, 403, 404, 502 |
-| PATCH | `/bff/admin/users/{userId}/password` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
-| POST | `/bff/admin/users/{userId}/roles` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
-| DELETE | `/bff/admin/users/{userId}/roles/{roleId}` | — | 200, 201, 204, 400, 401, 403, 404, 502 |
-| GET | `/bff/admin/roles` | — | 200, 201, 204, 400, 401, 403, 404, 502 |
-| POST | `/bff/admin/roles` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
-| PUT | `/bff/admin/roles/{roleId}` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
-| PATCH | `/bff/admin/roles/{roleId}` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
-| DELETE | `/bff/admin/roles/{roleId}` | — | 200, 201, 204, 400, 401, 403, 404, 502 |
-| GET | `/bff/admin/groups` | — | 200, 201, 204, 400, 401, 403, 404, 502 |
-| POST | `/bff/admin/groups` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
-| GET | `/bff/admin/groups/{groupId}` | — | 200, 201, 204, 400, 401, 403, 404, 502 |
-| PATCH | `/bff/admin/groups/{groupId}` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
-| DELETE | `/bff/admin/groups/{groupId}` | — | 200, 201, 204, 400, 401, 403, 404, 502 |
-| GET | `/bff/admin/groups/{groupId}/users` | — | 200, 201, 204, 400, 401, 403, 404, 502 |
-| POST | `/bff/admin/groups/{groupId}/users` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
-| DELETE | `/bff/admin/groups/{groupId}/users/{userId}` | — | 200, 201, 204, 400, 401, 403, 404, 502 |
-| GET | `/bff/admin/sessions` | — | 200, 201, 204, 400, 401, 403, 404, 502 |
-| GET | `/bff/admin/sessions/history` | — | 200, 201, 204, 400, 401, 403, 404, 502 |
-| POST | `/bff/admin/sessions/refresh` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
-| POST | `/bff/admin/sessions/revoke` | application/json | 200, 201, 204, 400, 401, 403, 404, 502 |
-| GET | `/me` | — | 200, 401, 502 |
-| GET | `/session/me` | — | 200, 401, 502 |
+| POST | `/auth/force_change_password` | application/json | 2XX |
+| POST | `/auth/login` | application/json | 2XX, 412 |
+| POST | `/auth/logout` | — | 2XX |
+| POST | `/auth/register` | application/json | 2XX |
+| GET | `/bff/admin/groups` | — | 2XX |
+| POST | `/bff/admin/groups` | application/json | 2XX |
+| GET | `/bff/admin/groups/{groupId}` | — | 2XX |
+| PATCH | `/bff/admin/groups/{groupId}` | application/json | 2XX |
+| DELETE | `/bff/admin/groups/{groupId}` | — | 2XX |
+| GET | `/bff/admin/groups/{groupId}/users` | — | 2XX |
+| POST | `/bff/admin/groups/{groupId}/users` | application/json | 2XX |
+| DELETE | `/bff/admin/groups/{groupId}/users/{userId}` | — | 2XX |
+| GET | `/bff/admin/roles` | — | 2XX |
+| POST | `/bff/admin/roles` | application/json | 2XX |
+| PUT | `/bff/admin/roles/{roleId}` | application/json | 2XX |
+| PATCH | `/bff/admin/roles/{roleId}` | application/json | 2XX |
+| DELETE | `/bff/admin/roles/{roleId}` | — | 2XX |
+| GET | `/bff/admin/sessions` | — | 2XX |
+| GET | `/bff/admin/sessions/history` | — | 2XX |
+| POST | `/bff/admin/sessions/refresh` | application/json | 2XX |
+| POST | `/bff/admin/sessions/revoke` | application/json | 2XX |
+| GET | `/bff/admin/users` | — | 2XX |
+| POST | `/bff/admin/users` | application/json | 2XX |
+| PATCH | `/bff/admin/users/{userId}` | application/json | 2XX |
+| DELETE | `/bff/admin/users/{userId}` | — | 2XX |
+| PATCH | `/bff/admin/users/{userId}/password` | application/json | 2XX |
+| POST | `/bff/admin/users/{userId}/roles` | application/json | 2XX |
+| DELETE | `/bff/admin/users/{userId}/roles/{roleId}` | — | 2XX |
+| GET | `/check_apis` | — | 2XX |
+| GET | `/health` | — | 2XX |
+| GET | `/me` | — | 2XX |
+| GET | `/session/me` | — | 2XX |
+| GET | `/user/{userId}/about` | — | 2XX |
 
 ### Pages and local adapters
 
@@ -136,9 +133,9 @@ These data paths are exposed at the same origin through the proxy; Next.js pages
 
 ## Session, permissions and errors
 
-The `/api/auth/me`, `/api/auth/session` and `/api/user/me` adapters use BFF User for session access; `/api/auth/logout` forwards logout. The generic proxy uses an explicit Bearer header or, when absent, the `accessToken` cookie. Business permissions remain those of the BFF and its sources: every `/bff/admin/*` route requires the administrator role (403 otherwise) and `/me` answers 401 without a session, as the BFF no longer uses a default token.
+The `/api/auth/me`, `/api/auth/session` and `/api/user/me` adapters use BFF User for session access; `/api/auth/logout` forwards logout. They target the same BFF URL as the generic proxy. The proxy uses an explicit Bearer header or, when absent, the `accessToken` cookie. Business permissions remain those of the BFF and its sources.
 
-The `src/lib/administration-api.ts` client rejects inputs outside the contract bounds before any call (search longer than 100 characters, password outside 8 to 255 characters, empty group name or longer than 64 characters, description longer than 2000 characters). `POST /bff/admin/sessions/refresh` returns the refreshed JWT in the `Authorization` header and replaces the `accessToken` cookie (the proxy keeps `Set-Cookie`); when a JWT is kept in local storage, `refreshSession` replaces it as well, otherwise `requestBff` would keep sending the old one.
+The `src/lib/administration-api.ts` client types its data with the `@mairie360/bff-user-openapi/model` package models and rejects inputs outside the contract bounds before any call (search longer than 100 characters, password outside 8 to 255 characters, empty group name or longer than 64 characters, description longer than 2000 characters).
 
 The generic proxy returns 400 for an invalid path, 404 for a path outside the contract, 405 for a disallowed method and 502 when the service is unreachable or times out. Upstream responses are preserved, including empty 204/205/304 bodies.
 
@@ -146,21 +143,21 @@ Every response carries `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff
 
 ## Synchronization and verification
 
-After changing routes or schemas, export the contract in **BFF_user** using `npm run contracts:generate`, then run in this repository:
+The only contract is BFF User’s, as **published** in `@mairie360/bff-user-openapi`, pinned to an exact `X.Y.Z` version (never a `0.0.0-dev`/`staging` pre-release, never a copy from a BFF checkout, which can be ahead of the release). Renovate bumps the version; after a new package version:
 
 ```bash
 npm run contracts:sync
 npm run contracts:check
-npm run test:contracts
+npm test
 npm run lint
 npm run build
 ```
 
-`contracts:sync` copies the BFF contract and regenerates `src/contracts/bff.d.ts`. `contracts:check` also compares a neighboring BFF when present; in an isolated checkout, it checks types against the local committed snapshot. `test:contracts` runs the Node tests (`tests/*.test.cjs`) without coverage; `npm test` runs them with a 60% coverage threshold (lines, branches, functions) on the `src/` modules loaded by the tests, and fails below it.
+The package contains orval TypeScript, not `openapi.json`: [scripts/orval-contract.mjs](../../scripts/orval-contract.mjs) rebuilds the OpenAPI document from it and `contracts:sync` writes it to `contracts/openapi.json` (read by the proxy and the tests). `contracts:check` fails if the version is not exact, if the installed package differs from `package.json`, if a second `@mairie360/bff-*-openapi` package appears or if the snapshot is stale. `src/lib/administration-api.ts` imports its types from `@mairie360/bff-user-openapi/model`. `npm test` runs the Node tests and fails below 60% line, branch or function coverage of the `src/` modules loaded by the tests (`test:contracts` runs the same tests without coverage); React components (`.tsx`) are not measured.
 
-The `tests/*.bff-mock.test.cjs` and `tests/network-contract.test.cjs` tests run the real front code against a fake BFF User served over local HTTP and driven by `contracts/openapi.json` (`tests/support/contract-mock-server.cjs`, same validator as the BFF tests). The `tests/support/front-harness.cjs` harness simulates the browser: a relative `fetch` goes through `src/middleware.ts` and then the matching `src/app` route handler, and a server-side `fetch` is only allowed towards the fake BFF. Every received request (path, method, parameters, query, JSON body) and every mocked response is validated against the contract; any mismatch, unmocked call or network call to another host fails the test. The tests also check that every contract operation is relayed by the proxy, that all `/bff/admin/*` operations are covered by `src/lib/administration-api.ts`, that paths and methods outside the contract never reach the BFF, and that only `bff-client.ts`, `auth-session.ts` and `bff-proxy.ts` call `fetch`. Only `/openapi.json` and `/swagger.json` are relayed outside the contract.
+The `tests/*.bff-mock.test.cjs` and `tests/network-contract.test.cjs` tests run the real front code against a fake BFF User served over local HTTP and driven by `contracts/openapi.json` ([tests/support/contract-mock-server.cjs](../../tests/support/contract-mock-server.cjs), same validator as the BFF tests). The `tests/support/front-harness.cjs` harness simulates the browser: a relative `fetch` goes through `src/middleware.ts` and then the matching `src/app` route handler, and a server-side `fetch` is only allowed towards the fake BFF. Every received request (path, method, parameters, query, JSON body) and every mocked success response is validated against the contract; error responses, which the package does not type, are declared out of contract. Any mismatch, unmocked call or network call to another host fails the test. `tests/network-contract.test.cjs` also checks the exact package version, that BFF User is the only BFF (only `bff-*-openapi` package, only BFF image of the Docker stacks, same URL for the proxy and the adapters), that `contracts/openapi.json` is the exact rebuild of the package, that every contract operation is relayed by the proxy, that paths and methods outside the contract never reach the BFF and that only `bff-client.ts`, `auth-session.ts` and `bff-proxy.ts` call `fetch`. Only `/openapi.json` and `/swagger.json` are relayed outside the contract. `tests/administration-api.bff-mock.test.cjs` fails if a `/bff/admin/*` contract operation is not exercised.
 
-The type generator is pinned to `openapi-typescript@7.10.1` in `scripts/contracts.mjs` and runs through npm. For documentation-only changes, check links, accuracy in both languages and `git diff --check`; do not regenerate contracts without changing their source.
+For documentation-only changes, check links, accuracy in both languages and `git diff --check`; do not regenerate contracts without changing the package version.
 
 ## CI/CD and Docker execution
 
@@ -188,7 +185,7 @@ For a proxy error, compare the path and method with the inventory, then check th
 - [src/app/[...path]/route.ts](../../src/app/%5B...path%5D/route.ts)
 - [src/lib/user-bff-proxy.ts](../../src/lib/user-bff-proxy.ts)
 - [contracts/openapi.json](../../contracts/openapi.json)
-- [src/contracts/bff.d.ts](../../src/contracts/bff.d.ts)
+- [scripts/orval-contract.mjs](../../scripts/orval-contract.mjs)
 - [scripts/contracts.mjs](../../scripts/contracts.mjs)
 - [package.json](../../package.json)
 - [.github/workflows/contracts.yml](../../.github/workflows/contracts.yml)

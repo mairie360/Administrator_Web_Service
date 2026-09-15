@@ -2,16 +2,19 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { after, afterEach, before, describe, test } = require('node:test');
-const { OpenApiContract } = require('./support/openapi-contract.cjs');
-const { ContractMockServer, METADATA_PATHS } = require('./support/contract-mock-server.cjs');
-const { FrontHarness, ROOT, SRC, loadTs } = require('./support/front-harness.cjs');
+const { BFF_USER_PACKAGE, bffUserContract } = require('./support/bff-user-contract.cjs');
+const { ContractMockServer, METADATA_PATHS, unreachableUrl } = require('./support/contract-mock-server.cjs');
+const { BFF_URL_VARIABLES, FrontHarness, ROOT, SRC, loadTs } = require('./support/front-harness.cjs');
 
-// Garde-fou réseau du front : tout ce qui sort vers le BFF doit être une opération du contrat
-// contracts/openapi.json (copie de BFF_user/contracts), et rien d'autre ne doit sortir.
+// Garde-fou réseau du front : il ne parle qu'à un seul BFF, BFF User, et uniquement par les opérations du
+// contrat publié dans le paquet @mairie360/bff-user-openapi (version exacte X.Y.Z de package.json).
+// contracts/openapi.json, liste blanche du proxy et source des mocks, doit être la reconstruction exacte de
+// ce paquet (scripts/orval-contract.mjs).
 
-const CONTRACT_FILE = path.join(ROOT, 'contracts', 'openapi.json');
-const BFF_CONTRACT_FILE = path.join(ROOT, '..', '..', 'BFFs', 'BFF_user', 'contracts', 'openapi.json');
-const contract = OpenApiContract.load(CONTRACT_FILE);
+const readJson = (file) => JSON.parse(fs.readFileSync(path.join(ROOT, file), 'utf8'));
+const manifest = readJson('package.json');
+const pinned = manifest.dependencies[BFF_USER_PACKAGE];
+const contract = bffUserContract();
 const bff = new ContractMockServer('BFF_USER', contract);
 let front;
 
@@ -33,13 +36,9 @@ function concreteRequest({ method, template }) {
   return { pathname, body };
 }
 
-/** Répond à toute opération du contrat avec son premier statut 2xx documenté. */
+/** Répond 200 sans corps à toute opération du contrat publié. */
 function answerEveryOperation() {
-  for (const operation of contract.operations()) {
-    const { responses } = contract.document.paths[operation.template][operation.method.toLowerCase()];
-    const status = Number(Object.keys(responses).find((code) => code.startsWith('2')));
-    bff.on(operation.method, operation.template, { status, outOfContract: true });
-  }
+  for (const { method, template } of contract.operations()) bff.on(method, template, { status: 200, outOfContract: true });
 }
 
 before(async () => {
@@ -57,14 +56,32 @@ afterEach(() => {
   assert.deepEqual(violations, []);
 });
 
-describe('OpenAPI contract snapshot', () => {
-  test('is the BFF User contract', () => {
-    assert.equal(contract.title, 'bff_user');
-    assert.ok(contract.operations().length > 0);
+describe('published BFF User contract', () => {
+  test(`${BFF_USER_PACKAGE} is pinned to an exact published X.Y.Z version, installed as locked`, () => {
+    assert.match(pinned ?? '', /^\d+\.\d+\.\d+$/, `${BFF_USER_PACKAGE} doit être épinglé à une version exacte (pas de plage ni de pré-version)`);
+    assert.equal(readJson(`node_modules/${BFF_USER_PACKAGE}/package.json`).version, pinned);
+    assert.equal(readJson('package-lock.json').packages[`node_modules/${BFF_USER_PACKAGE}`].version, pinned);
   });
 
-  test('matches the neighbouring BFF_user checkout when present', { skip: !fs.existsSync(BFF_CONTRACT_FILE) && 'BFF_user absent de ce checkout' }, () => {
-    assert.ok(fs.readFileSync(CONTRACT_FILE).equals(fs.readFileSync(BFF_CONTRACT_FILE)), 'Contrat obsolète : BFF_CONTRACT_DIR=../../BFFs/BFF_user/contracts npm run contracts:sync');
+  test('BFF User is the only BFF contract package', () => {
+    const all = { ...manifest.dependencies, ...manifest.devDependencies };
+    assert.deepEqual(Object.keys(all).filter((name) => /^@mairie360\/bff-.*-openapi$/.test(name)), [BFF_USER_PACKAGE]);
+  });
+
+  test('contracts/openapi.json is exactly the contract rebuilt from the installed package', async () => {
+    const { buildOrvalOpenApi } = await import('../scripts/orval-contract.mjs');
+    const snapshot = readJson('contracts/openapi.json');
+
+    assert.equal(snapshot.info['x-source-package'], `${BFF_USER_PACKAGE}@${pinned}`);
+    assert.equal(snapshot.info.title, 'bff_user');
+    assert.deepEqual(snapshot, buildOrvalOpenApi(BFF_USER_PACKAGE, ROOT));
+  });
+
+  test('every Docker stack starts BFF User as its only BFF', () => {
+    for (const file of fs.readdirSync(ROOT).filter((name) => /^docker-compose.*\.ya?ml$/.test(name))) {
+      const images = [...fs.readFileSync(path.join(ROOT, file), 'utf8').matchAll(/ghcr\.io\/mairie360\/(bff-[\w-]+):/g)].map(([, name]) => name);
+      assert.ok(images.every((name) => name === 'bff-user'), `${file} : ${images.join(', ')}`);
+    }
   });
 
   test('the mock reports requests that break the contract', async () => {
@@ -74,7 +91,7 @@ describe('OpenAPI contract snapshot', () => {
     assert.equal(response.status, 500);
     assert.equal(unknown.status, 404);
     assert.deepEqual(bff.violations.splice(0), [
-      '[BFF_USER] requête PATCH /bff/admin/users/abc/password?debug=1 : path.userId: type integer attendu, reçu string',
+      '[BFF_USER] requête PATCH /bff/admin/users/abc/password?debug=1 : path.userId: type number attendu, reçu string',
       '[BFF_USER] requête PATCH /bff/admin/users/{userId}/password : paramètre query "debug" non déclaré',
       '[BFF_USER] requête PATCH /bff/admin/users/{userId}/password $body.new_password: longueur < 8',
       '[BFF_USER] appel non mocké : PATCH /bff/admin/users/{userId}/password',
@@ -82,6 +99,48 @@ describe('OpenAPI contract snapshot', () => {
     ]);
   });
 });
+
+describe('a single BFF', () => {
+  test('the proxy and the session adapters resolve the same BFF URL, whichever variable sets it', async () => {
+    answerEveryOperation();
+
+    for (const variable of BFF_URL_VARIABLES) {
+      front.useBffUrl(bff.url, variable);
+      await front.browserFetch('/api/user/me');
+      await front.browserFetch('/api/auth/logout', { method: 'POST' });
+      await front.browserFetch('/bff/admin/roles');
+    }
+
+    assert.equal(bff.requests.length, BFF_URL_VARIABLES.length * 3);
+    assert.deepEqual([...new Set(front.serverCalls.map(({ url }) => url.origin))], [bff.url]);
+  });
+
+  test('a higher-priority variable redirects every call, adapters included, to that one BFF', async () => {
+    const other = await unreachableUrl();
+    front.allowedOrigins.add(other);
+    process.env.USER_BFF_URL = bff.url;
+    process.env.BFF_ADMIN_BASE_URL = other;
+
+    await front.browserFetch('/api/user/me');
+    await front.browserFetch('/bff/admin/roles');
+
+    assert.deepEqual(bff.requests, []);
+    assert.deepEqual(front.serverCalls.map(({ url }) => `${url.origin}${url.pathname}`), [`${other}/me`, `${other}/bff/admin/roles`]);
+  });
+
+  test('only src/lib/bff-proxy.ts reads the BFF URL from the environment', () => {
+    const readers = sourceFiles(SRC).filter((file) => /process\.env\.[A-Z_]*BFF/.test(fs.readFileSync(file, 'utf8'))).map((file) => path.relative(ROOT, file));
+    assert.deepEqual(readers, ['src/lib/bff-proxy.ts']);
+  });
+});
+
+function sourceFiles(directory) {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(directory, entry.name);
+    if (entry.isDirectory()) return sourceFiles(full);
+    return /\.(ts|tsx)$/.test(entry.name) && !entry.name.endsWith('.d.ts') ? [full] : [];
+  });
+}
 
 describe('catch-all proxy src/app/[...path]', () => {
   test('forwards every contract operation to the same BFF operation', async () => {
@@ -186,11 +245,7 @@ describe('route handlers src/app/api', () => {
 });
 
 describe('no network access outside the BFF contract', () => {
-  const sources = (directory) => fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(directory, entry.name);
-    if (entry.isDirectory()) return sources(full);
-    return /\.(ts|tsx)$/.test(entry.name) && !entry.name.endsWith('.d.ts') ? [full] : [];
-  });
+  const sources = sourceFiles;
   const relative = (file) => path.relative(ROOT, file);
 
   test('only the BFF client, the session hook and the proxy call fetch, and no other network API is used', () => {
