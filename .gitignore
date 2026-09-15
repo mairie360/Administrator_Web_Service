@@ -4,3 +4,6 @@ dist
 .env
 
 !contracts/openapi.json
+
+# testing
+/coverage
