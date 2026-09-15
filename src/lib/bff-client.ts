@@ -32,20 +32,7 @@ function createRequestHeaders(init: RequestInit) {
   return headers;
 }
 
-async function readBody<T>(response: Response) {
-  if (response.status === 204) return undefined as T;
-
-  const body = await response.text();
-  if (!body) return undefined as T;
-
-  const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) return body as T;
-
-  return JSON.parse(body) as T;
-}
-
-// Variante qui expose aussi les en-têtes de réponse (ex. `Authorization` renvoyé par un refresh).
-export async function requestBffWithHeaders<T>(path: string, init: RequestInit = {}) {
+export async function requestBff<T>(path: string, init: RequestInit = {}) {
   const response = await fetch(path, {
     ...init,
     headers: createRequestHeaders(init),
@@ -55,9 +42,13 @@ export async function requestBffWithHeaders<T>(path: string, init: RequestInit =
     throw new BffRequestError(response.status);
   }
 
-  return { data: await readBody<T>(response), headers: response.headers };
-}
+  if (response.status === 204) return undefined as T;
 
-export async function requestBff<T>(path: string, init: RequestInit = {}) {
-  return (await requestBffWithHeaders<T>(path, init)).data;
+  const body = await response.text();
+  if (!body) return undefined as T;
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) return body as T;
+
+  return JSON.parse(body) as T;
 }

@@ -1,24 +1,24 @@
-import type { components, paths } from '@/contracts/bff';
-type Schemas = components['schemas'];
-import { getStoredAuthJwtToken, storeAuthJwtToken } from "./auth-token";
-import { requestBff, requestBffWithHeaders } from "./bff-client";
+import type {
+  AdministrationGroup,
+  AdministrationGroupMember,
+  AdministrationRole,
+  AdministrationSession,
+  AdministrationUser,
+  AdministrationUsersPage,
+} from "@mairie360/bff-user-openapi/model";
+import { requestBff } from "./bff-client";
 
-export type AdministrationRole = Schemas['AdministrationRole'];
-
-export type AdministrationGroup = Schemas['AdministrationGroup'];
+// Modèles du contrat publié de BFF User (@mairie360/bff-user-openapi, version exacte de package.json).
+export type {
+  AdministrationGroup,
+  AdministrationGroupMember,
+  AdministrationRole,
+  AdministrationSession,
+  AdministrationUser,
+  AdministrationUsersPage,
+};
 
 export type AdministrationUserRole = Pick<AdministrationRole, "id" | "name">;
-
-export type AdministrationUser = Schemas['AdministrationUser'];
-
-export type AdministrationUsersPage = Schemas['AdministrationUsersPage'];
-
-export type AdministrationGroupMember = Schemas['AdministrationGroupMember'];
-
-export type AdministrationSession = Schemas['AdministrationSession'];
-
-export type RefreshSessionResponse =
-  paths['/bff/admin/sessions/refresh']['post']['responses'][200]['content']['application/json'];
 
 export type CreateUserInput = {
   email: string;
@@ -362,17 +362,11 @@ export const administrationApi = {
     return extractArray(response, ["sessions"]).filter(isSession);
   },
 
-  async refreshSession(refreshToken: string) {
-    const { data, headers } = await requestBffWithHeaders<RefreshSessionResponse>(
-      `${ADMIN_BASE_PATH}/sessions/refresh`,
+  refreshSession(refreshToken: string) {
+    return requestAdmin<void>(
+      "/sessions/refresh",
       jsonRequest("POST", { refresh_token: refreshToken }),
     );
-    // Le BFF remplace déjà le cookie accessToken ; un JWT conservé dans le stockage local
-    // serait sinon renvoyé en priorité par requestBff avec l’ancienne valeur.
-    const refreshedToken = headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-    if (refreshedToken && getStoredAuthJwtToken()) storeAuthJwtToken(refreshedToken);
-
-    return data;
   },
 
   revokeSession(refreshToken: string) {
