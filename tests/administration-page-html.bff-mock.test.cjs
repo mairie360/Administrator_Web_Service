@@ -69,6 +69,11 @@ const session = (id, extra = {}) => ({ id, device_info: `Firefox ${id}`, ip_addr
 
 const sequence = () => bff.requests.map(({ method, template }) => `${method} ${template}`).sort();
 
+// The "Actualiser" button is disabled while the console's own loadAll() (roles/groups/sessions/history) is
+// in flight, independently of the active tab and of UsersPanel's own separate loading state. Waiting on it
+// avoids a race where the users list (its own fetch) resolves before the other four sources.
+const consoleLoaded = () => view.hostElements('Actualiser')[0]?.props.disabled === false;
+
 function mockConsoleData({ roles = [role(1), role(2)], groups = [group(1)], active = [session('s-1')], history = [session('s-0', { revoked_at: '2026-09-14T08:00:00Z' })], users = [user(7), user(8, ['Bob', 'Martin'])] } = {}) {
   bff.on('get', '/bff/admin/roles', { body: { roles } });
   bff.on('get', '/bff/admin/groups', { body: { groups } });
@@ -80,7 +85,7 @@ function mockConsoleData({ roles = [role(1), role(2)], groups = [group(1)], acti
 async function renderLoadedConsole(options) {
   mockConsoleData(options);
   view = mount(React.createElement(AdministrationConsole));
-  return view.waitFor(() => bff.requests.length === 5 && !view.html.includes('aria-label="Chargement"') && view.find('UsersPanel')[0]?.props.onTotalChange && view.text().includes('Utilisateurs'));
+  return view.waitFor(() => bff.requests.length === 5 && consoleLoaded() && !view.html.includes('aria-label="Chargement"') && view.find('UsersPanel')[0]?.props.onTotalChange && view.text().includes('Utilisateurs'));
 }
 
 test('the page shell renders the session resolved from GET /api/user/me around the administration module', async () => {
@@ -122,7 +127,7 @@ test('the console loads roles, groups, sessions and users and renders the counts
   assert.match(view.html, /aria-label="Chargement"/);
   assert.match(view.text(), /— Utilisateurs 0 Rôles 0 Groupes 0 Sessions actives/);
 
-  const html = await view.waitFor(() => bff.requests.length === 5 && !view.html.includes('aria-label="Chargement"') && view.text().includes('2 Utilisateurs'));
+  const html = await view.waitFor(() => bff.requests.length === 5 && consoleLoaded() && !view.html.includes('aria-label="Chargement"') && view.text().includes('2 Utilisateurs'));
 
   assert.deepEqual(sequence(), ['GET /bff/admin/groups', 'GET /bff/admin/roles', 'GET /bff/admin/sessions', 'GET /bff/admin/sessions/history', 'GET /bff/admin/users']);
   assert.equal(bff.requests[0].headers.authorization, `Bearer ${front.cookie}`);
