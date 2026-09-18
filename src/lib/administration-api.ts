@@ -1,20 +1,24 @@
-import type { components } from '@/contracts/bff';
-type Schemas = components['schemas'];
+import type {
+  AdministrationGroup,
+  AdministrationGroupMember,
+  AdministrationRole,
+  AdministrationSession,
+  AdministrationUser,
+  AdministrationUsersPage,
+} from "@mairie360/bff-user-openapi/model";
 import { requestBff } from "./bff-client";
 
-export type AdministrationRole = Schemas['AdministrationRole'];
-
-export type AdministrationGroup = Schemas['AdministrationGroup'];
+// Modèles du contrat publié de BFF User (@mairie360/bff-user-openapi, version exacte de package.json).
+export type {
+  AdministrationGroup,
+  AdministrationGroupMember,
+  AdministrationRole,
+  AdministrationSession,
+  AdministrationUser,
+  AdministrationUsersPage,
+};
 
 export type AdministrationUserRole = Pick<AdministrationRole, "id" | "name">;
-
-export type AdministrationUser = Schemas['AdministrationUser'];
-
-export type AdministrationUsersPage = Schemas['AdministrationUsersPage'];
-
-export type AdministrationGroupMember = Schemas['AdministrationGroupMember'];
-
-export type AdministrationSession = Schemas['AdministrationSession'];
 
 export type CreateUserInput = {
   email: string;
@@ -42,6 +46,14 @@ export type GroupInput = {
 };
 
 const ADMIN_BASE_PATH = "/bff/admin";
+
+// Bornes imposées par le contrat BFF User (AdminUserListQuery, AdminUserPasswordResetBody,
+// AdminGroupPatchBody) : vérifiées avant l'appel pour éviter un 400 sans message exploitable.
+const SEARCH_MAX_LENGTH = 100;
+const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_MAX_LENGTH = 255;
+const GROUP_NAME_MAX_LENGTH = 64;
+const GROUP_DESCRIPTION_MAX_LENGTH = 2000;
 
 function requestAdmin<T>(path: string, init: RequestInit = {}) {
   return requestBff<T>(`${ADMIN_BASE_PATH}${path}`, init);
@@ -158,13 +170,29 @@ function positiveInteger(value: number, label: string) {
   return value;
 }
 
+function boundedText(value: string, label: string, { min = 0, max }: { min?: number; max: number }) {
+  if (value.length < min) {
+    throw new Error(
+      min === 1 ? `${label} est obligatoire.` : `${label} doit contenir au moins ${min} caractères.`,
+    );
+  }
+  if (value.length > max) {
+    throw new Error(`${label} ne doit pas dépasser ${max} caractères.`);
+  }
+
+  return value;
+}
+
 export const administrationApi = {
   async listUsers({ page = 1, search = "" }: { page?: number; search?: string } = {}) {
     const params = new URLSearchParams({
       page: String(positiveInteger(page, "La page")),
       page_size: "20",
     });
-    if (search.trim()) params.set("search", search.trim());
+    const trimmedSearch = search.trim();
+    if (trimmedSearch) {
+      params.set("search", boundedText(trimmedSearch, "La recherche", { max: SEARCH_MAX_LENGTH }));
+    }
 
     const response = await requestAdmin<unknown>(`/users?${params.toString()}`);
     const record = asRecord(response);
@@ -233,8 +261,11 @@ export const administrationApi = {
   },
 
   async updateGroup(groupId: number, input: GroupInput) {
+    const resolvedGroupId = positiveInteger(groupId, "L’identifiant du groupe");
+    boundedText(input.name, "Le nom du groupe", { min: 1, max: GROUP_NAME_MAX_LENGTH });
+    boundedText(input.description, "La description du groupe", { max: GROUP_DESCRIPTION_MAX_LENGTH });
     const response = await requestAdmin<unknown>(
-      `/groups/${positiveInteger(groupId, "L’identifiant du groupe")}`,
+      `/groups/${resolvedGroupId}`,
       jsonRequest("PATCH", input),
     );
     const record = asRecord(response);
@@ -287,8 +318,10 @@ export const administrationApi = {
   },
 
   resetUserPassword(userId: number, newPassword: string) {
+    const resolvedUserId = positiveInteger(userId, "L’identifiant utilisateur");
+    boundedText(newPassword, "Le mot de passe", { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH });
     return requestAdmin<void>(
-      `/users/${positiveInteger(userId, "L’identifiant utilisateur")}/password`,
+      `/users/${resolvedUserId}/password`,
       jsonRequest("PATCH", { new_password: newPassword }),
     );
   },
