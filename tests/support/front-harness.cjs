@@ -11,18 +11,20 @@ const FRONT_ORIGIN = 'http://administration.mairie360.test';
 const BFF_URL_VARIABLES = ['BFF_ADMIN_BASE_URL', 'USER_BFF_URL', 'BFF_USER_API_URL', 'NEXT_PUBLIC_BFF_ADMIN_BASE_URL'];
 
 /**
- * Charge des modules TypeScript de src/ en CommonJS (transpileModule, sans vérification de types).
+ * Charge des modules TypeScript (.ts / .tsx) de src/ en CommonJS (transpileModule, sans vérification de types).
  * Contrairement au hook minimal des premiers tests, il résout l'alias `@/*` de tsconfig.json et peut
  * remplacer des dépendances (ex. `react`) le temps du chargement.
  */
 function loadTs(relativePaths, { stubs = {} } = {}) {
-  const originalLoader = require.extensions['.ts'];
+  const originalLoader = { ts: require.extensions['.ts'], tsx: require.extensions['.tsx'] };
   const originalResolve = Module._resolveFilename;
   const originalLoad = Module._load;
-  require.extensions['.ts'] = (module, filename) => module._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, resolveJsonModule: true, inlineSourceMap: true, inlineSources: true },
+  const compile = (module, filename) => module._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, resolveJsonModule: true, inlineSourceMap: true, inlineSources: true, jsx: ts.JsxEmit.ReactJSX },
     fileName: filename,
   }).outputText, filename);
+  require.extensions['.ts'] = compile;
+  require.extensions['.tsx'] = compile;
   Module._resolveFilename = function resolve(request, ...rest) {
     return originalResolve.call(this, request.startsWith('@/') ? path.join(SRC, request.slice(2)) : request, ...rest);
   };
@@ -32,7 +34,9 @@ function loadTs(relativePaths, { stubs = {} } = {}) {
   try {
     return relativePaths.map((relativePath) => require(path.join(ROOT, relativePath)));
   } finally {
-    require.extensions['.ts'] = originalLoader;
+    require.extensions['.ts'] = originalLoader.ts;
+    if (originalLoader.tsx) require.extensions['.tsx'] = originalLoader.tsx;
+    else delete require.extensions['.tsx'];
     Module._resolveFilename = originalResolve;
     Module._load = originalLoad;
   }
