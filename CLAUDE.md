@@ -72,4 +72,4 @@ Same pattern as the APIs/BFFs, adapted to a web front. Not part of `npm test`; t
 
 ## Gotchas
 
-- `docker-compose.yml` and `development.Dockerfile` are still the unmodified template (a `projects` service behind an nginx that mounts a non-existent `nginx.conf`, `npm ci` without the GitHub Packages token) and do not start this module; rely on `docker-compose-security.yml` / `docker-compose-performance.yml` for a working stack definition.
+- `docker-compose.yml` is a local dev stack (Postgres + Liquibase + seed, Redis, Core API, BFF User, this front built from the production `Dockerfile`), the same services as `docker-compose-security.yml` / `docker-compose-performance.yml` minus their ZAP/k6 test-runner containers. It publishes the front on `localhost:5000` and needs `NODE_AUTH_TOKEN` exported for the build. `development.Dockerfile` (the unused `projects`-behind-nginx template) has been removed.
