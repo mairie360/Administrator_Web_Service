@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { readFrontUrlsFromEnv } from "@/lib/front-urls";
+import { FrontUrlsProvider } from "@/lib/front-urls-provider";
 import { Geist, Geist_Mono } from "next/font/google";
 import "@mairie360/lib-components/dist/styles.css";
 import "./globals.css";
@@ -32,7 +34,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <FrontUrlsProvider urls={readFrontUrlsFromEnv()}>{children}</FrontUrlsProvider>
       </body>
     </html>
   );
