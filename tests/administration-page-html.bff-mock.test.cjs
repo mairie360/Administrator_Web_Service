@@ -88,19 +88,29 @@ async function renderLoadedConsole(options) {
   return view.waitFor(() => bff.requests.length === 5 && consoleLoaded() && !view.html.includes('aria-label="Chargement"') && view.find('UsersPanel')[0]?.props.onTotalChange && view.text().includes('Utilisateurs'));
 }
 
-test('the page shell renders the session resolved from GET /api/user/me around the administration module', async () => {
+test('the page shell renders the BFF-backed console with the resolved user session, never fixture administration', async () => {
   bff.on('get', '/me', { body: me() });
+  mockConsoleData();
   view = mount(React.createElement(Home));
 
   assert.equal(view.passes, 1);
   assert.equal(view.props('Header').user.name, 'Chargement…');
-  assert.equal(view.find('AdministrationModule').length, 1);
+  assert.equal(view.find('AdministrationConsole').length, 1);
+  assert.equal(view.find('AdministrationModule').length, 0);
 
-  await view.waitFor(() => view.props('Header').user.name === 'Alice Dupont');
+  await view.waitFor(() => view.props('Header').user.name === 'Alice Dupont' && view.text().includes('2 Utilisateurs') && consoleLoaded());
 
-  assert.deepEqual(front.browserCalls, [{ method: 'GET', target: '/api/user/me' }]);
-  assert.deepEqual(sequence(), ['GET /me']);
+  assert.deepEqual(sequence(), [
+    'GET /bff/admin/groups',
+    'GET /bff/admin/roles',
+    'GET /bff/admin/sessions',
+    'GET /bff/admin/sessions/history',
+    'GET /bff/admin/users',
+    'GET /me',
+  ]);
   assert.match(view.html, /<span[^>]*>Alice Dupont<\/span>/);
+  assert.match(view.text(), /2 Utilisateurs 2 Rôles 1 Groupes 1 Sessions actives/);
+  assert.match(view.text(), /Bob Martin/);
   assert.equal(view.props('Sidebar').isAdmin, true);
   assert.match(view.html, /aria-current="page"[^>]*>[\s\S]*?Administration/);
   assert.match(view.html, /<footer/);
@@ -109,12 +119,15 @@ test('the page shell renders the session resolved from GET /api/user/me around t
 
 test('a session refused by BFF User logs the page out and reloads it', async () => {
   bff.on('get', '/me', bffError(401, 'Invalid or missing session token'));
+  for (const template of ['/bff/admin/roles', '/bff/admin/groups', '/bff/admin/sessions', '/bff/admin/sessions/history', '/bff/admin/users']) {
+    bff.on('get', template, bffError(401, 'Invalid or missing session token'));
+  }
   bff.on('post', '/auth/logout', { body: { message: 'Logged out successfully' }, headers: { 'Set-Cookie': 'accessToken=; Max-Age=0; Path=/; HttpOnly' } });
   view = mount(React.createElement(Home));
 
   await view.waitFor(() => window.reloads === 1);
 
-  assert.deepEqual(sequence(), ['GET /me', 'POST /auth/logout']);
+  assert.deepEqual(sequence().filter((request) => request === 'GET /me' || request === 'POST /auth/logout'), ['GET /me', 'POST /auth/logout']);
   assert.equal(view.props('Header').user.name, 'Chargement…');
 });
 
