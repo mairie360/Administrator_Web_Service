@@ -114,6 +114,10 @@ test('the page shell renders the BFF-backed console with the resolved user sessi
   assert.equal(view.props('Sidebar').isAdmin, true);
   assert.match(view.html, /aria-current="page"[^>]*>[\s\S]*?Administration/);
   assert.match(view.html, /<footer/);
+  const footer = view.html.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/)?.[0];
+  assert.ok(footer);
+  assert.match(footer.replace(/<[^>]*>/g, ''), new RegExp(`© ${new Date().getFullYear()} Mairie360`));
+  assert.doesNotMatch(footer, /Version|<button\b|<a\b/);
   assert.doesNotMatch(view.html, /role="alert"/);
 });
 
