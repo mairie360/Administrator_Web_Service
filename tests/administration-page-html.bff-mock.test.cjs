@@ -97,6 +97,7 @@ test('the page shell renders the BFF-backed console with the resolved user sessi
   assert.equal(view.props('Header').user.name, 'Chargement…');
   assert.equal(view.find('AdministrationConsole').length, 1);
   assert.equal(view.find('AdministrationModule').length, 0);
+  assert.equal(view.find('AppShell').length, 1);
 
   await view.waitFor(() => view.props('Header').user.name === 'Alice Dupont' && view.text().includes('2 Utilisateurs') && consoleLoaded());
 
@@ -126,12 +127,22 @@ test('desktop and mobile navigation expose only active modules and keep Settings
   const assigned = [];
   const originalAssign = global.window.location.assign;
   global.window.location.assign = (href) => assigned.push(href);
-  setBrowserFrontUrls({ SETTINGS_FRONT_URL: 'https://settings.test.example/' });
+  setBrowserFrontUrls({
+    DASHBOARD_FRONT_URL: 'https://dashboard.test.example/',
+    PROJECT_FRONT_URL: 'https://projects.test.example/',
+    MESSAGE_FRONT_URL: 'https://messages.test.example/',
+    ELEARNING_FRONT_URL: 'https://training.test.example/',
+    CALENDAR_FRONT_URL: 'https://calendar.test.example/',
+    ADMINISTRATION_FRONT_URL: 'https://admin.test.example/',
+    SETTINGS_FRONT_URL: 'https://settings.test.example/',
+  });
   try {
     bff.on('get', '/me', { body: me() });
     mockConsoleData();
     view = mount(React.createElement(Home));
     await view.waitFor(() => view.props('Header').user.name === 'Alice Dupont' && consoleLoaded());
+    assert.equal(view.props('AppShell').activeItem, 'admin');
+    assert.equal(view.props('AppShell').hrefs.profile, 'https://settings.test.example/');
     const isAdmin = view.props('Sidebar').isAdmin;
     for (const mobileOpen of [false, true]) {
       await view.act(() => view.props('Header').setSidebarOpen(mobileOpen));

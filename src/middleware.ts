@@ -6,6 +6,7 @@ import {
   NONCE_REQUEST_HEADER,
 } from "./lib/content-security-policy";
 import { readFrontUrlsFromEnv } from "./lib/front-urls";
+import { settingsProfileUrl } from "./lib/settings-profile";
 
 const ACCESS_TOKEN_COOKIE = "accessToken";
 
@@ -78,6 +79,20 @@ export function middleware(request: NextRequest) {
 
   if (!accessToken || isExpiredJwt(accessToken)) {
     return redirectToLogin(request);
+  }
+
+  if (request.nextUrl.pathname === "/profile" || request.nextUrl.pathname.startsWith("/profile/")) {
+    const destination = settingsProfileUrl(process.env.SETTINGS_FRONT_URL);
+    return destination ? NextResponse.redirect(destination) : new NextResponse(
+      "Paramètres indisponibles. Veuillez contacter votre administrateur.",
+      {
+        status: 503,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-store",
+        },
+      },
+    );
   }
 
   // Next.js lit la CSP de la requête pour poser le nonce sur ses propres scripts :

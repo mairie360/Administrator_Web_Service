@@ -7,7 +7,11 @@ const [{ middleware }] = loadTs(['src/middleware.ts']);
 const previous = {
   LOGIN_FRONT_URL: process.env.LOGIN_FRONT_URL,
   ADMINISTRATION_FRONT_URL: process.env.ADMINISTRATION_FRONT_URL,
+  SETTINGS_FRONT_URL: process.env.SETTINGS_FRONT_URL,
 };
+
+const b64url = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
+const validCookie = `accessToken=${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url({ exp: Math.floor(Date.now() / 1000) + 3600 })}.signature`;
 
 test('missing or invalid Login configuration returns an uncached unavailable state', async () => {
   for (const value of [undefined, '', '  ', 'not a URL', 'ftp://login.mairie.test/', 'https://user:password@login.mairie.test/']) {
@@ -75,4 +79,25 @@ test('an invalid public Administration URL does not leak the ingress URL to Logi
   assert.equal(response.status, 307);
   assert.equal(login.href, 'https://login.mairie.test/');
   assert.doesNotMatch(login.href, /internal:3000/);
+});
+
+test('authenticated legacy profile bookmarks redirect to Settings without a local profile page', () => {
+  process.env.SETTINGS_FRONT_URL = 'https://settings.mairie.test/account/';
+  for (const pathname of ['/profile', '/profile/security']) {
+    const response = middleware(new NextRequest(`http://internal:3000${pathname}`, { headers: { cookie: validCookie } }));
+    assert.equal(response.status, 307);
+    assert.equal(response.headers.get('location'), 'https://settings.mairie.test/account/');
+  }
+});
+
+test('an invalid or looping Settings destination leaves a clear uncached unavailable state', async () => {
+  for (const destination of [undefined, 'javascript:alert(1)', 'https://settings.mairie.test/profile']) {
+    if (destination === undefined) delete process.env.SETTINGS_FRONT_URL;
+    else process.env.SETTINGS_FRONT_URL = destination;
+    const response = middleware(new NextRequest('http://internal:3000/profile', { headers: { cookie: validCookie } }));
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get('location'), null);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.match(await response.text(), /Paramètres indisponibles/);
+  }
 });

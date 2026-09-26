@@ -2,17 +2,18 @@
 
 ## Active-module navigation
 
-Desktop and mobile menus omit the archived E-mails and Files modules, matching
-the local presentation. The remaining module order and administrator visibility
-are unchanged; Settings remains available. Attachments and business documents
-inside active modules are not removed. This is not the full shared AppShell migration.
+The shared `AppShell` now owns desktop and mobile navigation. It shows only
+configured active destinations, omits the archived E-mails and Files modules,
+and preserves administrator visibility and Settings. Attachments and business
+documents inside active modules are not removed.
 
 ## One account destination
 
-Profile access now opens **Settings**. Existing `/profile` bookmarks and subpaths
-redirect to the configured Settings frontend. The sidebar keeps Settings without
-a duplicate Profile entry. If Settings is not configured correctly, an explicit
-unavailable state replaces the redirect; no demo identity or simulated save is shown.
+Profile access opens **Settings**. No local profile page remains; authenticated
+`/profile` bookmarks and subpaths redirect from the frontend middleware to the
+configured Settings frontend. If Settings is not configured correctly, the
+middleware returns an uncached unavailable state. No demo identity or simulated
+save is shown.
 
 [Technical documentation](technical.md) · [Français](../fr/module.md) · [README](../../README.md)
 
@@ -26,7 +27,7 @@ Business domain: Identity and administration.
 
 ## Available capabilities
 
-- Administration interface supplied by the shared library’s `AdministrationModule`.
+- BFF-backed administration console rendered inside the shared `AppShell`.
 - Typed client for users, roles, groups, membership and sessions.
 - Session-based module navigation, profile access and logout.
 
@@ -50,7 +51,9 @@ Core supplies identity and session operations. The BFF SQL repositories also rea
 
 Monitoring, backups, application logs and system policy described in administration requirements are not guaranteed by this contract. SQL access requires a compatible schema, including `group_members`; this name differs from `group_users` used in other contracts.
 
-`src/app/page.tsx` mounts `AdministrationModule` without repository-specific data callbacks. Detailed component behavior therefore depends on the version of `@mairie360/lib-components`. `src/lib/administration-api.ts` supplies a typed local client, but its presence does not prove that every shared-component screen uses it.
+`src/app/page.tsx` mounts the local `AdministrationConsole`, which uses the typed
+client in `src/lib/administration-api.ts`, inside `@mairie360/lib-components`’
+`AppShell`. The shared package supplies navigation and layout, not business data.
 
 ## Developing or operating this module
 
