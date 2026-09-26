@@ -1,5 +1,35 @@
 # Administrator_Web_Service — Documentation technique
 
+## Politique de chaîne logicielle CI — lot frontend MAIR-230
+
+Les actions tierces checkout, setup-node et auto-approbation Renovate utilisent
+les SHA complets de leurs commits officiels. Le workflow partagé reste en
+v3.1.1 et ne reçoit que les références CODECOV_TOKEN et N8N_WEBHOOK_SECRET qu’il
+déclare ; aucune valeur de secret n’est lue ni stockée. Permissions existantes,
+règles et verdicts Semgrep inchangés.
+
+Les deux workflows CI utilisent Node 24. Les tests exigent npm >=11.10, qui
+prend en charge `min-release-age=7`, sans exclusion de paquet. Cette fenêtre de
+sept jours concerne les **nouvelles résolutions de dépendances**, pas une analyse
+ou réécriture du lockfile existant utilisé par `npm ci`. Voir la [documentation npm](https://docs.npmjs.com/cli/v11/using-npm/config/#min-release-age).
+Utiliser le même outillage Node/npm pour les mises à jour et tests locaux.
+`tests/ci-policy.test.cjs` vérifie les SHA des actions, les secrets explicitement
+transmis, la fenêtre d’âge et la version npm exécutant réellement les tests.
+
+Les versions de construction/runtime Docker et leur installation verrouillée
+restent inchangées ; aucune nouvelle variable runtime, aucun nouveau secret,
+contrat API/BFF ou changement du CICD partagé. Ces vérifications ne constituent
+pas une recette d’environnement déployé.
+
+## Menu des modules actifs — lot préparatoire MAIR-180
+
+Seule la liste transmise à Sidebar exclut `emails` et `files` ; la résolution des
+URL existantes, la configuration, les sessions et les appels BFF sont inchangés.
+Ordinateur et mobile utilisent la même liste active. Le test de page rend le
+vrai Sidebar, vérifie ordre/sélection/visibilité admin, ouvre le menu mobile puis
+suit Paramètres en refermant le panneau. Aucune copie de bibliothèque ni nouvelle
+dépendance ; la migration AppShell MAIR-179/MAIR-180 reste distincte et incomplète.
+
 ## Profil centralisé dans Settings — lot MAIR-180
 
 La route serveur `/profile/[[...path]]` remplace les écrans de profil locaux.
@@ -51,7 +81,7 @@ L’état React gère l’affichage et les opérations en cours. Ce dépôt ne d
 
 ## Installation et lancement local
 
-Utiliser Node.js 22 pour reproduire le job de contrats et npm avec le fichier de verrouillage versionné. Les versions des autres jobs et de Docker sont précisées plus bas.
+Utiliser Node.js 24 et npm >=11.10 pour reproduire la CI avec le lockfile versionné. Les versions Docker, inchangées, sont précisées plus bas.
 
 Les dépendances privées `@mairie360/*` nécessitent un accès GitHub Packages. Configurer `NODE_AUTH_TOKEN` dans l’environnement avec un jeton autorisé à lire ces packages, conformément à `.npmrc`. Ne pas enregistrer la valeur dans Git.
 
@@ -186,9 +216,9 @@ Pour une modification uniquement documentaire, vérifier les liens, l’exactitu
 
 ## CI/CD et exécution Docker
 
-Le job `contracts.yml` utilise Node.js 22, `actions/checkout@v7` et `actions/setup-node@v7`. Il s’exécute sur push, pull request et lancement manuel; il installe avec `npm ci`, contrôle les contrats et lance les tests dédiés.
+Le job `contracts.yml` utilise Node.js 24 et checkout/setup-node figés sur leurs commits v7. Il s’exécute sur push, pull request et lancement manuel ; il installe avec `npm ci`, contrôle les contrats et lance les tests dédiés.
 
-`cicd.yml` appelle `mairie360/CICD/.github/workflows/frontend-cicd.yml@v2.0.0`, avec `cicd_version: v2.0.0` et `node_version: "23"`. Les étapes réutilisables et les environnements GitHub déterminent les contrôles, publications et déploiements effectifs.
+`cicd.yml` appelle `mairie360/CICD/.github/workflows/frontend-cicd.yml@v3.1.1`, avec `cicd_version: v3.1.1` et `node_version: "24"`. Seuls CODECOV_TOKEN et N8N_WEBHOOK_SECRET sont transmis explicitement. Les étapes réutilisables et les environnements GitHub déterminent les contrôles, publications et déploiements effectifs.
 
 Le Dockerfile utilise par défaut `NODE_VERSION=23.1.0` et le build Next.js `standalone`; la commande de l’image est `["node", "server.js"]`. Le port de l’image et les mappings Compose peuvent différer du port local proposé plus haut.
 

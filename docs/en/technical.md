@@ -1,5 +1,33 @@
 # Administrator_Web_Service — Technical documentation
 
+## CI supply-chain policy — MAIR-230 frontend slice
+
+Third-party checkout, Node setup and Renovate auto-approval actions use full
+official commit SHAs. The shared frontend workflow remains at v3.1.1 and receives
+only its declared CODECOV_TOKEN and N8N_WEBHOOK_SECRET references; no secret value
+is stored or read. Existing permissions and Semgrep rules/verdicts are unchanged.
+
+Both CI workflows use Node 24. Tests require npm >=11.10, which supports the
+committed `min-release-age=7` policy, without package exclusions. This is a
+seven-day window for **new dependency resolution**, not a scan or rewriting of
+the existing lockfile used by `npm ci`. See the [npm config documentation](https://docs.npmjs.com/cli/v11/using-npm/config/#min-release-age).
+Use the same Node/npm toolchain for local dependency updates and tests.
+`tests/ci-policy.test.cjs` checks immutable action references, the explicit secret
+map, release-age configuration and the npm version actually running the tests.
+
+Docker runtime/build versions and their locked install remain unchanged; no new
+runtime environment variable, secret, API/BFF contract or shared-CICD edit is
+part of this slice. These CI checks do not certify a deployed environment.
+
+## Active-module menu — MAIR-180 preparatory slice
+
+Only the Sidebar item list excludes `emails` and `files`; existing URL resolution,
+environment configuration, sessions and BFF calls are unchanged. Both desktop and
+mobile render the same active list. Page-level regression coverage renders the
+real Sidebar, checks item order/active item/admin visibility, opens the mobile
+menu and follows Settings while closing the drawer. No library fork or new
+package is introduced; the full MAIR-179/MAIR-180 AppShell dependency remains.
+
 ## Settings account destination — MAIR-180 slice
 
 The server route `/profile/[[...path]]` replaces the local profile screens.
@@ -51,7 +79,7 @@ React state manages display and pending operations. This repository defines no b
 
 ## Installation and local startup
 
-Use Node.js 22 to reproduce the contract job and npm with the committed lockfile. Other job and Docker versions are detailed below.
+Use Node.js 24 and npm >=11.10 to reproduce CI with the committed lockfile. Docker versions are unchanged and detailed below.
 
 Private `@mairie360/*` dependencies require GitHub Packages access. Set `NODE_AUTH_TOKEN` in the environment to a token allowed to read these packages, as configured in `.npmrc`. Do not commit its value.
 
@@ -186,9 +214,9 @@ For documentation-only changes, check links, accuracy in both languages and `git
 
 ## CI/CD and Docker execution
 
-The `contracts.yml` job uses Node.js 22, `actions/checkout@v7` and `actions/setup-node@v7`. It runs on pushes, pull requests and manual dispatch; it installs with `npm ci`, checks contracts and runs the associated tests.
+The `contracts.yml` job uses Node.js 24 and commit-pinned checkout/setup-node actions (v7). It runs on pushes, pull requests and manual dispatch; it installs with `npm ci`, checks contracts and runs the associated tests.
 
-`cicd.yml` calls `mairie360/CICD/.github/workflows/frontend-cicd.yml@v2.0.0`, with `cicd_version: v2.0.0` and `node_version: "23"`. Reusable steps and GitHub environments determine actual checks, publications and deployments.
+`cicd.yml` calls `mairie360/CICD/.github/workflows/frontend-cicd.yml@v3.1.1`, with `cicd_version: v3.1.1` and `node_version: "24"`. Only CODECOV_TOKEN and N8N_WEBHOOK_SECRET are passed explicitly. Reusable steps and GitHub environments determine actual checks, publications and deployments.
 
 The Dockerfile defaults to `NODE_VERSION=23.1.0` and the Next.js `standalone` build; the image command is `["node", "server.js"]`. Image ports and Compose mappings can differ from the local port suggested above.
 
