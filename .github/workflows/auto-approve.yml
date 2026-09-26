@@ -11,6 +11,6 @@ jobs:
     # after a maintainer pushes a fix or updates the branch.
     if: github.event.pull_request.user.login == 'renovate[bot]'
     steps:
-      - uses: hmarr/auto-approve-action@v4
+      - uses: hmarr/auto-approve-action@05a696a09d381a5a0d142c755f7eacbb19eb6525 # v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
