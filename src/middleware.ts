@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { parseFrontUrl } from "./lib/front-url";
 import {
   buildContentSecurityPolicy,
   createNonce,
@@ -7,7 +8,6 @@ import {
 import { readFrontUrlsFromEnv } from "./lib/front-urls";
 
 const ACCESS_TOKEN_COOKIE = "accessToken";
-const DEFAULT_LOGIN_FRONT_URL = "http://localhost:5000/";
 
 type JwtPayload = {
   exp?: unknown;
@@ -37,10 +37,9 @@ function isExpiredJwt(token: string) {
 }
 
 function redirectToLogin(request: NextRequest) {
-  const loginUrl = process.env.LOGIN_FRONT_URL || DEFAULT_LOGIN_FRONT_URL;
-  const destination = new URL(loginUrl);
+  const destination = parseFrontUrl(process.env.LOGIN_FRONT_URL);
   const publicFrontUrl = readFrontUrlsFromEnv().ADMINISTRATION_FRONT_URL;
-  if (publicFrontUrl) {
+  if (destination && publicFrontUrl) {
     try {
       const requestedPage = new URL(publicFrontUrl);
       requestedPage.pathname = request.nextUrl.pathname;
@@ -50,7 +49,16 @@ function redirectToLogin(request: NextRequest) {
       // A missing or invalid public URL leaves Login's default destination in place.
     }
   }
-  const response = NextResponse.redirect(destination);
+  const response = destination ? NextResponse.redirect(destination) : new NextResponse(
+    "Connexion temporairement indisponible. Veuillez contacter votre administrateur.",
+    {
+      status: 503,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    },
+  );
   const cookieDomain = process.env.COOKIE_DOMAIN?.trim();
 
   response.cookies.set({
