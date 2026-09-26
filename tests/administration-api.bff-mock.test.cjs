@@ -15,13 +15,17 @@ let front;
 let administrationApi;
 let BffRequestError;
 const exercised = new Set();
+const savedLoginUrl = process.env.LOGIN_FRONT_URL;
 
 before(async () => {
+  process.env.LOGIN_FRONT_URL = 'https://login.mairie.test/';
   await bff.start();
   front = new FrontHarness({ bff }).install();
   [{ administrationApi }, { BffRequestError }] = loadTs(['src/lib/administration-api.ts', 'src/lib/bff-client.ts']);
 });
 after(async () => {
+  if (savedLoginUrl === undefined) delete process.env.LOGIN_FRONT_URL;
+  else process.env.LOGIN_FRONT_URL = savedLoginUrl;
   front.uninstall();
   await bff.stop();
 });
