@@ -274,7 +274,7 @@ function ConfirmModal({
 
 function SessionTable({ sessions }: { sessions: AdministrationSession[] }) {
   if (sessions.length === 0) {
-    return <EmptyState>Aucune session retournée par le BFF.</EmptyState>;
+    return <EmptyState>Aucune session à afficher.</EmptyState>;
   }
 
   return (
@@ -437,7 +437,7 @@ export function AdministrationConsole() {
         <div>
           <h1 className="text-[32px] font-bold leading-tight text-[#0b1220]">Administration</h1>
           <p className="mt-1 max-w-3xl text-base leading-6 text-[#475467]">
-            Gérez les utilisateurs, les rôles, les groupes et les sessions via le BFF Mairie360.
+            Gérez les comptes, les rôles et les équipes de votre mairie.
           </p>
         </div>
         <ActionButton
@@ -460,7 +460,7 @@ export function AdministrationConsole() {
           <div>
             <p className="font-bold">Session administrateur requise</p>
             <p className="mt-0.5 leading-5">
-              Le BFF a répondu 401. Connectez-vous depuis le portail afin que le JWT soit transmis aux appels Administration.
+              Votre session a expiré. Reconnectez-vous pour accéder à l’administration.
             </p>
           </div>
         </div>
@@ -1350,7 +1350,7 @@ function RolesPanel({
         }
       >
         {roles.length === 0 ? (
-          <EmptyState>Aucun rôle retourné par le BFF.</EmptyState>
+          <EmptyState>Aucun rôle disponible.</EmptyState>
         ) : (
           <div className="divide-y divide-[#ebe8e3] rounded-lg border border-[#e4e1dc]">
             {roles.map((role) => (
@@ -1679,7 +1679,7 @@ function GroupsPanel({
           }
         >
           {groups.length === 0 ? (
-            <EmptyState>Aucun groupe retourné par le BFF.</EmptyState>
+            <EmptyState>Aucun groupe pour le moment.</EmptyState>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {groups.map((group) => (

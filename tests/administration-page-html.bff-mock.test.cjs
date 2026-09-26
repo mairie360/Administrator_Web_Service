@@ -182,7 +182,7 @@ test('a 401 from the BFF is rendered as the administrator-session alert', async 
 
   assert.match(html, /<p[^>]*>Session administrateur requise<\/p>/);
   assert.match(view.text(), /Authentification requise\. Reconnectez-vous au portail Mairie360\./, 'the users panel reports its own 401');
-  assert.match(view.text(), /Le BFF a répondu 401\./);
+  assert.match(view.text(), /Votre session a expiré\. Reconnectez-vous pour accéder à l’administration\./);
   assert.match(view.text(), /— Utilisateurs 0 Rôles 0 Groupes 0 Sessions actives/);
 });
 
