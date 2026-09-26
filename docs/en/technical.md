@@ -21,10 +21,13 @@ part of this slice. These CI checks do not certify a deployed environment.
 
 ## Shared AppShell — MAIR-180
 
-`src/app/page.tsx` passes the current session, active module and runtime
-`frontUrl()` destinations to the published `@mairie360/lib-components` AppShell.
+`src/app/page.tsx` passes the current session, active module and validated
+runtime destinations from `src/lib/navigation.ts` to the shared
+`@mairie360/lib-components` AppShell. Invalid or credential-bearing URLs are
+omitted; a Settings URL pointing back to `/profile` is also rejected. The
+consumer change awaits publication of the updated library package.
 The shell owns desktop/mobile navigation, Header and Footer; local Sidebar
-items and navigation files are removed. E-mails and Files remain archived and
+items and the duplicate shell were removed. E-mails and Files remain archived and
 absent from its default menu. Existing environment variables, session logic and
 BFF calls are unchanged. The package version must match the seven other active
 frontends after MAIR-179 publishes it.

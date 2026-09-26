@@ -24,10 +24,12 @@ pas une recette d’environnement déployé.
 ## AppShell partagé — MAIR-180
 
 `src/app/page.tsx` transmet la session, le module actif et les destinations
-`frontUrl()` résolues à l'exécution à l'AppShell publié dans
-`@mairie360/lib-components`. Il gère la navigation ordinateur/mobile, le Header
-et le Footer ; les anciens fichiers locaux de navigation et d'items Sidebar
-sont supprimés. E-mails et Fichiers restent archivés, donc absents du menu.
+validées à l'exécution par `src/lib/navigation.ts` à l'AppShell de
+`@mairie360/lib-components`. Les URL invalides ou contenant des identifiants
+sont ignorées ; une URL Settings rebouclant sur `/profile` est aussi rejetée.
+Après publication du paquet, il gère la navigation ordinateur/mobile, le Header
+et le Footer ; les anciens items Sidebar et le shell dupliqué sont supprimés.
+E-mails et Fichiers restent archivés, donc absents du menu.
 Variables d'environnement, session et appels BFF restent inchangés. La version
 du paquet doit être identique dans les huit fronts actifs après MAIR-179.
 

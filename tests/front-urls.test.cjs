@@ -10,6 +10,7 @@ const [frontUrls, { FrontUrlsProvider }] = loadTs([
   'src/lib/front-urls.ts',
   'src/lib/front-urls-provider.tsx',
 ]);
+const [{ getActiveFrontHrefs }] = loadTs(['src/lib/navigation.ts']);
 
 const saved = { LOGIN_FRONT_URL: process.env.LOGIN_FRONT_URL, DASHBOARD_FRONT_URL: process.env.DASHBOARD_FRONT_URL };
 
@@ -62,4 +63,36 @@ test('every active front URL remains available at render time for the shared she
   };
   frontUrls.setBrowserFrontUrls(urls);
   for (const [key, href] of Object.entries(urls)) assert.equal(frontUrls.frontUrl(key), href, key);
+  assert.deepEqual(getActiveFrontHrefs(), {
+    dashboard: urls.DASHBOARD_FRONT_URL,
+    projects: urls.PROJECT_FRONT_URL,
+    messages: urls.MESSAGE_FRONT_URL,
+    training: urls.ELEARNING_FRONT_URL,
+    calendar: urls.CALENDAR_FRONT_URL,
+    admin: urls.ADMINISTRATION_FRONT_URL,
+    profile: urls.SETTINGS_FRONT_URL,
+    settings: urls.SETTINGS_FRONT_URL,
+  });
+});
+
+test('the shell omits unsafe or looping destinations instead of exposing them as links', () => {
+  global.window = {};
+  frontUrls.setBrowserFrontUrls({
+    DASHBOARD_FRONT_URL: 'https://user:secret@dashboard.test.example/',
+    PROJECT_FRONT_URL: 'javascript:alert(1)',
+    SETTINGS_FRONT_URL: 'https://settings.test.example/profile/security',
+    ADMINISTRATION_FRONT_URL: 'not a URL',
+    CALENDAR_FRONT_URL: ' https://calendar.test.example/ ',
+  });
+
+  assert.deepEqual(getActiveFrontHrefs(), {
+    dashboard: undefined,
+    projects: undefined,
+    messages: undefined,
+    training: undefined,
+    calendar: 'https://calendar.test.example/',
+    admin: '/',
+    profile: undefined,
+    settings: undefined,
+  });
 });
