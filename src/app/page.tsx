@@ -17,7 +17,7 @@ export default function Home() {
       onLogout={() => void logoutAndReload()}
       hrefs={hrefs}
     >
-      <div className="mx-auto max-w-[1520px]">
+      <div className="min-w-0 w-full">
         <AdministrationConsole />
       </div>
     </AppShell>

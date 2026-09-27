@@ -98,6 +98,8 @@ test('the page shell renders the BFF-backed console with the resolved user sessi
   assert.equal(view.find('AdministrationConsole').length, 1);
   assert.equal(view.find('AdministrationModule').length, 0);
   assert.equal(view.find('AppShell').length, 1);
+  assert.match(view.html, /<div class="min-w-0 w-full">/);
+  assert.doesNotMatch(view.html, /max-w-\[1520px\]/);
 
   await view.waitFor(() => view.props('Header').user.name === 'Alice Dupont' && view.text().includes('2 Utilisateurs') && consoleLoaded());
 
