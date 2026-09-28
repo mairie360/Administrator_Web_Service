@@ -30,10 +30,14 @@ test('the reusable frontend workflow receives only its declared named secrets', 
   assert.doesNotMatch(workflow, /semgrep_fail_on_findings:\s*false|semgrep_config:|continue-on-error:/);
 });
 
-test('npm resolution has a seven-day release window without exclusions', () => {
+test('npm resolution keeps the seven-day window except for the internal UI package', () => {
   const config = read('.npmrc');
   assert.match(config, /^min-release-age\s*=\s*7\s*$/m);
-  assert.doesNotMatch(config, /^\s*(?:min-release-age-exclude|before)\b/m);
+  const exclusions = [...config.matchAll(/^\s*min-release-age-exclude(\[\])?\s*=\s*(.+?)\s*$/gm)];
+  assert.deepEqual(exclusions.map(([, list, name]) => [list, name]), [
+    ['[]', '@mairie360/lib-components'],
+  ]);
+  assert.doesNotMatch(config, /^\s*before\b/m);
   assert.match(config, /^@mairie360:registry=https:\/\/npm\.pkg\.github\.com\s*$/m);
 });
 
