@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { clearStoredAuthJwtToken } from "./auth-token";
 
 export const APP_ROLES = [
   "Admin",
@@ -253,7 +254,7 @@ export async function logoutAndReload() {
     });
   } finally {
     try {
-      window.localStorage.clear();
+      clearStoredAuthJwtToken();
     } finally {
       window.location.reload();
     }
