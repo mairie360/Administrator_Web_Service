@@ -155,15 +155,19 @@ describe('useAuthSession', () => {
     assert.equal(hook.state.isAdmin, false);
   });
 
-  test('a 401 logs out through /api/auth/logout, clears storage and reloads the page', async () => {
+  test('a 401 logs out through /api/auth/logout, clears only auth tokens and reloads the page', async () => {
     bff.on('get', '/me', bffError(401))
       .on('post', '/auth/logout', { body: { message: 'Logged out successfully' } });
+    global.window.store.set('mairie360.projects.jwt', 'legacy.jwt');
+    global.window.store.set('unrelated.preference', 'keep');
 
     const hook = renderHook(() => authSession.useAuthSession());
     await waitFor(() => global.window.reloads === 1);
 
     assert.deepEqual(bff.requests.map(({ method, template }) => `${method} ${template}`), ['GET /me', 'POST /auth/logout']);
-    assert.equal(global.window.store.size, 0);
+    assert.equal(global.window.store.has('mairie360.auth.jwt'), false);
+    assert.equal(global.window.store.has('mairie360.projects.jwt'), false);
+    assert.equal(global.window.store.get('unrelated.preference'), 'keep');
     assert.equal(hook.state.loading, true);
   });
 
@@ -204,7 +208,9 @@ describe('useAuthSession', () => {
     }
   });
 
-  test('logoutAndReload still clears storage and reloads when the logout call fails', async () => {
+  test('logoutAndReload still clears only auth tokens and reloads when the logout call fails', async () => {
+    global.window.store.set('mairie360.projects.jwt', 'legacy.jwt');
+    global.window.store.set('unrelated.preference', 'keep');
     const harnessFetch = global.fetch;
     global.fetch = async () => { throw new TypeError('Failed to fetch'); };
     try {
@@ -212,7 +218,9 @@ describe('useAuthSession', () => {
     } finally {
       global.fetch = harnessFetch;
     }
-    assert.equal(global.window.store.size, 0);
+    assert.equal(global.window.store.has('mairie360.auth.jwt'), false);
+    assert.equal(global.window.store.has('mairie360.projects.jwt'), false);
+    assert.equal(global.window.store.get('unrelated.preference'), 'keep');
     assert.equal(global.window.reloads, 1);
   });
 });
