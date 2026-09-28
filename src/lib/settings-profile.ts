@@ -1,6 +1,6 @@
 import { parseFrontUrl } from "./front-url";
 
-/** Validate the configured account destination without accepting a legacy-profile loop. */
+/** Reject a configured account destination that would loop back to /profile. */
 export function settingsProfileUrl(value: string | undefined): string | undefined {
   const destination = parseFrontUrl(value);
   if (!destination) return undefined;

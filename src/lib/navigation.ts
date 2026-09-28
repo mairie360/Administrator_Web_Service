@@ -1,32 +1,20 @@
-import { frontUrl } from "@/lib/front-urls";
-const pageRoutes: Partial<Record<string, string>> = {
-  get dashboard() { return frontUrl("DASHBOARD_FRONT_URL"); },
-  get projects() { return frontUrl("PROJECT_FRONT_URL"); },
-  get messages() { return frontUrl("MESSAGE_FRONT_URL"); },
-  get emails() { return frontUrl("EMAIL_FRONT_URL"); },
-  get files() { return frontUrl("FILES_FRONT_URL"); },
-  get training() { return frontUrl("ELEARNING_FRONT_URL"); },
-  get calendar() { return frontUrl("CALENDAR_FRONT_URL"); },
-  get admin() { return frontUrl("ADMINISTRATION_FRONT_URL"); },
-  get profile() { return frontUrl("SETTINGS_FRONT_URL"); },
-  get settings() { return frontUrl("SETTINGS_FRONT_URL"); },
-};
+import { parseFrontUrl } from "./front-url";
+import { frontUrl, type FrontUrlKey } from "./front-urls";
+import { settingsProfileUrl } from "./settings-profile";
 
-export function getPageHref(page: string) {
-  return pageRoutes[page] ?? null;
-}
+const configuredUrl = (key: FrontUrlKey) => parseFrontUrl(frontUrl(key))?.href;
 
-export function navigateToPage(page: string, push: (href: string) => void) {
-  const href = getPageHref(page);
-
-  if (!href) {
-    return;
-  }
-
-  if (href.startsWith("/")) {
-    push(href);
-    return;
-  }
-
-  window.location.assign(href);
+/** Only validated, active frontend destinations reach the shared shell. */
+export function getActiveFrontHrefs() {
+  const settings = settingsProfileUrl(frontUrl("SETTINGS_FRONT_URL"));
+  return {
+    dashboard: configuredUrl("DASHBOARD_FRONT_URL"),
+    projects: configuredUrl("PROJECT_FRONT_URL"),
+    messages: configuredUrl("MESSAGE_FRONT_URL"),
+    training: configuredUrl("ELEARNING_FRONT_URL"),
+    calendar: configuredUrl("CALENDAR_FRONT_URL"),
+    admin: configuredUrl("ADMINISTRATION_FRONT_URL") ?? "/",
+    profile: settings,
+    settings,
+  };
 }

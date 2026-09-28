@@ -2,19 +2,18 @@
 
 ## Navigation des modules actifs
 
-Les menus ordinateur et mobile ne proposent plus les modules archivés E-mails
-et Fichiers, comme dans la version locale. L'ordre des autres modules et la
-visibilité réservée aux administrateurs restent inchangés ; Paramètres reste
-accessible. Les pièces jointes et documents métier des modules actifs ne sont
-pas supprimés. Ce lot ne constitue pas la migration AppShell complète.
+L'`AppShell` partagé gère désormais les menus ordinateur et mobile. Il affiche
+les destinations actives configurées, sans les modules archivés E-mails et
+Fichiers, tout en conservant la visibilité administrateur et Paramètres. Les
+pièces jointes et documents métier des modules actifs ne sont pas supprimés.
 
 ## Un seul espace compte
 
-Le profil est désormais ouvert dans **Paramètres (Settings)**. Les anciens liens
-`/profile` et leurs sous-chemins redirigent vers le front Settings configuré.
-La sidebar conserve Paramètres sans doublon Profil. Si Settings n'est pas configuré
-correctement, une indisponibilité explicite remplace la redirection ; aucune donnée
-personnelle de démonstration ni fausse sauvegarde n'est affichée.
+Le profil s'ouvre dans **Paramètres (Settings)**. Il n'existe plus de page profil
+locale ; le middleware du front redirige les anciens liens `/profile` et leurs
+sous-chemins authentifiés vers Settings. Sans configuration valide, il répond
+avec une indisponibilité sans cache. Aucune identité de démonstration ni fausse
+sauvegarde n'est affichée.
 
 [Documentation technique](technical.md) · [English](../en/module.md) · [README](../../README.md)
 
@@ -28,7 +27,7 @@ Domaine fonctionnel: Identité et administration.
 
 ## Fonctions disponibles
 
-- Interface d’administration fournie par `AdministrationModule` de la bibliothèque partagée.
+- Console d'administration alimentée par le BFF dans l'`AppShell` partagé.
 - Client typé pour utilisateurs, rôles, groupes, membres et sessions.
 - Navigation entre modules, profil et déconnexion basés sur la session.
 
@@ -52,7 +51,10 @@ Core fournit les opérations d’identité et de session. Les dépôts SQL du BF
 
 Les fonctions de supervision, sauvegarde, journaux applicatifs et politique système décrites dans les besoins d’administration ne sont pas garanties par ce contrat. Les accès SQL exigent un schéma compatible, notamment `group_members`; ne pas confondre ce nom avec `group_users` utilisé dans d’autres contrats.
 
-`src/app/page.tsx` monte `AdministrationModule` sans lui passer de callbacks de données spécifiques. Le comportement détaillé du composant dépend donc de la version de `@mairie360/lib-components`. `src/lib/administration-api.ts` fournit un client local typé, mais sa présence ne prouve pas que chaque écran du composant partagé l’utilise.
+`src/app/page.tsx` monte la console locale `AdministrationConsole`, qui utilise
+le client typé `src/lib/administration-api.ts`, dans l'`AppShell` de
+`@mairie360/lib-components`. La bibliothèque fournit navigation et mise en page,
+pas les données métier.
 
 ## Pour développer ou exploiter ce module
 

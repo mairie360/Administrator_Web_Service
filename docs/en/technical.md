@@ -19,25 +19,27 @@ Docker runtime/build versions and their locked install remain unchanged; no new
 runtime environment variable, secret, API/BFF contract or shared-CICD edit is
 part of this slice. These CI checks do not certify a deployed environment.
 
-## Active-module menu — MAIR-180 preparatory slice
+## Shared AppShell — MAIR-180
 
-Only the Sidebar item list excludes `emails` and `files`; existing URL resolution,
-environment configuration, sessions and BFF calls are unchanged. Both desktop and
-mobile render the same active list. Page-level regression coverage renders the
-real Sidebar, checks item order/active item/admin visibility, opens the mobile
-menu and follows Settings while closing the drawer. No library fork or new
-package is introduced; the full MAIR-179/MAIR-180 AppShell dependency remains.
+`src/app/page.tsx` passes the current session, active module and validated
+runtime destinations from `src/lib/navigation.ts` to the shared
+`@mairie360/lib-components` AppShell. Invalid or credential-bearing URLs are
+omitted; a Settings URL pointing back to `/profile` is also rejected. The
+consumer change awaits publication of the updated library package.
+The shell owns desktop/mobile navigation, Header and Footer; local Sidebar
+items and the duplicate shell were removed. E-mails and Files remain archived and
+absent from its default menu. Existing environment variables, session logic and
+BFF calls are unchanged. The package version must match the seven other active
+frontends after MAIR-179 publishes it.
 
 ## Settings account destination — MAIR-180 slice
 
-The server route `/profile/[[...path]]` replaces the local profile screens.
-It temporarily redirects (307) to `SETTINGS_FRONT_URL`, resolved on each request;
-no business profile is fetched by this module. Missing, invalid, credential-bearing
-or legacy `profile` path destinations render an unavailable state with a link
-back to the module. Old bookmark query parameters are not forwarded. Middleware
-authentication is unchanged. No new contract, package, secret or environment
-variable is introduced. This slice does not complete shared AppShell migration
-(MAIR-179).
+No local `/profile` page remains. For authenticated legacy bookmarks, the
+frontend middleware temporarily redirects (307) to `SETTINGS_FRONT_URL`,
+resolved on each request; no profile is fetched by this module. Missing,
+invalid, credential-bearing or looping destinations return an uncached 503
+instead. Old bookmark query parameters are not forwarded. Authentication and
+the BFF contract are unchanged.
 
 ## Explicit frontend destinations (MAIR-177)
 
@@ -63,7 +65,9 @@ flowchart LR
   Next --> BFF["BFF_user"]
 ```
 
-`src/app/page.tsx` mounts `AdministrationModule` without repository-specific data callbacks. Detailed component behavior therefore depends on the version of `@mairie360/lib-components`. `src/lib/administration-api.ts` supplies a typed local client, but its presence does not prove that every shared-component screen uses it.
+`src/app/page.tsx` mounts the BFF-backed local `AdministrationConsole` inside
+the shared AppShell. `src/lib/administration-api.ts` supplies its typed client;
+the library owns navigation and layout, not business data.
 
 The generic proxy reads the versioned OpenAPI contract to allow paths and methods. It preserves query parameters, binary bodies, statuses and useful headers, filters transport headers, disables caching and does not automatically follow redirects. Its timeout is 15 seconds.
 
@@ -175,7 +179,9 @@ These data paths are exposed at the same origin through the proxy; Next.js pages
 | Page | Source |
 | --- | --- |
 | `/` | [src/app/page.tsx](../../src/app/page.tsx) |
-| `/profile/[[...path]]` | [src/app/profile/[[...path]]/page.tsx](../../src/app/profile/%5B%5B...path%5D%5D/page.tsx) |
+
+Legacy `/profile` requests are handled by [src/middleware.ts](../../src/middleware.ts),
+not by a local page.
 
 | Method | Local route | Source |
 | --- | --- | --- |

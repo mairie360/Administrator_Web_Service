@@ -21,25 +21,26 @@ restent inchangées ; aucune nouvelle variable runtime, aucun nouveau secret,
 contrat API/BFF ou changement du CICD partagé. Ces vérifications ne constituent
 pas une recette d’environnement déployé.
 
-## Menu des modules actifs — lot préparatoire MAIR-180
+## AppShell partagé — MAIR-180
 
-Seule la liste transmise à Sidebar exclut `emails` et `files` ; la résolution des
-URL existantes, la configuration, les sessions et les appels BFF sont inchangés.
-Ordinateur et mobile utilisent la même liste active. Le test de page rend le
-vrai Sidebar, vérifie ordre/sélection/visibilité admin, ouvre le menu mobile puis
-suit Paramètres en refermant le panneau. Aucune copie de bibliothèque ni nouvelle
-dépendance ; la migration AppShell MAIR-179/MAIR-180 reste distincte et incomplète.
+`src/app/page.tsx` transmet la session, le module actif et les destinations
+validées à l'exécution par `src/lib/navigation.ts` à l'AppShell de
+`@mairie360/lib-components`. Les URL invalides ou contenant des identifiants
+sont ignorées ; une URL Settings rebouclant sur `/profile` est aussi rejetée.
+Après publication du paquet, il gère la navigation ordinateur/mobile, le Header
+et le Footer ; les anciens items Sidebar et le shell dupliqué sont supprimés.
+E-mails et Fichiers restent archivés, donc absents du menu.
+Variables d'environnement, session et appels BFF restent inchangés. La version
+du paquet doit être identique dans les huit fronts actifs après MAIR-179.
 
 ## Profil centralisé dans Settings — lot MAIR-180
 
-La route serveur `/profile/[[...path]]` remplace les écrans de profil locaux.
-Elle redirige temporairement (307) vers `SETTINGS_FRONT_URL`, lue à chaque
-requête ; aucun profil métier n'est chargé dans ce module. Une destination
-absente, invalide, avec identifiants intégrés ou contenant un segment `profile`
-affiche un état d'indisponibilité avec un lien de retour au module. Les paramètres
-de l'ancien favori ne sont pas transmis. L'authentification middleware reste
-inchangée. Aucun nouveau contrat, paquet, secret ou variable n'est ajouté.
-Ce lot ne termine pas la migration complète vers l'AppShell partagé (MAIR-179).
+Il n'existe plus de page `/profile` locale. Le middleware du front redirige
+temporairement (307) les anciens favoris authentifiés vers `SETTINGS_FRONT_URL`,
+lue à chaque requête ; aucun profil métier n'est chargé ici. Une destination
+absente, invalide, avec identifiants ou bouclant sur `profile` retourne un 503
+sans cache. Les paramètres de l'ancien favori ne sont pas transmis.
+Authentification et contrat BFF restent inchangés.
 
 ## Destinations frontend explicites (MAIR-177)
 
@@ -65,7 +66,9 @@ flowchart LR
   Next --> BFF["BFF_user"]
 ```
 
-`src/app/page.tsx` monte `AdministrationModule` sans lui passer de callbacks de données spécifiques. Le comportement détaillé du composant dépend donc de la version de `@mairie360/lib-components`. `src/lib/administration-api.ts` fournit un client local typé, mais sa présence ne prouve pas que chaque écran du composant partagé l’utilise.
+`src/app/page.tsx` monte `AdministrationConsole`, alimentée par le BFF, dans
+l'AppShell partagé. `src/lib/administration-api.ts` fournit son client typé ;
+la bibliothèque gère la navigation et la mise en page, pas les données métier.
 
 Le proxy générique lit le contrat OpenAPI versionné pour autoriser chemins et méthodes. Il conserve paramètres de requête, corps binaire, statuts et en-têtes utiles, filtre les en-têtes de transport, désactive le cache et n’effectue pas de suivi automatique des redirections. Son délai est de 15 secondes.
 
@@ -177,7 +180,9 @@ Ces chemins de données sont exposés à la même origine par le proxy; les page
 | Page | Source |
 | --- | --- |
 | `/` | [src/app/page.tsx](../../src/app/page.tsx) |
-| `/profile/[[...path]]` | [src/app/profile/[[...path]]/page.tsx](../../src/app/profile/%5B%5B...path%5D%5D/page.tsx) |
+
+Les anciennes demandes `/profile` sont traitées par
+[src/middleware.ts](../../src/middleware.ts), sans page locale.
 
 | Méthode | Route locale | Source |
 | --- | --- | --- |
