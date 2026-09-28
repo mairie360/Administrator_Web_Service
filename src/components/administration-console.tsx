@@ -41,6 +41,7 @@ import {
   type AdministrationUsersPage,
 } from "@/lib/administration-api";
 import { BffRequestError } from "@/lib/bff-client";
+import { administrationErrorMessage } from "@/lib/administration-error";
 
 type TabId = "users" | "roles" | "groups" | "sessions";
 type RoleWriteMode = "create" | "replace" | "update";
@@ -70,18 +71,6 @@ function formatDate(value?: string | null) {
     dateStyle: "short",
     timeStyle: "short",
   }).format(date);
-}
-
-function errorMessage(error: unknown) {
-  if (error instanceof BffRequestError && error.status === 401) {
-    return "Authentification requise. Reconnectez-vous au portail Mairie360.";
-  }
-
-  if (error instanceof BffRequestError && error.status === 403) {
-    return "Votre compte ne possède pas les droits d’administration nécessaires.";
-  }
-
-  return error instanceof Error ? error.message : "Une erreur inattendue est survenue.";
 }
 
 function Field({
@@ -361,7 +350,7 @@ export function AdministrationConsole() {
     );
 
     if (failures.length > 0) {
-      setLoadError([...new Set(failures.map(errorMessage))].join(" "));
+      setLoadError([...new Set(failures.map(administrationErrorMessage))].join(" "));
     }
 
     setLoading(false);
@@ -388,7 +377,7 @@ export function AdministrationConsole() {
         setNotice(successMessage);
         return true;
       } catch (error) {
-        setActionError(errorMessage(error));
+        setActionError(administrationErrorMessage(error));
         return false;
       } finally {
         setBusyAction(null);
@@ -666,7 +655,7 @@ function UsersPanel({
         setPage(response.total_pages);
       }
     } catch (error) {
-      setUsersError(errorMessage(error));
+      setUsersError(administrationErrorMessage(error));
     } finally {
       setUsersLoading(false);
     }
@@ -1537,7 +1526,7 @@ function GroupsPanel({
         description: group?.description ?? "",
       });
     } catch (error) {
-      setGroupDetailError(errorMessage(error));
+      setGroupDetailError(administrationErrorMessage(error));
     } finally {
       setGroupDetailLoading(false);
     }
@@ -1566,7 +1555,7 @@ function GroupsPanel({
         });
         if (!cancelled) setUserOptions(result.users);
       } catch (error) {
-        if (!cancelled) setUserOptionsError(errorMessage(error));
+        if (!cancelled) setUserOptionsError(administrationErrorMessage(error));
       } finally {
         if (!cancelled) setUserOptionsLoading(false);
       }

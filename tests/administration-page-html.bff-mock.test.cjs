@@ -252,7 +252,8 @@ test('a partial failure keeps the data that loaded and lists the failed source',
   const html = await view.waitFor((current) => current.includes('role="alert"') && view.text().includes('2 Utilisateurs'));
 
   assert.match(html, /<p[^>]*>Certaines données n’ont pas pu être chargées<\/p>/);
-  assert.match(view.text(), /Erreur BFF \(503\)/);
+  assert.match(view.text(), /Le service d’administration est momentanément indisponible\. Réessayez plus tard\./);
+  assert.doesNotMatch(view.text(), /Erreur BFF|Core API unavailable|\b503\b/);
   assert.match(view.text(), /0 Rôles 1 Groupes 1 Sessions actives/);
   assert.match(view.text(), /Alice Dupont/);
 });
