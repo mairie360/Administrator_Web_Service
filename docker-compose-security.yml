@@ -180,6 +180,8 @@ services:
     environment:
       HOSTNAME: "0.0.0.0"
       PORT: 5000
+      # The unauthenticated health probe expects a redirect, not a missing-login 503.
+      LOGIN_FRONT_URL: "${LOGIN_FRONT_URL:-http://login-front.invalid/}"
       BFF_ADMIN_BASE_URL: http://bff-user:4000
       USER_BFF_URL: http://bff-user:4000
     expose:
