@@ -11,6 +11,24 @@ permissions:
   id-token: write
 
 jobs:
+  package-metadata:
+    if: github.event_name == 'pull_request' && github.head_ref == 'feat/mair-180-administrator-app-shell'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: https://npm.pkg.github.com
+          scope: '@mairie360'
+      - name: Read exact internal package distribution metadata
+        run: npm view @mairie360/lib-components@0.5.2 dist --json --min-release-age=0
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   CICD:
     uses: mairie360/CICD/.github/workflows/frontend-cicd.yml@v3.1.1
     with:
