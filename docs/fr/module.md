@@ -35,7 +35,8 @@ Domaine fonctionnel: Identité et administration.
 
 Les cartes conservent l'ombre de la référence locale. Les noms longs passent
 à la ligne dans l'espace disponible, y compris le titre du groupe sélectionné,
-sans élargir la page. Les tableaux larges gardent leur propre défilement
+sans élargir la page. Les actions des panneaux et identifiants de groupe ne
+rétrécissent pas et ne se coupent pas au milieu d'un mot. Les tableaux larges gardent leur propre défilement
 horizontal. Seule la présentation du front change : les données, permissions
 et opérations du contrat restent inchangées. La recette adaptative se fait
 dans le navigateur à 390px, 768px et 1280px ; les tests HTML seuls ne prouvent

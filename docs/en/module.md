@@ -35,7 +35,8 @@ Business domain: Identity and administration.
 
 Console cards keep the local reference shadow. Long names wrap within the
 available space, including the selected group's heading, without increasing
-the page width. Wide data tables still scroll inside their own container.
+the page width. Panel actions and group identifiers do not shrink or break
+within a word. Wide data tables still scroll inside their own container.
 This is a frontend presentation change only: data, permissions and contract
 operations are unchanged. Responsive acceptance is checked in a browser at
 390px, 768px and 1280px; HTML tests alone do not prove layout fidelity.
