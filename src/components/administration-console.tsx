@@ -108,7 +108,7 @@ function Panel({
 }) {
   return (
     <section
-      className={`overflow-hidden rounded-xl border border-[#dedbd5] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${className}`}
+      className={`administration-panel min-w-0 overflow-hidden rounded-xl border border-[#dedbd5] bg-white ${className}`}
     >
       <div className="flex flex-col gap-3 border-b border-[#ebe8e3] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -421,7 +421,7 @@ export function AdministrationConsole() {
   ];
 
   return (
-    <section className="space-y-6 text-[#172033]">
+    <section className="administration-console min-w-0 space-y-6 text-[#172033]">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-[32px] font-bold leading-tight text-[#0b1220]">Administration</h1>

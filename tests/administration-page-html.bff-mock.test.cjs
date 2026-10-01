@@ -232,6 +232,28 @@ test('the other tabs render the roles, groups and sessions of the BFF without re
   assert.equal(bff.requests.length, 5, 'switching tabs does not call the BFF again');
 });
 
+test('long group names stay complete in the scoped responsive console and detail panel', async () => {
+  const longName = 'Recette'.repeat(9); // 63 characters: within the existing group contract.
+  await renderLoadedConsole({ groups: [group(1, { name: longName })] });
+  bff.on('get', '/bff/admin/groups/{groupId}', { body: { group: group(1, { name: longName }) } });
+  bff.on('get', '/bff/admin/groups/{groupId}/users', { body: { users: [] } });
+
+  await view.click((props, text, tag) => tag === 'button' && props.role === 'tab' && text.includes('Groupes'));
+  await view.click((props, text, tag) => tag === 'button' && text.includes(longName));
+  await view.waitFor(() => view.html.includes('id="edit-group-name"'));
+
+  assert.match(view.html, /<section class="administration-console min-w-0 /);
+  assert.match(view.html, /<section class="administration-panel min-w-0 /);
+  assert.match(view.html, new RegExp(`<h2[^>]*>${longName}</h2>`));
+  assert.match(view.html, new RegExp(`id="edit-group-name"[^>]*value="${longName}"`));
+  assert.ok(view.text().includes('Enregistrer le groupe'));
+  assert.deepEqual(sequence(), [
+    'GET /bff/admin/groups', 'GET /bff/admin/groups/{groupId}',
+    'GET /bff/admin/groups/{groupId}/users', 'GET /bff/admin/roles',
+    'GET /bff/admin/sessions', 'GET /bff/admin/sessions/history', 'GET /bff/admin/users',
+  ]);
+});
+
 test('a 401 from the BFF is rendered as the administrator-session alert', async () => {
   for (const template of ['/bff/admin/roles', '/bff/admin/groups', '/bff/admin/sessions', '/bff/admin/sessions/history', '/bff/admin/users']) {
     bff.on('get', template, bffError(401, 'Invalid or missing session token'));

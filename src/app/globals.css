@@ -26,3 +26,17 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Shrink the console's grid items without hiding wide tables or long labels. */
+.administration-console .grid > *,
+.administration-console .overflow-x-auto {
+  min-width: 0;
+}
+
+.administration-console :where(h1, h2, h3, p, span, button) {
+  overflow-wrap: anywhere;
+}
+
+.administration-console .administration-panel {
+  box-shadow: 0 5px 15px rgb(23 32 51 / 14%), 0 1px 3px rgb(23 32 51 / 12%);
+}

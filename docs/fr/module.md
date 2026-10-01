@@ -31,6 +31,16 @@ Domaine fonctionnel: Identité et administration.
 - Client typé pour utilisateurs, rôles, groupes, membres et sessions.
 - Navigation entre modules, profil et déconnexion basés sur la session.
 
+### Panneaux adaptatifs de la console (MAIR-372)
+
+Les cartes conservent l'ombre de la référence locale. Les noms longs passent
+à la ligne dans l'espace disponible, y compris le titre du groupe sélectionné,
+sans élargir la page. Les tableaux larges gardent leur propre défilement
+horizontal. Seule la présentation du front change : les données, permissions
+et opérations du contrat restent inchangées. La recette adaptative se fait
+dans le navigateur à 390px, 768px et 1280px ; les tests HTML seuls ne prouvent
+pas la fidélité du rendu.
+
 ## Parcours type
 
 1. Ouvrir l’interface avec une session disposant des habilitations nécessaires.
