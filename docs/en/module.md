@@ -31,6 +31,15 @@ Business domain: Identity and administration.
 - Typed client for users, roles, groups, membership and sessions.
 - Session-based module navigation, profile access and logout.
 
+### Responsive console panels (MAIR-372)
+
+Console cards keep the local reference shadow. Long names wrap within the
+available space, including the selected group's heading, without increasing
+the page width. Wide data tables still scroll inside their own container.
+This is a frontend presentation change only: data, permissions and contract
+operations are unchanged. Responsive acceptance is checked in a browser at
+390px, 768px and 1280px; HTML tests alone do not prove layout fidelity.
+
 ## Typical workflow
 
 1. Open the interface with a session holding the required permissions.
