@@ -244,6 +244,8 @@ test('long group names stay complete in the scoped responsive console and detail
 
   assert.match(view.html, /<section class="administration-console min-w-0 /);
   assert.match(view.html, /<section class="administration-panel min-w-0 /);
+  assert.match(view.html, /<button[^>]*class="inline-flex h-10 shrink-0 /);
+  assert.match(view.html, /<span class="shrink-0 font-mono text-xs [^"]*">#1<\/span>/);
   assert.match(view.html, new RegExp(`<h2[^>]*>${longName}</h2>`));
   assert.match(view.html, new RegExp(`id="edit-group-name"[^>]*value="${longName}"`));
   assert.ok(view.text().includes('Enregistrer le groupe'));

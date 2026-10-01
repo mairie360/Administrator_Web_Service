@@ -111,7 +111,7 @@ function Panel({
       className={`administration-panel min-w-0 overflow-hidden rounded-xl border border-[#dedbd5] bg-white ${className}`}
     >
       <div className="flex flex-col gap-3 border-b border-[#ebe8e3] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-lg font-bold text-[#172033]">{title}</h2>
           {description && (
             <p className="mt-1 text-sm leading-5 text-[#667085]">{description}</p>
@@ -146,7 +146,7 @@ function ActionButton({
   return (
     <button
       type="button"
-      className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-3.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#3c7773]/25 disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
+      className={`inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border px-3.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#3c7773]/25 disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
       disabled={disabled || busy}
       {...props}
     >
@@ -1685,7 +1685,7 @@ function GroupsPanel({
                 >
                   <span className="flex items-center justify-between gap-3">
                     <span className="font-bold text-[#344054]">{group.name}</span>
-                    <span className="font-mono text-xs text-[#98a2b3]">#{group.id}</span>
+                    <span className="shrink-0 font-mono text-xs text-[#98a2b3]">#{group.id}</span>
                   </span>
                   <span className="mt-1.5 line-clamp-2 block text-sm leading-5 text-[#667085]">
                     {group.description || "Aucune description"}
