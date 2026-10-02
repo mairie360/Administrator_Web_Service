@@ -47,6 +47,11 @@ This is a frontend presentation change only: data, permissions and contract
 operations are unchanged. Responsive acceptance is checked in a browser at
 390px, 768px and 1280px; HTML tests alone do not prove layout fidelity.
 
+The users table's visually hidden action-column label is positioned relative to
+its header cell, so its accessible text cannot escape the table's scroll area
+and widen the document on mobile. The full table and accessible label remain;
+the page does not hide horizontal overflow to mask the problem.
+
 ## Typical workflow
 
 1. Open the interface with a session holding the required permissions.

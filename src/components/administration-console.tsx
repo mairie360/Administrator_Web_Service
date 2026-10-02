@@ -923,7 +923,7 @@ function UsersPanel({
                     <th className="px-4 py-3">Contact</th>
                     <th className="px-4 py-3">Rôle</th>
                     <th className="px-4 py-3">Statut</th>
-                    <th className="w-12 px-4 py-3">
+                    <th className="relative w-12 px-4 py-3">
                       <span className="sr-only">Modifier</span>
                     </th>
                   </tr>
