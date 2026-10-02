@@ -232,6 +232,22 @@ test('the other tabs render the roles, groups and sessions of the BFF without re
   assert.equal(bff.requests.length, 5, 'switching tabs does not call the BFF again');
 });
 
+test('session history distinguishes expiration, revocation and unknown expiry without additional requests', async () => {
+  await renderLoadedConsole({ history: [
+    session('expired', { expires_at: '2020-01-01T00:00:00Z' }),
+    session('revoked', { expires_at: '2020-01-01T00:00:00Z', revoked_at: '2020-01-01T00:00:00Z' }),
+    session('active', { expires_at: '2100-01-01T00:00:00Z' }),
+    session('unknown', { expires_at: 'invalid' }),
+  ] });
+  await view.click((props, text, tag) => tag === 'button' && props.role === 'tab' && text.includes('Sessions'));
+  await view.click((props, text, tag) => tag === 'button' && text.includes('Historique'));
+  const rows = view.html.match(/<tr[^>]*>[\s\S]*?<\/tr>/g);
+  for (const [id, label] of [['expired', 'Expirée'], ['revoked', 'Révoquée'], ['active', 'Active'], ['unknown', 'État indéterminé']]) {
+    assert.ok(rows.some(row => row.includes(`Firefox ${id}`) && row.includes(label)));
+  }
+  assert.equal(bff.requests.length, 5);
+});
+
 test('long group names stay complete in the scoped responsive console and detail panel', async () => {
   const longName = 'Recette'.repeat(9); // 63 characters: within the existing group contract.
   await renderLoadedConsole({ groups: [group(1, { name: longName })] });

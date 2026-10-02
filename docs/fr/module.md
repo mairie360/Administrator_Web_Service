@@ -29,6 +29,13 @@ Domaine fonctionnel: Identité et administration.
 
 - Console d'administration alimentée par le BFF dans l'`AppShell` partagé.
 - Client typé pour utilisateurs, rôles, groupes, membres et sessions.
+- Les lignes de sessions distinguent Active, Expirée et Révoquée selon les champs
+  publiés ; une expiration inexploitable donne un état indéterminé. Un seul timer
+  local actualise les libellés à l’expiration, sans requête ni changement de compteur.
+- Les confirmations locales placent le focus sur Annuler, confinent la navigation
+  clavier et rendent le focus au déclencheur encore présent lors de l’annulation.
+  Une action en attente garde son verrou contre double soumission et annulation ;
+  aucune permission serveur n’est modifiée.
 - Navigation entre modules, profil et déconnexion basés sur la session.
 
 ### Panneaux adaptatifs de la console (MAIR-372)

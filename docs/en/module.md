@@ -29,6 +29,12 @@ Business domain: Identity and administration.
 
 - BFF-backed administration console rendered inside the shared `AppShell`.
 - Typed client for users, roles, groups, membership and sessions.
+- Session rows distinguish active, expired and revoked states using the published
+  expiry/revocation fields; an unusable expiry is explicitly unknown. One local
+  timer updates labels at expiry without fetching extra data or altering counts.
+- Local confirmations focus Cancel, contain keyboard navigation, and restore the
+  connected trigger on cancellation. Pending actions retain their existing lock
+  against duplicate submission and cancellation; no server permission changes.
 - Session-based module navigation, profile access and logout.
 
 ### Responsive console panels (MAIR-372)
