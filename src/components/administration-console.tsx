@@ -681,6 +681,7 @@ function UsersPanel({
   const [search, setSearch] = useState("");
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState<string | null>(null);
+  const usersReadRevision = useRef(0);
   const [editorMode, setEditorMode] = useState<"create" | "edit" | null>(null);
   const [selectedUser, setSelectedUser] = useState<AdministrationUser | null>(null);
   const [userToDelete, setUserToDelete] = useState<AdministrationUser | null>(null);
@@ -708,11 +709,14 @@ function UsersPanel({
   });
 
   const loadUsers = useCallback(async () => {
+    const revision = ++usersReadRevision.current;
+    const isCurrent = () => usersReadRevision.current === revision;
     setUsersLoading(true);
     setUsersError(null);
 
     try {
       const response = await administrationApi.listUsers({ page, search });
+      if (!isCurrent()) return;
       setUsersPage(response);
       onTotalChange(response.total);
 
@@ -720,14 +724,15 @@ function UsersPanel({
         setPage(response.total_pages);
       }
     } catch (error) {
-      setUsersError(administrationErrorMessage(error));
+      if (isCurrent()) setUsersError(administrationErrorMessage(error));
     } finally {
-      setUsersLoading(false);
+      if (isCurrent()) setUsersLoading(false);
     }
   }, [onTotalChange, page, search]);
 
   useEffect(() => {
     void loadUsers();
+    return () => { usersReadRevision.current += 1; };
   }, [loadUsers]);
 
   const selectUser = (user: AdministrationUser) => {
@@ -761,8 +766,15 @@ function UsersPanel({
       return;
     }
 
+    // Invalidate at submission, before the effect starts the replacement read.
+    usersReadRevision.current += 1;
     setSearch(nextSearch);
     setPage(1);
+  };
+
+  const changePage = (direction: number) => {
+    usersReadRevision.current += 1;
+    setPage((current) => Math.max(1, current + direction));
   };
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
@@ -1047,7 +1059,7 @@ function UsersPanel({
                 variant="secondary"
                 className="h-9 px-2.5"
                 disabled={page <= 1 || usersLoading}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                onClick={() => changePage(-1)}
                 aria-label="Page précédente"
               >
                 <ChevronLeft className="h-4 w-4" aria-hidden="true" />
@@ -1063,7 +1075,7 @@ function UsersPanel({
                   usersPage.total_pages === 0 ||
                   page >= usersPage.total_pages
                 }
-                onClick={() => setPage((current) => current + 1)}
+                onClick={() => changePage(1)}
                 aria-label="Page suivante"
               >
                 <ChevronRight className="h-4 w-4" aria-hidden="true" />

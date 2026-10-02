@@ -1,5 +1,17 @@
 # Administrator_Web_Service — Documentation technique
 
+## Résultats de la dernière recherche utilisateurs — MAIR-448
+
+Un compteur de lecture React protège la liste utilisateurs. Seule la dernière
+recherche soumise, navigation paginée ou reprise des mêmes critères peut changer
+les lignes, total, page, erreur et chargement. Une ancienne réussite ou un refus
+tardif est ignoré ; quitter le panneau invalide ses lectures. Une reprise fraîche
+reste autorisée. Les appels BFF, contrats, droits et verrous d’écriture ne changent
+pas. Six tests du vrai composant/HTTP couvrent ces ordres de réponse, pagination,
+reprise et fermeture/réouverture. Les fixtures de refus sont explicitement hors
+schéma d’erreur publié, comme dans les autres tests BFF User. Les recettes locales
+sur copies jetables ne prouvent pas la persistance ni l’autorisation déployées.
+
 ## Pied de page partagé — MAIR-180
 
 L’audit CI inchangé a détecté la dépendance d’outillage transitive

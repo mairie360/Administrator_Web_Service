@@ -81,6 +81,17 @@ it does not silently enable deletion. These frontend protections do not certify
 credential operations, permanent deletion, deployed authorization or atomicity
 across an explicitly requested multi-operation role replacement.
 
+### Latest user-list read (MAIR-448)
+
+The most recently submitted user search, page navigation or repeated search
+refresh owns rows, total, pagination, errors and loading. Earlier responses are
+ignored, including failures; leaving the panel invalidates pending reads.
+A fresh retry still uses the existing BFF operation. This is a React-state
+guarantee only: network clients, contracts, permissions and write locks are
+unchanged. Deferred HTTP tests cover success/failure ordering, pagination,
+retries and reopening the panel; copied-state browser recipes do not certify
+deployed authorization or persistence.
+
 ## Typical workflow
 
 1. Open the interface with a session holding the required permissions.
