@@ -3,6 +3,8 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
+  useRef,
   useState,
   type ButtonHTMLAttributes,
   type FormEvent,
@@ -42,6 +44,8 @@ import {
 } from "@/lib/administration-api";
 import { BffRequestError } from "@/lib/bff-client";
 import { administrationErrorMessage } from "@/lib/administration-error";
+import { administrationSessionState, nextSessionExpiryDelay } from "@/lib/administration-session-state";
+import { mountConfirmationNavigation } from "@/lib/confirmation-navigation";
 
 type TabId = "users" | "roles" | "groups" | "sessions";
 type RoleWriteMode = "create" | "replace" | "update";
@@ -183,22 +187,22 @@ function ConfirmModal({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  useEffect(() => {
-    if (!open) return;
-
-    const previousOverflow = document.body.style.overflow;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) onCancel();
-    };
-
-    document.body.style.overflow = "hidden";
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [busy, onCancel, open]);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const callbacks = useRef({ busy, onCancel });
+  useLayoutEffect(() => { callbacks.current = { busy, onCancel }; }, [busy, onCancel]);
+  useLayoutEffect(() => {
+    if (!open || !dialogRef.current) return;
+    return mountConfirmationNavigation(dialogRef.current, {
+      cancel: () => callbacks.current.onCancel(),
+      isBusy: () => callbacks.current.busy,
+    });
+  }, [open]);
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current;
+    if (!open || !dialog) return;
+    if (busy) dialog.focus({ preventScroll: true });
+    else if (document.activeElement === dialog) dialog.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus({ preventScroll: true });
+  }, [busy, open]);
 
   if (!open) return null;
 
@@ -210,10 +214,13 @@ function ConfirmModal({
         type="button"
         className="absolute inset-0 bg-[#101828]/55 backdrop-blur-[2px]"
         aria-label="Fermer la confirmation"
+        tabIndex={-1}
         disabled={busy}
         onClick={onCancel}
       />
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirmation-dialog-title"
@@ -241,7 +248,6 @@ function ConfirmModal({
             variant="secondary"
             className="sm:min-w-28"
             disabled={busy}
-            autoFocus
             onClick={onCancel}
           >
             Annuler
@@ -262,6 +268,26 @@ function ConfirmModal({
 }
 
 function SessionTable({ sessions }: { sessions: AdministrationSession[] }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      clearTimeout(timer);
+      const delay = nextSessionExpiryDelay(sessions, Date.now());
+      if (delay !== null) timer = setTimeout(onReturn, delay);
+    };
+    const onReturn = () => { setNow(Date.now()); schedule(); };
+    const onVisibility = () => { if (document.visibilityState === "visible") onReturn(); };
+    timer = setTimeout(onReturn, 0);
+    window.addEventListener("focus", onReturn);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("focus", onReturn);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [sessions]);
   if (sessions.length === 0) {
     return <EmptyState>Aucune session à afficher.</EmptyState>;
   }
@@ -279,7 +305,11 @@ function SessionTable({ sessions }: { sessions: AdministrationSession[] }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-[#ebe8e3]">
-          {sessions.map((session) => (
+          {sessions.map((session) => {
+            const state = administrationSessionState(session, now);
+            const labels = { active: "Active", expired: "Expirée", revoked: "Révoquée", unknown: "État indéterminé" };
+            const colors = { active: "bg-[#ecfdf3] text-[#027a48]", expired: "bg-[#fffaeb] text-[#b54708]", revoked: "bg-[#fef3f2] text-[#b42318]", unknown: "bg-[#f2f4f7] text-[#475467]" };
+            return (
             <tr key={session.id} className="bg-white">
               <td className="px-4 py-3.5">
                 <div className="font-semibold text-[#344054]">{session.device_info}</div>
@@ -292,17 +322,14 @@ function SessionTable({ sessions }: { sessions: AdministrationSession[] }) {
               <td className="px-4 py-3.5 text-[#475467]">{formatDate(session.expires_at)}</td>
               <td className="px-4 py-3.5">
                 <span
-                  className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                    session.revoked_at
-                      ? "bg-[#fef3f2] text-[#b42318]"
-                      : "bg-[#ecfdf3] text-[#027a48]"
-                  }`}
+                  className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${colors[state]}`}
                 >
-                  {session.revoked_at ? "Révoquée" : "Active"}
+                  {labels[state]}
                 </span>
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
