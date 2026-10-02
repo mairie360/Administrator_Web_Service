@@ -40,6 +40,13 @@ Domaine fonctionnel: Identité et administration.
 
 ### Panneaux adaptatifs de la console (MAIR-372)
 
+L’échelle par défaut est de 17px à la racine et le corps utilise la police sans
+empattement du système, comme la référence locale conservée (MAIR-180). Le
+sélecteur du corps conserve cette police même si la feuille partagée est chargée
+après dans un build de production. Les tokens de petits textes restent standards ;
+le header partagé atteint 68px par son dimensionnement en rem existant, sans
+hauteur fixe ni nouveau réglage d’apparence.
+
 Les cartes conservent l'ombre de la référence locale. Les noms longs passent
 à la ligne dans l'espace disponible, y compris le titre du groupe sélectionné,
 sans élargir la page. Les actions des panneaux et identifiants de groupe ne
