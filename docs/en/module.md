@@ -39,6 +39,12 @@ Business domain: Identity and administration.
 
 ### Responsive console panels (MAIR-372)
 
+The default root scale is 17px and the body uses the system sans-serif font,
+matching the preserved local reference (MAIR-180). The body selector keeps that
+font even if the shared stylesheet loads later in a production build. Standard
+small-text tokens stay unchanged; the shared header reaches 68px through its
+existing rem sizing, without a fixed-height override or a new appearance setting.
+
 Console cards keep the local reference shadow. Long names wrap within the
 available space, including the selected group's heading, without increasing
 the page width. Panel actions and group identifiers do not shrink or break
