@@ -94,7 +94,7 @@ class ContractMockServer {
       return send(res, 500, JSON.stringify({ message: 'Appel non mocké' }));
     }
 
-    const reply = handler(request);
+    const reply = await handler(request);
     if (reply.dropConnection) return void req.socket.destroy();
     const status = reply.status ?? 200;
     if (!reply.outOfContract) {

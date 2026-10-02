@@ -318,3 +318,127 @@ test('the refresh button reloads the four administration sources', async () => {
   assert.deepEqual(sequence().filter((line) => line.endsWith('/roles')), ['GET /bff/admin/roles', 'GET /bff/admin/roles']);
   assert.equal(bff.calls('/bff/admin/users').length, 1, 'the users list has its own loader');
 });
+
+const deferred = () => {
+  let resolve;
+  const promise = new Promise(done => { resolve = done; });
+  return { promise, resolve };
+};
+const changeField = (id, value) => view.fire(props => props.id === id, 'onChange', { target: { value } });
+const groupForm = () => view.hostElements((props, _text, tag) => tag === 'form' && props.className?.includes('sm:items-end'))[0];
+const editGroupForm = () => view.hostElements((props, _text, tag) => tag === 'form' && props.className === 'space-y-4')[0];
+const openGroups = () => view.click((props, text) => props.role === 'tab' && text === 'Groupes');
+
+test('group creation is synchronous-single-flight and locks fields, selection and tabs until refresh finishes', async () => {
+  await renderLoadedConsole();
+  await openGroups();
+  await changeField('group-name', 'Équipe');
+  await changeField('group-description', 'Description');
+  const write = deferred();
+  const reload = deferred();
+  bff.on('post', '/bff/admin/groups', () => write.promise);
+  bff.on('get', '/bff/admin/groups', () => reload.promise);
+  const submitted = groupForm().props.onSubmit;
+  const first = view.act(() => submitted({ preventDefault() {} }));
+  const repeated = view.act(() => submitted({ preventDefault() {} }));
+  await repeated;
+  await view.waitFor(() => bff.calls('/bff/admin/groups', 'POST').length === 1);
+  assert.match(view.html, /<fieldset disabled="" aria-busy="true"/);
+  assert.ok(view.hostElements(props => props.role === 'tab').every(({ props }) => props.disabled));
+  assert.equal(view.hostElements('Créer').find(({ type }) => type === 'button').props.disabled, true);
+  assert.equal(await view.props('GroupsPanel').runAction('other', 'Ignored', () => assert.fail('concurrent action ran')), false);
+  write.resolve({ status: 201, body: { group: group(2, { name: 'Équipe', description: 'Description' }) } });
+  await view.waitFor(() => bff.calls('/bff/admin/groups', 'GET').length === 2);
+  assert.match(view.html, /<fieldset disabled="" aria-busy="true"/);
+  reload.resolve({ body: { groups: [group(1), group(2, { name: 'Équipe', description: 'Description' })] } });
+  await first;
+  assert.match(view.html, /id="group-name"[^>]*value=""/);
+  assert.match(view.html, /<fieldset aria-busy="false"/);
+  assert.match(view.text(), /Groupe créé/);
+  assert.equal(bff.calls('/bff/admin/groups', 'POST').length, 1);
+});
+
+test('refused group creation retains both fields and enables an explicit successful retry', async () => {
+  await renderLoadedConsole();
+  await openGroups();
+  await changeField('group-name', 'Équipe conservée');
+  await changeField('group-description', 'Brouillon conservé');
+  bff.on('post', '/bff/admin/groups', bffError(503));
+  await view.act(() => groupForm().props.onSubmit({ preventDefault() {} }));
+  assert.match(view.html, /id="group-name"[^>]*value="Équipe conservée"/);
+  assert.match(view.html, /id="group-description"[^>]*value="Brouillon conservé"/);
+  assert.match(view.text(), /momentanément indisponible/);
+  assert.match(view.html, /<fieldset aria-busy="false"/);
+  assert.doesNotMatch(view.text(), /Groupe créé/);
+  bff.on('post', '/bff/admin/groups', { status: 201, body: { group: group(2) } });
+  await view.act(() => groupForm().props.onSubmit({ preventDefault() {} }));
+  assert.match(view.html, /id="group-name"[^>]*value=""/);
+  assert.equal(bff.calls('/bff/admin/groups', 'POST').length, 2);
+});
+
+test('confirmed creation with refused reload clears the submitted form and retries only GET', async () => {
+  await renderLoadedConsole();
+  await openGroups();
+  await changeField('group-name', 'Équipe créée');
+  await changeField('group-description', 'Confirmée');
+  bff.on('post', '/bff/admin/groups', { status: 201, body: { group: group(2) } });
+  bff.on('get', '/bff/admin/groups', bffError(503));
+  await view.act(() => groupForm().props.onSubmit({ preventDefault() {} }));
+  assert.match(view.html, /id="group-name"[^>]*value=""/);
+  assert.match(view.text(), /Groupe créé/);
+  assert.match(view.text(), /L’action est enregistrée/);
+  assert.match(view.text(), /Ne répétez pas l’action/);
+  await view.click('Réessayer l’actualisation');
+  await view.waitFor(() => bff.calls('/bff/admin/groups', 'GET').length === 3 && view.props('GroupsPanel').busyAction === null);
+  assert.match(view.text(), /Réessayer l’actualisation/, 'another refused read stays retryable');
+  bff.on('get', '/bff/admin/groups', { body: { groups: [group(2)] } });
+  await view.click('Réessayer l’actualisation');
+  await view.waitFor(() => !view.text().includes('Ne répétez pas l’action'));
+  assert.doesNotMatch(view.text(), /Ne répétez pas l’action/);
+  assert.equal(bff.calls('/bff/admin/groups', 'POST').length, 1);
+  assert.equal(bff.calls('/bff/admin/groups', 'GET').length, 4);
+});
+
+test('group edit keeps a refused draft and applies the confirmed DTO even if its list refresh fails', async () => {
+  await renderLoadedConsole();
+  await openGroups();
+  bff.on('get', '/bff/admin/groups/{groupId}', { body: { group: group(1) } });
+  bff.on('get', '/bff/admin/groups/{groupId}/users', { body: { users: [] } });
+  await view.click((props, text) => props.type === 'button' && text.includes('Ouvrir le groupe'));
+  await view.waitFor(() => view.html.includes('id="edit-group-name"'));
+  await changeField('edit-group-name', ' Groupe modifié ');
+  await changeField('edit-group-description', ' Description modifiée ');
+  bff.on('patch', '/bff/admin/groups/{groupId}', bffError(503));
+  await view.act(() => editGroupForm().props.onSubmit({ preventDefault() {} }));
+  assert.match(view.html, /id="edit-group-name"[^>]*value=" Groupe modifié "/);
+  assert.match(view.html, /<textarea[^>]*id="edit-group-description"[^>]*> Description modifiée <\/textarea>/);
+  const write = deferred();
+  bff.on('patch', '/bff/admin/groups/{groupId}', () => write.promise);
+  bff.on('get', '/bff/admin/groups', bffError(503));
+  const pending = view.act(() => editGroupForm().props.onSubmit({ preventDefault() {} }));
+  await view.waitFor(() => bff.calls('/bff/admin/groups/{groupId}', 'PATCH').length === 2);
+  assert.match(view.html, /<fieldset disabled="" aria-busy="true"/);
+  write.resolve({ body: { group: group(1, { name: 'Groupe modifié', description: 'Description modifiée' }) } });
+  await pending;
+  assert.match(view.html, /id="edit-group-name"[^>]*value="Groupe modifié"/);
+  assert.match(view.text(), /Groupe mis à jour/);
+  assert.match(view.text(), /L’action est enregistrée/);
+  assert.equal(bff.calls('/bff/admin/groups/{groupId}', 'PATCH').length, 2);
+});
+
+test('out-of-order group detail responses cannot replace the last selected group', async () => {
+  await renderLoadedConsole({ groups: [group(1), group(2)] });
+  await openGroups();
+  const older = deferred();
+  bff.on('get', '/bff/admin/groups/{groupId}', request => request.pathParams.groupId === '1'
+    ? older.promise : { body: { group: group(2) } });
+  bff.on('get', '/bff/admin/groups/{groupId}/users', { body: { users: [] } });
+  await view.click((props, text) => props.type === 'button' && text.includes('Groupe 1'));
+  await view.waitFor(() => bff.calls('/bff/admin/groups/{groupId}', 'GET').length === 1);
+  await view.click((props, text) => props.type === 'button' && text.includes('Groupe 2'));
+  await view.waitFor(() => view.html.includes('value="Groupe 2"'));
+  older.resolve({ body: { group: group(1) } });
+  await new Promise(resolve => setImmediate(resolve));
+  await view.settle();
+  assert.match(view.html, /id="edit-group-name"[^>]*value="Groupe 2"/);
+});

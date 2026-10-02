@@ -345,6 +345,11 @@ export function AdministrationConsole() {
   const [sessionHistory, setSessionHistory] = useState<AdministrationSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const actionPending = useRef(false);
+  const [refreshFailure, setRefreshFailure] = useState<{
+    message: string;
+    retry: () => Promise<unknown>;
+  } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -394,19 +399,33 @@ export function AdministrationConsole() {
       action: () => Promise<unknown>,
       refresh?: () => Promise<unknown>,
     ) => {
+      // State alone cannot protect two submissions before React renders again.
+      if (actionPending.current) return false;
+      actionPending.current = true;
       setBusyAction(key);
       setActionError(null);
       setNotice(null);
+      if (key !== "retry-refresh") setRefreshFailure(null);
 
       try {
         await action();
-        if (refresh) await refresh();
         setNotice(successMessage);
+        if (refresh) {
+          try {
+            await refresh();
+          } catch (error) {
+            // The mutation is already confirmed. Never invite a second write
+            // just because the subsequent read failed.
+            setRefreshFailure({ message: administrationErrorMessage(error), retry: refresh });
+          }
+        }
+        if (key === "retry-refresh") setRefreshFailure(null);
         return true;
       } catch (error) {
         setActionError(administrationErrorMessage(error));
         return false;
       } finally {
+        actionPending.current = false;
         setBusyAction(null);
       }
     },
@@ -459,6 +478,7 @@ export function AdministrationConsole() {
         <ActionButton
           variant="secondary"
           busy={loading}
+          disabled={busyAction !== null}
           onClick={() => void loadAll()}
           className="shrink-0"
         >
@@ -525,6 +545,22 @@ export function AdministrationConsole() {
         </div>
       )}
 
+      {refreshFailure && (
+        <div role="alert" className="rounded-xl border border-[#fedf89] bg-[#fffaeb] px-4 py-3 text-sm text-[#93370d]">
+          <p className="font-bold">L’action est enregistrée, mais les données n’ont pas pu être actualisées.</p>
+          <p className="mt-1">{refreshFailure.message} Ne répétez pas l’action.</p>
+          <ActionButton
+            className="mt-3"
+            variant="secondary"
+            busy={busyAction === "retry-refresh"}
+            disabled={busyAction !== null}
+            onClick={() => void runAction("retry-refresh", "Données actualisées.", refreshFailure.retry)}
+          >
+            Réessayer l’actualisation
+          </ActionButton>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => {
           const Icon = metric.icon;
@@ -532,6 +568,7 @@ export function AdministrationConsole() {
             <button
               type="button"
               key={metric.tab}
+              disabled={busyAction !== null}
               onClick={() => setActiveTab(metric.tab)}
               className={`flex items-center gap-4 rounded-xl border bg-white p-5 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition hover:-translate-y-0.5 hover:shadow-md ${
                 activeTab === metric.tab ? "border-[#699c98] ring-2 ring-[#3c7773]/10" : "border-[#dedbd5]"
@@ -559,6 +596,7 @@ export function AdministrationConsole() {
                 key={tab.id}
                 role="tab"
                 aria-selected={activeTab === tab.id}
+                disabled={busyAction !== null}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition ${
                   activeTab === tab.id
@@ -1536,8 +1574,12 @@ function GroupsPanel({
   const [userOptionsLoading, setUserOptionsLoading] = useState(false);
   const [userOptionsError, setUserOptionsError] = useState<string | null>(null);
   const [deletionTarget, setDeletionTarget] = useState<GroupDeletionTarget | null>(null);
+  const groupDetailRevision = useRef(0);
+
+  useEffect(() => () => { groupDetailRevision.current += 1; }, []);
 
   const loadGroup = useCallback(async (groupId: number) => {
+    const revision = ++groupDetailRevision.current;
     setGroupDetailLoading(true);
     setGroupDetailError(null);
 
@@ -1546,6 +1588,7 @@ function GroupsPanel({
         administrationApi.getGroup(groupId),
         administrationApi.listGroupUsers(groupId),
       ]);
+      if (revision !== groupDetailRevision.current) return;
       setSelectedGroup(group);
       setGroupUsers(users);
       setEditForm({
@@ -1553,9 +1596,9 @@ function GroupsPanel({
         description: group?.description ?? "",
       });
     } catch (error) {
-      setGroupDetailError(administrationErrorMessage(error));
+      if (revision === groupDetailRevision.current) setGroupDetailError(administrationErrorMessage(error));
     } finally {
-      setGroupDetailLoading(false);
+      if (revision === groupDetailRevision.current) setGroupDetailLoading(false);
     }
   }, []);
 
@@ -1628,6 +1671,8 @@ function GroupsPanel({
 
     if (success && updatedGroup) {
       setSelectedGroup(updatedGroup);
+      const confirmedGroup = updatedGroup as AdministrationGroup;
+      setEditForm({ name: confirmedGroup.name, description: confirmedGroup.description ?? "" });
     }
   };
 
@@ -1666,9 +1711,9 @@ function GroupsPanel({
       "Groupe supprimé.",
       () => administrationApi.deleteGroup(group.id),
       async () => {
-        await refreshGroups();
         setSelectedGroup(null);
         setGroupUsers([]);
+        await refreshGroups();
       },
     ).then((success) => {
       if (success) setDeletionTarget(null);
@@ -1676,7 +1721,7 @@ function GroupsPanel({
   };
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]">
+    <fieldset disabled={busyAction !== null} aria-busy={busyAction !== null} className="min-w-0 grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]">
       <div className="space-y-5">
         <Panel
           title="Groupes"
@@ -2000,7 +2045,7 @@ function GroupsPanel({
         onCancel={() => setDeletionTarget(null)}
         onConfirm={confirmDeletion}
       />
-    </div>
+    </fieldset>
   );
 }
 

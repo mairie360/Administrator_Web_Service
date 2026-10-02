@@ -62,6 +62,18 @@ défilement du tableau et n'élargisse pas le document sur mobile. Le tableau et
 le libellé accessible restent complets ; la page ne masque pas le débordement
 horizontal pour dissimuler le problème.
 
+### Confirmation de l’enregistrement des groupes (MAIR-440)
+
+La console refuse les actions simultanées synchroniquement. Les champs groupes,
+la sélection, les onglets de console et l’actualisation sont verrouillés jusqu’à
+la fin de l’écriture et de sa relecture. Un refus conserve le brouillon pour une
+tentative explicite. Une création confirmée vide son formulaire ; une modification
+confirmée reprend le groupe retourné. Un échec de relecture est signalé séparément
+de l’écriture réussie, avec une reprise en lecture seule : ne pas répéter une
+écriture confirmée. Les réponses de fiche obsolètes ne remplacent pas la dernière
+sélection. Ces garanties frontend ne prouvent ni les droits déployés, ni une
+modification de credentials, ni une suppression permanente.
+
 ## Parcours type
 
 1. Ouvrir l’interface avec une session disposant des habilitations nécessaires.
