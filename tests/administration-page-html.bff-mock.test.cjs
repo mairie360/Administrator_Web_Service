@@ -331,6 +331,120 @@ const groupForm = () => view.hostElements((props, _text, tag) => tag === 'form' 
 const editGroupForm = () => view.hostElements((props, _text, tag) => tag === 'form' && props.className === 'space-y-4')[0];
 const openGroups = () => view.click((props, text) => props.role === 'tab' && text === 'Groupes');
 
+test('a delayed initial console read cannot erase a group confirmed by a later creation', async () => {
+  mockConsoleData();
+  const initialRoles = deferred();
+  bff.on('get', '/bff/admin/roles', () => initialRoles.promise);
+  view = mount(React.createElement(AdministrationConsole));
+  await view.waitFor(() => bff.requests.length === 5 && view.text().includes('2 Utilisateurs'));
+  await openGroups();
+  await changeField('group-name', 'Groupe confirmé');
+  bff.on('post', '/bff/admin/groups', { status: 201, body: { group: group(2, { name: 'Groupe confirmé' }) } });
+  bff.on('get', '/bff/admin/groups', { body: { groups: [group(1), group(2, { name: 'Groupe confirmé' })] } });
+  await view.act(() => groupForm().props.onSubmit({ preventDefault() {} }));
+  assert.match(view.text(), /Groupe confirmé/);
+  initialRoles.resolve({ body: { roles: [role(1), role(2)] } });
+  await view.waitFor(consoleLoaded);
+  assert.match(view.text(), /Groupe confirmé/);
+  assert.equal(bff.calls('/bff/admin/groups', 'POST').length, 1);
+});
+
+test('a targeted roles refresh supersedes only roles while a global read is delayed', async () => {
+  mockConsoleData();
+  const initialGroups = deferred();
+  bff.on('get', '/bff/admin/groups', () => initialGroups.promise);
+  view = mount(React.createElement(AdministrationConsole));
+  await view.waitFor(() => bff.requests.length === 5 && view.text().includes('2 Utilisateurs'));
+  await view.click((props, text) => props.role === 'tab' && text === 'Rôles');
+  bff.on('get', '/bff/admin/roles', { body: { roles: [role(3, { name: 'Rôle confirmé' })] } });
+  await view.act(() => view.props('RolesPanel').refreshRoles());
+  initialGroups.resolve({ body: { groups: [group(1), group(2)] } });
+  await view.waitFor(consoleLoaded);
+  assert.deepEqual(view.props('RolesPanel').roles.map(item => item.id), [3]);
+  assert.match(view.text(), /1 Rôles 2 Groupes 1 Sessions actives/);
+  assert.equal(bff.calls('/bff/admin/roles', 'GET').length, 2);
+});
+
+test('a targeted sessions refresh preserves both current and history against a delayed global read', async () => {
+  mockConsoleData();
+  const initialGroups = deferred();
+  bff.on('get', '/bff/admin/groups', () => initialGroups.promise);
+  view = mount(React.createElement(AdministrationConsole));
+  await view.waitFor(() => bff.requests.length === 5 && view.text().includes('2 Utilisateurs'));
+  await view.click((props, text) => props.role === 'tab' && text === 'Sessions');
+  bff.on('get', '/bff/admin/sessions', { body: { sessions: [] } });
+  bff.on('get', '/bff/admin/sessions/history', { body: { sessions: [session('confirmed-revoked', { revoked_at: '2026-09-15T08:00:00Z' })] } });
+  await view.act(() => view.props('SessionsPanel').refreshSessions());
+  initialGroups.resolve({ body: { groups: [group(1)] } });
+  await view.waitFor(consoleLoaded);
+  assert.deepEqual(view.props('SessionsPanel').activeSessions, []);
+  assert.deepEqual(view.props('SessionsPanel').sessionHistory.map(item => item.id), ['confirmed-revoked']);
+  assert.match(view.text(), /0 Sessions actives/);
+});
+
+test('obsolete resource failures cannot hide newer data or suppress an independent current failure', async () => {
+  mockConsoleData();
+  const initialRoles = deferred();
+  bff.on('get', '/bff/admin/roles', () => initialRoles.promise);
+  bff.on('get', '/bff/admin/groups', bffError(401));
+  bff.on('get', '/bff/admin/sessions/history', bffError(503));
+  view = mount(React.createElement(AdministrationConsole));
+  await view.waitFor(() => bff.requests.length === 5 && view.text().includes('2 Utilisateurs'));
+  await openGroups();
+  bff.on('get', '/bff/admin/groups', { body: { groups: [group(2, { name: 'Groupe confirmé' })] } });
+  await view.act(() => view.props('GroupsPanel').refreshGroups());
+  initialRoles.resolve({ body: { roles: [role(1)] } });
+  await view.waitFor(consoleLoaded);
+  assert.match(view.text(), /Groupe confirmé/);
+  assert.match(view.text(), /Certaines données n’ont pas pu être chargées/);
+  assert.match(view.text(), /momentanément indisponible/);
+  assert.doesNotMatch(view.text(), /Session administrateur requise/);
+});
+
+test('an older global read cannot overwrite a newer global read or its loading and error state', async () => {
+  await renderLoadedConsole();
+  const older = deferred();
+  const consumed = deferred();
+  const [{ administrationApi }] = loadTs(['src/lib/administration-api.ts']);
+  const originalListRoles = administrationApi.listRoles;
+  administrationApi.listRoles = async () => {
+    try { return await originalListRoles(); }
+    finally { consumed.resolve(); }
+  };
+  const reload = view.hostElements('Actualiser')[0].props.onClick;
+  bff.on('get', '/bff/admin/roles', () => older.promise);
+  try {
+    await view.act(() => reload());
+    await view.waitFor(() => bff.calls('/bff/admin/roles', 'GET').length === 2);
+  } finally {
+    administrationApi.listRoles = originalListRoles;
+  }
+  bff.on('get', '/bff/admin/roles', { body: { roles: [role(3)] } });
+  await view.act(() => reload());
+  await view.waitFor(() => bff.calls('/bff/admin/roles', 'GET').length === 3 && consoleLoaded());
+  const settledPasses = view.passes;
+  older.resolve(bffError(401));
+  await consumed.promise;
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(view.passes, settledPasses);
+  assert.match(view.text(), /1 Rôles/);
+  assert.doesNotMatch(view.text(), /Session administrateur requise/);
+  assert.equal(consoleLoaded(), true);
+});
+
+test('targeted reads finishing after unmount do not commit or propagate stale failures', async () => {
+  await renderLoadedConsole();
+  await openGroups();
+  const older = deferred();
+  bff.on('get', '/bff/admin/groups', () => older.promise);
+  const pending = view.props('GroupsPanel').refreshGroups();
+  await view.waitFor(() => bff.calls('/bff/admin/groups', 'GET').length === 2);
+  view.unmount();
+  older.resolve(bffError(503));
+  await assert.doesNotReject(pending);
+  view = undefined;
+});
+
 test('group creation is synchronous-single-flight and locks fields, selection and tabs until refresh finishes', async () => {
   await renderLoadedConsole();
   await openGroups();
