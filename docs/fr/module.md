@@ -49,6 +49,12 @@ et opérations du contrat restent inchangées. La recette adaptative se fait
 dans le navigateur à 390px, 768px et 1280px ; les tests HTML seuls ne prouvent
 pas la fidélité du rendu.
 
+Le libellé masqué de la colonne d'action des utilisateurs est positionné par
+rapport à sa cellule d'en-tête, afin que son texte accessible ne déborde pas du
+défilement du tableau et n'élargisse pas le document sur mobile. Le tableau et
+le libellé accessible restent complets ; la page ne masque pas le débordement
+horizontal pour dissimuler le problème.
+
 ## Parcours type
 
 1. Ouvrir l’interface avec une session disposant des habilitations nécessaires.

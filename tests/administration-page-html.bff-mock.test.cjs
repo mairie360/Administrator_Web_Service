@@ -126,6 +126,14 @@ test('the page shell renders the BFF-backed console with the resolved user sessi
   assert.doesNotMatch(view.html, /role="alert"/);
 });
 
+test('the users table contains its visually hidden action label without removing accessible text', async () => {
+  await renderLoadedConsole();
+  assert.match(view.html, /<th class="relative w-12 px-4 py-3">\s*<span class="sr-only">Modifier<\/span>/);
+  assert.match(view.html, /overflow-x-auto rounded-lg border/);
+  assert.match(view.html, /min-w-\[760px\]/);
+  assert.match(view.text(), /Modifier/);
+});
+
 test('desktop and mobile navigation expose only active modules and keep Settings functional', async () => {
   const [{ setBrowserFrontUrls }] = loadTs(['src/lib/front-urls.ts']);
   const assigned = [];
