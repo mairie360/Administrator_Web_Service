@@ -354,8 +354,17 @@ export function AdministrationConsole() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
+  const allReadRevision = useRef(0);
+  const rolesReadRevision = useRef(0);
+  const groupsReadRevision = useRef(0);
+  const sessionsReadRevision = useRef(0);
 
   const loadAll = useCallback(async () => {
+    if (actionPending.current) return;
+    const revision = ++allReadRevision.current;
+    const rolesRevision = ++rolesReadRevision.current;
+    const groupsRevision = ++groupsReadRevision.current;
+    const sessionsRevision = ++sessionsReadRevision.current;
     setLoading(true);
     setLoadError(null);
 
@@ -366,12 +375,22 @@ export function AdministrationConsole() {
       administrationApi.listSessionHistory(),
     ]);
 
-    if (results[0].status === "fulfilled") setRoles(results[0].value);
-    if (results[1].status === "fulfilled") setGroups(results[1].value);
-    if (results[2].status === "fulfilled") setActiveSessions(results[2].value);
-    if (results[3].status === "fulfilled") setSessionHistory(results[3].value);
+    if (revision !== allReadRevision.current) return;
+    // A targeted refresh can supersede one resource without discarding the
+    // independent resources (or their errors) from this global read.
+    const ownsResult = [
+      rolesRevision === rolesReadRevision.current,
+      groupsRevision === groupsReadRevision.current,
+      sessionsRevision === sessionsReadRevision.current,
+      sessionsRevision === sessionsReadRevision.current,
+    ];
+    if (ownsResult[0] && results[0].status === "fulfilled") setRoles(results[0].value);
+    if (ownsResult[1] && results[1].status === "fulfilled") setGroups(results[1].value);
+    if (ownsResult[2] && results[2].status === "fulfilled") setActiveSessions(results[2].value);
+    if (ownsResult[3] && results[3].status === "fulfilled") setSessionHistory(results[3].value);
 
     const failures = results
+      .filter((_result, index) => ownsResult[index])
       .filter((result): result is PromiseRejectedResult => result.status === "rejected")
       .map((result) => result.reason);
 
@@ -390,6 +409,12 @@ export function AdministrationConsole() {
 
   useEffect(() => {
     void loadAll();
+    return () => {
+      allReadRevision.current += 1;
+      rolesReadRevision.current += 1;
+      groupsReadRevision.current += 1;
+      sessionsReadRevision.current += 1;
+    };
   }, [loadAll]);
 
   const runAction = useCallback(
@@ -433,20 +458,38 @@ export function AdministrationConsole() {
   );
 
   const refreshRoles = useCallback(async () => {
-    setRoles(await administrationApi.listRoles());
+    const revision = ++rolesReadRevision.current;
+    try {
+      const current = await administrationApi.listRoles();
+      if (revision === rolesReadRevision.current) setRoles(current);
+    } catch (error) {
+      if (revision === rolesReadRevision.current) throw error;
+    }
   }, []);
 
   const refreshGroups = useCallback(async () => {
-    setGroups(await administrationApi.listGroups());
+    const revision = ++groupsReadRevision.current;
+    try {
+      const current = await administrationApi.listGroups();
+      if (revision === groupsReadRevision.current) setGroups(current);
+    } catch (error) {
+      if (revision === groupsReadRevision.current) throw error;
+    }
   }, []);
 
   const refreshSessions = useCallback(async () => {
-    const [current, history] = await Promise.all([
-      administrationApi.listActiveSessions(),
-      administrationApi.listSessionHistory(),
-    ]);
-    setActiveSessions(current);
-    setSessionHistory(history);
+    const revision = ++sessionsReadRevision.current;
+    try {
+      const [current, history] = await Promise.all([
+        administrationApi.listActiveSessions(),
+        administrationApi.listSessionHistory(),
+      ]);
+      if (revision !== sessionsReadRevision.current) return;
+      setActiveSessions(current);
+      setSessionHistory(history);
+    } catch (error) {
+      if (revision === sessionsReadRevision.current) throw error;
+    }
   }, []);
 
   const metrics = [
