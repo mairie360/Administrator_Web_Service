@@ -432,18 +432,55 @@ test('an older global read cannot overwrite a newer global read or its loading a
   assert.equal(consoleLoaded(), true);
 });
 
-test('targeted reads finishing after unmount do not commit or propagate stale failures', async () => {
-  await renderLoadedConsole();
-  await openGroups();
-  const older = deferred();
-  bff.on('get', '/bff/admin/groups', () => older.promise);
-  const pending = view.props('GroupsPanel').refreshGroups();
-  await view.waitFor(() => bff.calls('/bff/admin/groups', 'GET').length === 2);
-  view.unmount();
-  older.resolve(bffError(503));
-  await assert.doesNotReject(pending);
-  view = undefined;
-});
+for (const read of [
+  { tab: 'Rôles', panel: 'RolesPanel', refresh: 'refreshRoles', route: '/bff/admin/roles', envelope: 'roles', property: 'roles', latest: [role(3)] },
+  { tab: 'Groupes', panel: 'GroupsPanel', refresh: 'refreshGroups', route: '/bff/admin/groups', envelope: 'groups', property: 'groups', latest: [group(3)] },
+  { tab: 'Sessions', panel: 'SessionsPanel', refresh: 'refreshSessions', route: '/bff/admin/sessions', envelope: 'sessions', property: 'activeSessions', latest: [session('current-session')] },
+]) {
+  test(`${read.tab}: targeted failures finishing after unmount do not propagate`, async () => {
+    await renderLoadedConsole();
+    await view.click((props, text) => props.role === 'tab' && text === read.tab);
+    const older = deferred();
+    bff.on('get', read.route, () => older.promise);
+    const pending = view.props(read.panel)[read.refresh]();
+    await view.waitFor(() => bff.calls(read.route, 'GET').length === 2);
+    view.unmount();
+    older.resolve(bffError(503));
+    await assert.doesNotReject(pending);
+    view = undefined;
+  });
+
+  test(`${read.tab}: an older targeted success cannot replace a newer confirmed list`, async () => {
+    await renderLoadedConsole();
+    await view.click((props, text) => props.role === 'tab' && text === read.tab);
+    const refresh = view.props(read.panel)[read.refresh];
+    const original = view.props(read.panel)[read.property];
+    const older = deferred();
+    bff.on('get', read.route, () => older.promise);
+    const pending = refresh();
+    await view.waitFor(() => bff.calls(read.route, 'GET').length === 2);
+    bff.on('get', read.route, { body: { [read.envelope]: read.latest } });
+    if (read.tab === 'Sessions') bff.on('get', '/bff/admin/sessions/history', { body: { sessions: [] } });
+    await refresh();
+    await view.waitFor(() => view.props(read.panel)[read.property][0]?.id === read.latest[0].id);
+    older.resolve({ body: { [read.envelope]: original } });
+    await pending;
+    await view.act(() => undefined);
+    assert.deepEqual(view.props(read.panel)[read.property], read.latest);
+    if (read.tab === 'Sessions') assert.deepEqual(view.props(read.panel).sessionHistory, []);
+    assert.equal(bff.requests.some(request => request.method !== 'GET'), false);
+  });
+
+  test(`${read.tab}: a current targeted failure remains actionable without erasing the list`, async () => {
+    await renderLoadedConsole();
+    await view.click((props, text) => props.role === 'tab' && text === read.tab);
+    const original = view.props(read.panel)[read.property];
+    bff.on('get', read.route, bffError(503));
+    await assert.rejects(view.props(read.panel)[read.refresh](), error => error.status === 503);
+    assert.deepEqual(view.props(read.panel)[read.property], original);
+    assert.equal(bff.requests.some(request => request.method !== 'GET'), false);
+  });
+}
 
 test('group creation is synchronous-single-flight and locks fields, selection and tabs until refresh finishes', async () => {
   await renderLoadedConsole();
