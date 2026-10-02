@@ -58,6 +58,17 @@ its header cell, so its accessible text cannot escape the table's scroll area
 and widen the document on mobile. The full table and accessible label remain;
 the page does not hide horizontal overflow to mask the problem.
 
+### Group save confirmation (MAIR-440)
+
+The console rejects concurrent actions synchronously. Group fields, selection,
+console tabs and refresh controls are locked until the active write and its
+reload finish. A refused save retains the draft for an explicit retry. A confirmed
+creation clears only its submitted form; a confirmed edit applies the returned
+group. A failed reload is reported separately from the successful mutation, with
+a read-only retry: never repeat a confirmed write. Out-of-order detail responses
+cannot replace the most recently selected group. These are frontend guarantees,
+not proof of deployed permissions, credential changes or permanent deletion.
+
 ## Typical workflow
 
 1. Open the interface with a session holding the required permissions.
