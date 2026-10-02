@@ -731,6 +731,7 @@ function UsersPanel({
   }, [loadUsers]);
 
   const selectUser = (user: AdministrationUser) => {
+    if (busyAction !== null) return;
     setSelectedUser(user);
     setEditorMode("edit");
     setPasswordForm({ password: "", confirmation: "" });
@@ -794,10 +795,13 @@ function UsersPanel({
     if (!selectedUser) return;
 
     const selectedRoleId = editForm.roleId ? Number(editForm.roleId) : null;
+    const roleSelectionChanged = editForm.roleId !== (selectedUser.roles[0] ? String(selectedUser.roles[0].id) : "");
     const currentRoleIds = selectedUser.roles.map((role) => role.id);
-    const roleIdsToRemove = currentRoleIds.filter((roleId) => roleId !== selectedRoleId);
+    const roleIdsToRemove = roleSelectionChanged
+      ? currentRoleIds.filter((roleId) => roleId !== selectedRoleId)
+      : [];
     const shouldAddRole =
-      selectedRoleId !== null && !currentRoleIds.includes(selectedRoleId);
+      roleSelectionChanged && selectedRoleId !== null && !currentRoleIds.includes(selectedRoleId);
 
     const success = await runAction(
       "update-user-" + selectedUser.id,
@@ -830,7 +834,9 @@ function UsersPanel({
       last_name: editForm.last_name.trim(),
       email: editForm.email.trim(),
       phone_number: editForm.phone_number.trim() || null,
-      roles: selectedRole ? [{ id: selectedRole.id, name: selectedRole.name }] : [],
+      roles: roleSelectionChanged
+        ? selectedRole ? [{ id: selectedRole.id, name: selectedRole.name }] : []
+        : selectedUser.roles,
     };
 
     setSelectedUser(updatedUser);
@@ -895,7 +901,7 @@ function UsersPanel({
     setEditForm((current) => ({ ...current, [field]: value }));
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(380px,0.5fr)]">
+    <fieldset disabled={busyAction !== null} aria-busy={busyAction !== null} className="min-w-0 grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(380px,0.5fr)]">
       <Panel
         title="Utilisateurs"
         description="Sélectionnez une personne dans le tableau pour modifier ses informations."
@@ -973,7 +979,8 @@ function UsersPanel({
                     return (
                       <tr
                         key={user.id}
-                        tabIndex={0}
+                        tabIndex={busyAction !== null ? -1 : 0}
+                        aria-disabled={busyAction !== null}
                         aria-selected={selected}
                         onClick={() => selectUser(user)}
                         onKeyDown={(event) => {
@@ -1188,7 +1195,7 @@ function UsersPanel({
               <Field
                 label="Rôle"
                 htmlFor="edit-role"
-                hint="Le rôle sélectionné remplace les rôles actuels."
+                hint="Modifier la sélection remplace les rôles actuels. Sans changement, ils sont conservés."
               >
                 <select
                   id="edit-role"
@@ -1332,7 +1339,7 @@ function UsersPanel({
         onCancel={() => setPasswordResetTarget(null)}
         onConfirm={confirmPasswordReset}
       />
-    </div>
+    </fieldset>
   );
 }
 
@@ -1349,7 +1356,11 @@ function RolesPanel({
 }) {
   const [mode, setMode] = useState<RoleWriteMode>("create");
   const [roleId, setRoleId] = useState("");
-  const [form, setForm] = useState({ name: "", description: "", can_be_deleted: true });
+  const [form, setForm] = useState<{
+    name: string;
+    description: string;
+    can_be_deleted?: boolean | null;
+  }>({ name: "", description: "", can_be_deleted: true });
   const [roleToDelete, setRoleToDelete] = useState<AdministrationRole | null>(null);
 
   const resetForm = () => {
@@ -1361,7 +1372,7 @@ function RolesPanel({
   const editRole = (role: AdministrationRole) => {
     setMode("replace");
     setRoleId(String(role.id));
-    setForm({ name: role.name, description: role.description, can_be_deleted: true });
+    setForm({ name: role.name, description: role.description, can_be_deleted: role.can_be_deleted });
     document.getElementById("role-form")?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
@@ -1388,7 +1399,7 @@ function RolesPanel({
   };
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
+    <fieldset disabled={busyAction !== null} aria-busy={busyAction !== null} className="min-w-0 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
       <Panel
         title="Rôles disponibles"
         description="Consultez et gérez les rôles disponibles."
@@ -1489,7 +1500,7 @@ function RolesPanel({
           <label className="flex items-center gap-3 text-sm font-medium text-[#344054]">
             <input
               type="checkbox"
-              checked={form.can_be_deleted}
+              checked={form.can_be_deleted === true}
               onChange={(event) =>
                 setForm((current) => ({ ...current, can_be_deleted: event.target.checked }))
               }
@@ -1537,7 +1548,7 @@ function RolesPanel({
           });
         }}
       />
-    </div>
+    </fieldset>
   );
 }
 

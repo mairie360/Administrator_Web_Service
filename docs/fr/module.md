@@ -74,6 +74,19 @@ de l’écriture réussie, avec une reprise en lecture seule : ne pas répéter 
 sélection. Ces garanties frontend ne prouvent ni les droits déployés, ni une
 modification de credentials, ni une suppression permanente.
 
+### Cohérence des fiches utilisateurs et rôles (MAIR-441)
+
+Les champs et commandes utilisateurs/rôles sont verrouillés pendant les écritures
+et relectures. La sélection d’une ligne utilisateur est aussi protégée à la souris
+et au clavier : une réponse tardive ne mélange plus la fiche d’une personne avec
+le formulaire d’une autre. Un refus conserve le brouillon pour une reprise
+explicite. Modifier uniquement le profil conserve tous ses rôles ; leur remplacement
+n’est envoyé qu’après changement de sélection. Ouvrir un rôle conserve son attribut
+publié `can_be_deleted`, y compris false, null ou absent, sans autoriser implicitement
+sa suppression. Ces protections frontend ne certifient ni les credentials, ni une
+suppression permanente, ni les autorisations déployées, ni l’atomicité d’un
+remplacement de rôles explicitement demandé en plusieurs opérations.
+
 ## Parcours type
 
 1. Ouvrir l’interface avec une session disposant des habilitations nécessaires.

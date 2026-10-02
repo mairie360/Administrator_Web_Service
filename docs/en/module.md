@@ -69,6 +69,18 @@ a read-only retry: never repeat a confirmed write. Out-of-order detail responses
 cannot replace the most recently selected group. These are frontend guarantees,
 not proof of deployed permissions, credential changes or permanent deletion.
 
+### User and role editor integrity (MAIR-441)
+
+User and role fields and commands are locked through active writes and reloads.
+User row selection is also blocked for mouse and keyboard, so a late save cannot
+mix one person's selected record with another person's form. Refused saves retain
+drafts for an explicit retry. Editing profile fields alone preserves every existing
+role: role replacement is sent only when its selection changes. Opening a role
+retains its published `can_be_deleted` value, including false, null or absence;
+it does not silently enable deletion. These frontend protections do not certify
+credential operations, permanent deletion, deployed authorization or atomicity
+across an explicitly requested multi-operation role replacement.
+
 ## Typical workflow
 
 1. Open the interface with a session holding the required permissions.

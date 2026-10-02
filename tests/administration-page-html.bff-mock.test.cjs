@@ -25,6 +25,7 @@ function installWindow() {
   const store = new Map();
   window = {
     reloads: 0,
+    requestAnimationFrame: (callback) => callback(),
     localStorage: { getItem: (key) => store.get(key) ?? null, setItem: (key, value) => store.set(key, value), removeItem: (key) => store.delete(key), clear: () => store.clear() },
     location: { reload: () => { window.reloads += 1; } },
   };
@@ -49,6 +50,7 @@ afterEach(() => {
   view?.unmount();
   view = undefined;
   delete global.window;
+  delete global.document;
   const violations = [...bff.violations, ...front.violations];
   bff.reset();
   front.reset();
@@ -441,4 +443,139 @@ test('out-of-order group detail responses cannot replace the last selected group
   await new Promise(resolve => setImmediate(resolve));
   await view.settle();
   assert.match(view.html, /id="edit-group-name"[^>]*value="Groupe 2"/);
+});
+
+const installEditorDocument = () => {
+  global.document = { getElementById: () => ({ scrollIntoView() {} }), addEventListener() {}, removeEventListener() {} };
+};
+const selectUserRow = (id, event = 'onClick') => {
+  installEditorDocument();
+  return view.fire(
+  (props, text, tag) => tag === 'tr' && typeof props['aria-selected'] === 'boolean' && text.includes(`Identifiant #${id}`),
+  event, event === 'onKeyDown' ? { key: 'Enter', preventDefault() {} } : undefined,
+  );
+};
+const userEditForm = () => view.hostElements((props, _text, tag) => tag === 'form' && props.className === 'space-y-4')[0];
+
+test('profile save freezes fields and mouse/keyboard selection until confirmation', async () => {
+  await renderLoadedConsole();
+  await selectUserRow(7);
+  await changeField('edit-first-name', 'Alice confirmée');
+  const write = deferred();
+  bff.on('patch', '/bff/admin/users/{userId}', () => write.promise);
+  const pending = view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  await view.waitFor(() => bff.calls('/bff/admin/users/{userId}', 'PATCH').length === 1);
+  const locked = view.html.includes('<fieldset disabled="" aria-busy="true"');
+  await selectUserRow(8);
+  await selectUserRow(8, 'onKeyDown');
+  const selectedBefore = view.hostElements(props => props['aria-selected'] === true && typeof props.tabIndex === 'number')[0];
+  write.resolve({ status: 204 });
+  await pending;
+  assert.equal(locked, true, 'profile form must be disabled while its write is pending');
+  assert.match(selectedBefore.text, /Identifiant #7/);
+  assert.equal(selectedBefore.props.tabIndex, -1);
+  assert.equal(selectedBefore.props['aria-disabled'], true);
+  assert.match(view.html, /id="edit-first-name"[^>]*value="Alice confirmée"/);
+  assert.match(view.text(), /Utilisateur mis à jour/);
+  assert.equal(bff.calls('/bff/admin/users/{userId}', 'PATCH').length, 1);
+});
+
+test('refused profile saves preserve all draft fields for an explicit retry', async () => {
+  await renderLoadedConsole();
+  await selectUserRow(7);
+  await changeField('edit-first-name', 'Alice brouillon');
+  await changeField('edit-last-name', 'Nom conservé');
+  await changeField('edit-email', 'draft@mairie.test');
+  await changeField('edit-phone', '+33100000000');
+  bff.on('patch', '/bff/admin/users/{userId}', bffError(503));
+  await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  assert.match(view.html, /id="edit-first-name"[^>]*value="Alice brouillon"/);
+  assert.match(view.html, /id="edit-last-name"[^>]*value="Nom conservé"/);
+  assert.match(view.html, /id="edit-email"[^>]*value="draft@mairie.test"/);
+  assert.match(view.html, /id="edit-phone"[^>]*value="\+33100000000"/);
+  assert.doesNotMatch(view.html, /<fieldset disabled=/);
+  assert.match(view.text(), /momentanément indisponible/);
+  bff.on('patch', '/bff/admin/users/{userId}', { status: 204 });
+  await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  assert.equal(bff.calls('/bff/admin/users/{userId}', 'PATCH').length, 2);
+  assert.match(view.text(), /Alice brouillon Nom conservé/);
+});
+
+test('editing only a profile preserves every existing role without role mutations', async () => {
+  const multiRole = { ...user(7), roles: [{ id: 1, name: 'Admin' }, { id: 2, name: 'Rôle 2' }] };
+  await renderLoadedConsole({ users: [multiRole] });
+  await selectUserRow(7);
+  await changeField('edit-first-name', 'Alice modifiée');
+  bff.on('patch', '/bff/admin/users/{userId}', { status: 204 });
+  // A handler makes the regression observable without changing any real rights.
+  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', { status: 204 });
+  await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  assert.equal(bff.calls('/bff/admin/users/{userId}/roles/{roleId}', 'DELETE').length, 0);
+  assert.equal(bff.calls('/bff/admin/users/{userId}/roles', 'POST').length, 0);
+  assert.match(view.text(), /Admin, Rôle 2/);
+});
+
+test('an explicit role selection still replaces existing roles through the declared contract', async () => {
+  const multiRole = { ...user(7), roles: [{ id: 1, name: 'Rôle 1' }, { id: 2, name: 'Rôle 2' }] };
+  await renderLoadedConsole({ users: [multiRole], roles: [role(1), role(2), role(3)] });
+  await selectUserRow(7);
+  await changeField('edit-role', '3');
+  bff.on('patch', '/bff/admin/users/{userId}', { status: 204 });
+  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', { status: 204 });
+  bff.on('post', '/bff/admin/users/{userId}/roles', { status: 204 });
+  await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  assert.deepEqual(bff.calls('/bff/admin/users/{userId}/roles/{roleId}', 'DELETE').map(call => call.path).sort(), [
+    '/bff/admin/users/7/roles/1', '/bff/admin/users/7/roles/2',
+  ]);
+  assert.deepEqual(bff.calls('/bff/admin/users/{userId}/roles', 'POST').map(call => call.body), [{ user_id: 7, role_id: 3 }]);
+  assert.match(view.text(), /Utilisateur mis à jour/);
+  assert.match(view.text(), /Rôle 3/);
+  assert.equal(view.hostElements(props => props.id === 'edit-role')[0].props.value, '3');
+});
+
+test('opening a role preserves explicit false, null and absent deletability', async () => {
+  installEditorDocument();
+  for (const deletability of [false, null, undefined]) {
+    await renderLoadedConsole({ roles: [role(1, { can_be_deleted: deletability })] });
+    await view.click((props, text) => props.role === 'tab' && text === 'Rôles');
+    await view.click((props, text) => props.type === 'button' && text.includes('Modifier'));
+    assert.equal(view.hostElements((props, _text, tag) => tag === 'input' && props.type === 'checkbox')[0].props.checked, false);
+    bff.on('put', '/bff/admin/roles/{roleId}', { status: 204 });
+    await view.act(() => view.hostElements(props => props.id === 'role-form')[0].props.onSubmit({ preventDefault() {} }));
+    const sent = bff.calls('/bff/admin/roles/{roleId}', 'PUT').at(-1).body;
+    assert.equal(sent.can_be_deleted, deletability);
+    view.unmount();
+    view = undefined;
+    bff.reset();
+    front.reset();
+  }
+});
+
+test('role edit remains locked through write/reload and retains a refused draft', async () => {
+  installEditorDocument();
+  await renderLoadedConsole();
+  await view.click((props, text) => props.role === 'tab' && text === 'Rôles');
+  await view.click((props, text) => props.type === 'button' && text.includes('Modifier'));
+  await changeField('role-name', 'Rôle conservé');
+  await changeField('role-description', 'Description conservée');
+  const write = deferred();
+  const reload = deferred();
+  bff.on('put', '/bff/admin/roles/{roleId}', () => write.promise);
+  bff.on('get', '/bff/admin/roles', () => reload.promise);
+  const pending = view.act(() => view.hostElements(props => props.id === 'role-form')[0].props.onSubmit({ preventDefault() {} }));
+  await view.waitFor(() => bff.calls('/bff/admin/roles/{roleId}', 'PUT').length === 1);
+  const lockedAtWrite = view.html.includes('<fieldset disabled="" aria-busy="true"');
+  write.resolve({ status: 204 });
+  await view.waitFor(() => bff.calls('/bff/admin/roles', 'GET').length === 2);
+  const lockedAtReload = view.html.includes('<fieldset disabled="" aria-busy="true"');
+  reload.resolve({ body: { roles: [role(1)] } });
+  await pending;
+  assert.equal(lockedAtWrite, true);
+  assert.equal(lockedAtReload, true);
+  await view.click((props, text) => props.type === 'button' && text.includes('Modifier'));
+  await changeField('role-name', 'Refus conservé');
+  bff.on('put', '/bff/admin/roles/{roleId}', bffError(503));
+  await view.act(() => view.hostElements(props => props.id === 'role-form')[0].props.onSubmit({ preventDefault() {} }));
+  assert.match(view.html, /id="role-name"[^>]*value="Refus conservé"/);
+  assert.doesNotMatch(view.html, /<fieldset disabled=/);
 });
