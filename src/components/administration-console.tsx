@@ -2130,8 +2130,10 @@ function SessionsPanel({
 }) {
   const [view, setView] = useState<"active" | "history">("active");
   const [refreshToken, setRefreshToken] = useState("");
+  const formPending = busyAction !== null;
 
   const submitTokenAction = async (action: "refresh" | "revoke") => {
+    if (formPending || !refreshToken.trim()) return;
     const success = await runAction(
       `${action}-session`,
       action === "refresh" ? "Session rafraîchie." : "Session révoquée.",
@@ -2195,7 +2197,7 @@ function SessionsPanel({
         title="Gérer une session"
         description="Rafraîchissez ou révoquez une session à l’aide de son refresh token."
       >
-        <div className="grid gap-4 md:grid-cols-[1fr_auto_auto] md:items-end">
+        <div aria-busy={formPending} className="grid gap-4 md:grid-cols-[1fr_auto_auto] md:items-end">
           <Field
             label="Refresh token"
             htmlFor="session-refresh-token"
@@ -2205,14 +2207,17 @@ function SessionsPanel({
               id="session-refresh-token"
               type="password"
               autoComplete="off"
+              disabled={formPending}
               className={inputClassName}
               value={refreshToken}
-              onChange={(event) => setRefreshToken(event.target.value)}
+              onChange={(event) => {
+                if (!formPending) setRefreshToken(event.target.value);
+              }}
             />
           </Field>
           <ActionButton
             variant="secondary"
-            disabled={!refreshToken.trim()}
+            disabled={formPending || !refreshToken.trim()}
             busy={busyAction === "refresh-session"}
             onClick={() => void submitTokenAction("refresh")}
           >
@@ -2221,7 +2226,7 @@ function SessionsPanel({
           </ActionButton>
           <ActionButton
             variant="danger"
-            disabled={!refreshToken.trim()}
+            disabled={formPending || !refreshToken.trim()}
             busy={busyAction === "revoke-session"}
             onClick={() => void submitTokenAction("revoke")}
           >
