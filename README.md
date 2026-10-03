@@ -36,3 +36,19 @@ Pour MAIR-230 et l’issue #123, le workflow consommateur exécute **Semgrep et 
 [MAIR-436](https://mairie-360.atlassian.net/browse/MAIR-436) / [issue #125](https://github.com/mairie360/Administrator_Web_Service/issues/125): Docker and both frontend workflows use Node **24.21.0 LTS**. The official Bookworm slim image is pinned to `sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6`. Dependency installation requires the existing BuildKit secret `node_auth_token` from `NODE_AUTH_TOKEN`, only during `npm ci`; the tracked npm policy is mounted read-only, including its seven-day release-age rule and existing internal UI exception. Do not pass credentials with `--build-arg` or store them in the image. The standalone non-root runner retains Node/curl, without unused global npm/npx/yarn/corepack.
 
 Docker et les deux workflows frontend utilisent Node **24.21.0 LTS** et l’image officielle épinglée ci-dessus. Le secret BuildKit existant est requis uniquement pendant `npm ci`, avec la politique npm suivie en lecture seule. Les trois fichiers Compose transmettent `NODE_AUTH_TOKEN` au **seul build frontend** via `secrets`, sans modifier les autres services, les environnements runtime, les réseaux, healthchecks ou scanners. Aucun API/BFF, droit nouveau, pin de cluster ni approbation Staging/Prod. Tests de politique : `node --test tests/ci-policy.test.cjs`. Le ticket global MAIR-436 reste distinct de cette tranche : les critères permissions/push et les autres fronts ne sont pas certifiés par ce correctif.
+
+## Shared UI alignment / Alignement UI partagé — MAIR-180
+
+This consumer pins the published `@mairie360/lib-components@0.6.10`, including
+its exact download URL and SHA512 integrity. Only the shared UI entry changes
+in the lockfile; all other dependencies and security policies are preserved.
+Tracking: [MAIR-180](https://mairie-360.atlassian.net/browse/MAIR-180) and
+[cross-frontend issue](https://github.com/mairie360/Login_Web_Service/issues/142).
+Login stays standalone without header/sidebar/footer; authenticated module
+shells and the existing Elearning confirmation/rating features are preserved.
+No API/BFF, contract, runtime configuration, demo data or deployment approval change.
+
+Le pin exact et l'intégrité du package publié sont alignés sur Elearning sans
+le rétrograder. Les tests de release vérifient le manifeste, le lockfile et le
+vrai package installé. Une validation isolée ne remplace pas la CI verte,
+l'intégration des sept consommateurs et la recette de la copie locale livrée.
