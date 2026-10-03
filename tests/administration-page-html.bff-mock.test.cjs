@@ -730,3 +730,84 @@ test('role edit remains locked through write/reload and retains a refused draft'
   assert.match(view.html, /id="role-name"[^>]*value="Refus conservé"/);
   assert.doesNotMatch(view.html, /<fieldset disabled=/);
 });
+
+const sessionTokenField = () => view.hostElements(props => props.id === 'session-refresh-token')[0].props;
+const sessionCommand = label => view.hostElements((props, text, tag) => tag === 'button' && text === label)[0].props;
+
+for (const action of ['refresh', 'revoke']) {
+  const label = action === 'refresh' ? 'Rafraîchir' : 'Révoquer';
+  const competingLabel = action === 'refresh' ? 'Révoquer' : 'Rafraîchir';
+  const route = `/bff/admin/sessions/${action}`;
+  const confirmation = action === 'refresh'
+    ? { body: { message: 'JWT refreshed successfully' } } : { status: 204 };
+
+  test(`session ${action}: protects the draft and competing commands through write/readback`, async () => {
+    await renderLoadedConsole();
+    await view.click((props, text) => props.role === 'tab' && text === 'Sessions');
+    const token = require('node:crypto').randomUUID();
+    await changeField('session-refresh-token', token);
+    const write = deferred();
+    const reload = deferred();
+    bff.on('post', route, () => write.promise);
+    bff.on('get', '/bff/admin/sessions', () => reload.promise);
+    const submit = sessionCommand(label).onClick;
+    const compete = sessionCommand(competingLabel).onClick;
+    await view.act(() => { submit(); submit(); compete(); });
+    await view.waitFor(() => bff.calls(route, 'POST').length === 1);
+    const lockedAtWrite = sessionTokenField().disabled === true;
+    const competingLocked = sessionCommand(competingLabel).disabled === true;
+    await changeField('session-refresh-token', require('node:crypto').randomUUID());
+    const draftProtected = sessionTokenField().value === token;
+    write.resolve(confirmation);
+    await view.waitFor(() => bff.calls('/bff/admin/sessions', 'GET').length === 2);
+    const lockedAtRead = sessionTokenField().disabled === true;
+    reload.resolve({ body: { sessions: [session('confirmed')] } });
+    await view.waitFor(() => sessionTokenField().value === '' && view.props('SessionsPanel').busyAction === null);
+    assert.equal(lockedAtWrite, true);
+    assert.equal(competingLocked, true);
+    assert.equal(draftProtected, true);
+    assert.equal(lockedAtRead, true);
+    assert.equal(sessionTokenField().disabled, false);
+    const writes = bff.requests.filter(request => request.method !== 'GET');
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0].body.refresh_token === token, true);
+  });
+
+  test(`session ${action}: retains refusal, clears confirmation and retries failed readback with GET only`, async () => {
+    await renderLoadedConsole();
+    await view.click((props, text) => props.role === 'tab' && text === 'Sessions');
+    const token = require('node:crypto').randomUUID();
+    await changeField('session-refresh-token', token);
+    bff.on('post', route, bffError(503));
+    await view.click((props, text, tag) => tag === 'button' && text === label);
+    await view.waitFor(() => bff.calls(route, 'POST').length === 1 && view.props('SessionsPanel').busyAction === null);
+    assert.equal(sessionTokenField().value === token, true);
+    assert.equal(sessionTokenField().disabled, false);
+    assert.equal(sessionCommand(label).disabled, false);
+    bff.on('post', route, confirmation);
+    bff.on('get', '/bff/admin/sessions', bffError(503));
+    await view.click((props, text, tag) => tag === 'button' && text === label);
+    await view.waitFor(() => sessionTokenField().value === '' && view.props('SessionsPanel').busyAction === null);
+    assert.match(view.text(), /L’action est enregistrée/);
+    assert.match(view.text(), /Ne répétez pas l’action/);
+    assert.equal(bff.calls(route, 'POST').length, 2);
+    bff.on('get', '/bff/admin/sessions', { body: { sessions: [session('fresh')] } });
+    await view.click('Réessayer l’actualisation');
+    await view.waitFor(() => !view.text().includes('Ne répétez pas l’action'));
+    assert.equal(bff.requests.filter(request => request.method !== 'GET').length, 2);
+    assert.equal(bff.calls('/bff/admin/sessions', 'GET').length, 3);
+    assert.equal(view.props('SessionsPanel').activeSessions[0].id, 'fresh');
+  });
+}
+
+test('session form commands refuse empty or whitespace input without any mutation', async () => {
+  await renderLoadedConsole();
+  await view.click((props, text) => props.role === 'tab' && text === 'Sessions');
+  for (const value of ['', '   ']) {
+    await changeField('session-refresh-token', value);
+    assert.equal(sessionCommand('Rafraîchir').disabled, true);
+    assert.equal(sessionCommand('Révoquer').disabled, true);
+    await view.act(() => { sessionCommand('Rafraîchir').onClick(); sessionCommand('Révoquer').onClick(); });
+  }
+  assert.equal(bff.requests.some(request => request.method !== 'GET'), false);
+});
