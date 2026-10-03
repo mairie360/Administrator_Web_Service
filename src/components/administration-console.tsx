@@ -727,6 +727,8 @@ function UsersPanel({
   const usersReadRevision = useRef(0);
   const [editorMode, setEditorMode] = useState<"create" | "edit" | null>(null);
   const [selectedUser, setSelectedUser] = useState<AdministrationUser | null>(null);
+  const [roleChangePending, setRoleChangePending] = useState(false);
+  const [userSaveWarning, setUserSaveWarning] = useState<string[] | null>(null);
   const [userToDelete, setUserToDelete] = useState<AdministrationUser | null>(null);
   const [passwordResetTarget, setPasswordResetTarget] = useState<{
     user: AdministrationUser;
@@ -781,6 +783,8 @@ function UsersPanel({
   const selectUser = (user: AdministrationUser) => {
     if (busyAction !== null) return;
     setSelectedUser(user);
+    setRoleChangePending(false);
+    setUserSaveWarning(null);
     setEditorMode("edit");
     setPasswordForm({ password: "", confirmation: "" });
     setPasswordResetTarget(null);
@@ -849,8 +853,18 @@ function UsersPanel({
     event.preventDefault();
     if (!selectedUser) return;
 
+    const user = selectedUser;
+    const profile = {
+      first_name: editForm.first_name.trim(),
+      last_name: editForm.last_name.trim(),
+      email: editForm.email.trim(),
+      phone_number: editForm.phone_number.trim() || null,
+    };
+    const profileChanged = profile.first_name !== user.first_name ||
+      profile.last_name !== user.last_name || profile.email !== user.email ||
+      profile.phone_number !== (user.phone_number || null);
     const selectedRoleId = editForm.roleId ? Number(editForm.roleId) : null;
-    const roleSelectionChanged = editForm.roleId !== (selectedUser.roles[0] ? String(selectedUser.roles[0].id) : "");
+    const roleSelectionChanged = roleChangePending || editForm.roleId !== (user.roles[0] ? String(user.roles[0].id) : "");
     const currentRoleIds = selectedUser.roles.map((role) => role.id);
     const roleIdsToRemove = roleSelectionChanged
       ? currentRoleIds.filter((roleId) => roleId !== selectedRoleId)
@@ -859,48 +873,72 @@ function UsersPanel({
       roleSelectionChanged && selectedRoleId !== null && !currentRoleIds.includes(selectedRoleId);
 
     const success = await runAction(
-      "update-user-" + selectedUser.id,
-      "Utilisateur mis à jour.",
+      "update-user-" + user.id,
+      profileChanged || roleIdsToRemove.length > 0 || shouldAddRole
+        ? "Utilisateur mis à jour." : "Aucune modification à enregistrer.",
       async () => {
-        await administrationApi.updateUser(selectedUser.id, {
-          first_name: editForm.first_name.trim(),
-          last_name: editForm.last_name.trim(),
-          email: editForm.email.trim(),
-          phone_number: editForm.phone_number.trim() || null,
-        });
+        setUserSaveWarning(null);
+        let confirmedUser = user;
+        const applyConfirmation = (change: Partial<AdministrationUser>) => {
+          confirmedUser = { ...confirmedUser, ...change };
+          const currentUser = confirmedUser;
+          // These independent 204 responses are not an atomic transaction.
+          // Older list reads must not undo a confirmed profile or role write.
+          usersReadRevision.current += 1;
+          setUsersLoading(false);
+          setSelectedUser(currentUser);
+          setUsersPage((current) => ({
+            ...current,
+            users: current.users.map((row) => row.id === user.id ? currentUser : row),
+          }));
+        };
 
-        await Promise.all([
-          ...roleIdsToRemove.map((roleId) =>
-            administrationApi.removeRoleFromUser(selectedUser.id, roleId),
-          ),
-          ...(shouldAddRole && selectedRoleId !== null
-            ? [administrationApi.addRoleToUser(selectedUser.id, selectedRoleId)]
-            : []),
-        ]);
+        if (profileChanged) {
+          await administrationApi.updateUser(user.id, profile);
+          applyConfirmation(profile);
+        }
+
+        const roleWrites = [
+          ...roleIdsToRemove.map((roleId) => ({
+            label: `Retrait du rôle « ${user.roles.find((role) => role.id === roleId)?.name} »`,
+            perform: async () => {
+              await administrationApi.removeRoleFromUser(user.id, roleId);
+              applyConfirmation({ roles: confirmedUser.roles.filter((role) => role.id !== roleId) });
+            },
+          })),
+          ...(shouldAddRole && selectedRoleId !== null ? [{
+            label: `Ajout du rôle « ${roles.find((role) => role.id === selectedRoleId)?.name} »`,
+            perform: async () => {
+              const selectedRole = roles.find((role) => role.id === selectedRoleId);
+              if (!selectedRole) throw new Error("Le rôle sélectionné n’est plus disponible. Actualisez les rôles.");
+              await administrationApi.addRoleToUser(user.id, selectedRoleId);
+              applyConfirmation({ roles: [...confirmedUser.roles, { id: selectedRole.id, name: selectedRole.name }] });
+            },
+          }] : []),
+        ];
+        // A fast failure must not unlock selection while another write is still
+        // pending. Record each confirmation before allowing an explicit retry.
+        const outcomes = await Promise.allSettled(roleWrites.map((write) => write.perform()));
+        const failures = outcomes.flatMap((outcome, index) => outcome.status === "rejected"
+          ? [`${roleWrites[index].label} non confirmé.`] : []);
+        if (failures.length > 0) {
+          setRoleChangePending(true);
+          setUserSaveWarning([
+            profileChanged ? "Le profil est enregistré." : "Le profil est inchangé.",
+            ...outcomes.flatMap((outcome, index) => outcome.status === "fulfilled"
+              ? [`${roleWrites[index].label} confirmé.`] : []),
+            ...failures,
+          ]);
+          const failure = outcomes.find((outcome) => outcome.status === "rejected");
+          if (failure?.status === "rejected") throw failure.reason;
+        }
+        setRoleChangePending(false);
       },
     );
 
     if (!success) return;
 
-    const selectedRole = roles.find((role) => role.id === selectedRoleId);
-    const updatedUser: AdministrationUser = {
-      ...selectedUser,
-      first_name: editForm.first_name.trim(),
-      last_name: editForm.last_name.trim(),
-      email: editForm.email.trim(),
-      phone_number: editForm.phone_number.trim() || null,
-      roles: roleSelectionChanged
-        ? selectedRole ? [{ id: selectedRole.id, name: selectedRole.name }] : []
-        : selectedUser.roles,
-    };
-
-    setSelectedUser(updatedUser);
-    setUsersPage((current) => ({
-      ...current,
-      users: current.users.map((user) =>
-        user.id === updatedUser.id ? updatedUser : user,
-      ),
-    }));
+    setEditForm((current) => ({ ...current, ...profile, phone_number: profile.phone_number ?? "" }));
   };
 
   const confirmUserDeletion = () => {
@@ -1209,6 +1247,13 @@ function UsersPanel({
             </form>
           ) : selectedUser ? (
             <div className="space-y-6">
+            {userSaveWarning && (
+              <div role="alert" className="rounded-lg bg-[#fffaeb] p-4 text-sm text-[#93370d]">
+                <p className="font-bold">Les changements de rôle ne sont pas tous confirmés.</p>
+                {userSaveWarning.map((message) => <p key={message} className="mt-1">{message}</p>)}
+                <p className="mt-2">La fiche et le tableau conservent les changements confirmés. Vérifiez la sélection puis enregistrez pour reprendre uniquement les changements restants.</p>
+              </div>
+            )}
             <form onSubmit={handleUpdate} className="space-y-4">
               <Field label="Prénom" htmlFor="edit-first-name">
                 <input
