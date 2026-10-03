@@ -684,6 +684,134 @@ test('an explicit role selection still replaces existing roles through the decla
   assert.equal(view.hostElements(props => props.id === 'edit-role')[0].props.value, '3');
 });
 
+test('a confirmed profile and role removal survive a separate failed addition and are not replayed', async () => {
+  const account = { ...user(7), roles: [{ id: 1, name: 'Rôle 1' }] };
+  await renderLoadedConsole({ users: [account], roles: [role(1), role(3)] });
+  await selectUserRow(7);
+  await changeField('edit-first-name', 'Alice confirmée');
+  await changeField('edit-role', '3');
+  bff.on('patch', '/bff/admin/users/{userId}', { status: 204 });
+  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', { status: 204 });
+  bff.on('post', '/bff/admin/users/{userId}/roles', bffError(503));
+  await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  const row = () => view.hostElements((_props, text, tag) => tag === 'tr' && text.includes('Identifiant #7'))[0].text;
+  assert.match(row(), /Alice confirmée/);
+  assert.match(row(), /Aucun rôle/);
+  assert.match(view.text(), /Le profil est enregistré/);
+  assert.match(view.text(), /Retrait du rôle « Rôle 1 » confirmé/);
+  assert.match(view.text(), /Ajout du rôle « Rôle 3 » non confirmé/);
+  assert.doesNotMatch(view.text(), /Utilisateur mis à jour/);
+  assert.equal(view.hostElements(props => props.id === 'edit-role')[0].props.value, '3');
+  bff.on('post', '/bff/admin/users/{userId}/roles', { status: 204 });
+  await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  assert.equal(bff.calls('/bff/admin/users/{userId}', 'PATCH').length, 1);
+  assert.equal(bff.calls('/bff/admin/users/{userId}/roles/{roleId}', 'DELETE').length, 1);
+  assert.equal(bff.calls('/bff/admin/users/{userId}/roles', 'POST').length, 2);
+  assert.match(row(), /Alice confirmée.*Rôle 3/);
+  assert.match(view.text(), /Utilisateur mis à jour/);
+  assert.doesNotMatch(view.text(), /Les changements de rôle ne sont pas tous confirmés/);
+});
+
+test('a failed removal is retried even when the confirmed target role is now first', async () => {
+  const account = { ...user(7), roles: [{ id: 1, name: 'Rôle 1' }, { id: 2, name: 'Rôle 2' }, { id: 3, name: 'Rôle 3' }] };
+  await renderLoadedConsole({ users: [account], roles: [role(1), role(2), role(3)] });
+  await selectUserRow(7);
+  await changeField('edit-first-name', 'Alice confirmée');
+  await changeField('edit-role', '2');
+  bff.on('patch', '/bff/admin/users/{userId}', { status: 204 });
+  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', request => request.pathParams.roleId === '3'
+    ? bffError(503) : { status: 204 });
+  await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  assert.match(view.text(), /Retrait du rôle « Rôle 3 » non confirmé/);
+  assert.match(view.text(), /Retrait du rôle « Rôle 1 » confirmé/);
+  // The target is now first: equality must not discard the remaining removal.
+  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', { status: 204 });
+  await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  assert.equal(bff.calls('/bff/admin/users/{userId}', 'PATCH').length, 1);
+  assert.deepEqual(bff.calls('/bff/admin/users/{userId}/roles/{roleId}', 'DELETE').map(call => call.path).sort(), [
+    '/bff/admin/users/7/roles/1', '/bff/admin/users/7/roles/3', '/bff/admin/users/7/roles/3',
+  ]);
+  assert.equal(bff.calls('/bff/admin/users/{userId}/roles', 'POST').length, 0);
+  assert.doesNotMatch(view.text(), /Les changements de rôle ne sont pas tous confirmés/);
+});
+
+test('partial multi-role removal retries only the failed removal', async () => {
+  const account = { ...user(7), roles: [{ id: 3, name: 'Rôle 3' }, { id: 1, name: 'Rôle 1' }, { id: 2, name: 'Rôle 2' }] };
+  await renderLoadedConsole({ users: [account], roles: [role(1), role(2), role(3)] });
+  await selectUserRow(7);
+  await changeField('edit-role', '');
+  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', request => request.pathParams.roleId === '1'
+    ? bffError(503) : { status: 204 });
+  await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', { status: 204 });
+  await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  assert.deepEqual(bff.calls('/bff/admin/users/{userId}/roles/{roleId}', 'DELETE').map(call => call.path).sort(), [
+    '/bff/admin/users/7/roles/1', '/bff/admin/users/7/roles/1', '/bff/admin/users/7/roles/2', '/bff/admin/users/7/roles/3',
+  ]);
+  assert.equal(bff.calls('/bff/admin/users/{userId}', 'PATCH').length, 0);
+  assert.match(view.text(), /Aucun rôle/);
+});
+
+test('a fast role failure keeps every control locked until the slower confirmed role write ends', async () => {
+  await renderLoadedConsole({ roles: [role(1), role(3)] });
+  await selectUserRow(7);
+  await changeField('edit-first-name', 'Alice confirmée');
+  await changeField('edit-role', '3');
+  const slowRemoval = deferred();
+  bff.on('patch', '/bff/admin/users/{userId}', { status: 204 });
+  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', () => slowRemoval.promise);
+  bff.on('post', '/bff/admin/users/{userId}/roles', bffError(503));
+  const pending = view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  await view.waitFor(() => bff.calls('/bff/admin/users/{userId}/roles', 'POST').length === 1);
+  await new Promise(resolve => setImmediate(resolve));
+  await view.settle();
+  assert.match(view.html, /<fieldset disabled="" aria-busy="true"/);
+  await selectUserRow(8);
+  const selected = view.hostElements((props, _text, tag) => tag === 'tr' && props['aria-selected'] === true)[0];
+  slowRemoval.resolve({ status: 204 });
+  await pending;
+  assert.match(selected.text, /Identifiant #7/);
+  assert.match(view.text(), /Retrait du rôle « Admin » confirmé/);
+  assert.doesNotMatch(view.html, /<fieldset disabled=/);
+});
+
+test('a refused profile does not start role writes and preserves the complete draft', async () => {
+  await renderLoadedConsole({ roles: [role(1), role(3)] });
+  await selectUserRow(7);
+  await changeField('edit-first-name', 'Alice brouillon');
+  await changeField('edit-role', '3');
+  bff.on('patch', '/bff/admin/users/{userId}', bffError(503));
+  await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  assert.equal(bff.calls('/bff/admin/users/{userId}/roles/{roleId}', 'DELETE').length, 0);
+  assert.equal(bff.calls('/bff/admin/users/{userId}/roles', 'POST').length, 0);
+  assert.equal(view.hostElements(props => props.id === 'edit-first-name')[0].props.value, 'Alice brouillon');
+  assert.equal(view.hostElements(props => props.id === 'edit-role')[0].props.value, '3');
+  assert.doesNotMatch(view.text(), /Le profil est enregistré|Utilisateur mis à jour/);
+});
+
+test('a delayed pre-save user read cannot restore a partially confirmed profile or role', async () => {
+  await renderLoadedConsole({ roles: [role(1), role(3)] });
+  await selectUserRow(7);
+  const oldRead = deferred();
+  bff.on('get', '/bff/admin/users', () => oldRead.promise);
+  await view.act(() => view.hostElements(props => props.role === 'search')[0].props.onSubmit({ preventDefault() {} }));
+  await view.waitFor(() => bff.calls('/bff/admin/users', 'GET').length === 2);
+  await changeField('edit-first-name', 'Alice confirmée');
+  await changeField('edit-role', '3');
+  bff.on('patch', '/bff/admin/users/{userId}', { status: 204 });
+  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', { status: 204 });
+  bff.on('post', '/bff/admin/users/{userId}/roles', bffError(503));
+  await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  oldRead.resolve({ body: { users: [user(7), user(8, ['Bob', 'Martin'])], page: 1, page_size: 20, total: 2, total_pages: 1 } });
+  await view.waitFor(() => !view.html.includes('aria-label="Chargement"'));
+  await new Promise(resolve => setImmediate(resolve));
+  await view.settle();
+  const row = view.hostElements((_props, text, tag) => tag === 'tr' && text.includes('Identifiant #7'))[0];
+  assert.match(row.text, /Alice confirmée/);
+  assert.match(row.text, /Aucun rôle/);
+  assert.match(view.text(), /Les changements de rôle ne sont pas tous confirmés/);
+});
+
 test('opening a role preserves explicit false, null and absent deletability', async () => {
   installEditorDocument();
   for (const deletability of [false, null, undefined]) {
