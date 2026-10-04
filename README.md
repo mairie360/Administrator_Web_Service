@@ -84,3 +84,18 @@ Une lecture refusée conserve les dernières lignes reçues et propose une repri
 [MAIR-454](https://mairie-360.atlassian.net/browse/MAIR-454) / [issue #130](https://github.com/mairie360/Administrator_Web_Service/issues/130): profile and role writes are independent, not an atomic transaction. The editor and table retain each confirmed change and explain unconfirmed role writes without reporting full success. All started writes finish before controls unlock. Explicit retry submits only remaining differences; confirmed profiles, additions and removals are not replayed, and older list reads cannot undo them. Profile-only edits preserve unchanged roles.
 
 Les confirmations indépendantes restent visibles dans la fiche et le tableau ; les changements de rôle non confirmés sont distingués et leur sélection conservée. Une reprise explicite ne renvoie que les changements restants, après la fin de tous les appels engagés. Aucun API/BFF, contrat, client/proxy, authentification, dépendance, droit ou déploiement modifié. Les fixtures restent réservées aux tests ; elles ne certifient ni transaction atomique ni droits réels déployés. Vérification : `node --test tests/administration-page-html.bff-mock.test.cjs`.
+## Shared UI alignment / Alignement UI partagé — MAIR-180
+
+This consumer pins the published `@mairie360/lib-components@0.6.10`, including
+its exact download URL and SHA512 integrity. Only the shared UI entry changes
+in the lockfile; all other dependencies and security policies are preserved.
+Tracking: [MAIR-180](https://mairie-360.atlassian.net/browse/MAIR-180) and
+[cross-frontend issue](https://github.com/mairie360/Login_Web_Service/issues/142).
+Login stays standalone without header/sidebar/footer; authenticated module
+shells and the existing Elearning confirmation/rating features are preserved.
+No API/BFF, contract, runtime configuration, demo data or deployment approval change.
+
+Le pin exact et l'intégrité du package publié sont alignés sur Elearning sans
+le rétrograder. Les tests de release vérifient le manifeste, le lockfile et le
+vrai package installé. Une validation isolée ne remplace pas la CI verte,
+l'intégration des sept consommateurs et la recette de la copie locale livrée.
