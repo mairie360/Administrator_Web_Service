@@ -731,7 +731,7 @@ function UsersPanel({
   roles: AdministrationRole[];
   busyAction: string | null;
   runAction: RunAction;
-  onTotalChange: (total: number) => void;
+  onTotalChange: (total: number | null) => void;
 }) {
   const [usersPage, setUsersPage] = useState<AdministrationUsersPage>(emptyUsersPage);
   const [page, setPage] = useState(1);
@@ -739,6 +739,7 @@ function UsersPanel({
   const [search, setSearch] = useState("");
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState<string | null>(null);
+  const [usersMutationConfirmed, setUsersMutationConfirmed] = useState(false);
   const usersReadRevision = useRef(0);
   const [editorMode, setEditorMode] = useState<"create" | "edit" | null>(null);
   const [selectedUser, setSelectedUser] = useState<AdministrationUser | null>(null);
@@ -776,6 +777,7 @@ function UsersPanel({
       const response = await administrationApi.listUsers({ page, search });
       if (!isCurrent()) return;
       setUsersPage(response);
+      setUsersMutationConfirmed(false);
       onTotalChange(response.total);
 
       if (response.total_pages > 0 && page > response.total_pages) {
@@ -840,11 +842,17 @@ function UsersPanel({
     const success = await runAction(
       "create-user",
       "Utilisateur créé.",
-      () =>
-        administrationApi.createUser({
+      async () => {
+        await administrationApi.createUser({
           ...createForm,
           phone_number: createForm.phone_number.trim() || null,
-        }),
+        });
+        // POST confirms the write, not a new row or a current total. Invalidate
+        // earlier reads and wait for GET before displaying either as fresh.
+        usersReadRevision.current += 1;
+        setUsersMutationConfirmed(true);
+        onTotalChange(null);
+      },
       loadUsers,
     );
 
@@ -925,7 +933,18 @@ function UsersPanel({
     void runAction(
       "delete-user-" + user.id,
       "Utilisateur supprimé.",
-      () => administrationApi.deleteUser(user.id),
+      async () => {
+        await administrationApi.deleteUser(user.id);
+        usersReadRevision.current += 1;
+        setUsersMutationConfirmed(true);
+        onTotalChange(null);
+        // The successful DELETE confirms only this removal. Other rows stay
+        // available, while totals/pagination await their server readback.
+        setUsersPage((current) => ({
+          ...current,
+          users: current.users.filter((entry) => entry.id !== user.id),
+        }));
+      },
       async () => {
         setSelectedUser(null);
         setEditorMode(null);
@@ -1014,21 +1033,33 @@ function UsersPanel({
             </ActionButton>
           </form>
 
-          {usersError ? (
+          {usersError && (
             <div role="alert" className="rounded-lg bg-[#fff7f6] p-4 text-sm text-[#912018]">
-              {usersError}
+              {usersMutationConfirmed && (
+                <p className="font-bold">L’action est enregistrée, mais les utilisateurs n’ont pas pu être actualisés.</p>
+              )}
+              <p>{usersError} {usersMutationConfirmed ? "Ne répétez pas l’action." : "Dernières données reçues, si disponibles."}</p>
+              <ActionButton
+                className="mt-3"
+                variant="secondary"
+                disabled={usersLoading}
+                onClick={() => void loadUsers()}
+              >
+                Réessayer le chargement des utilisateurs
+              </ActionButton>
             </div>
-          ) : usersLoading ? (
+          )}
+          {usersLoading ? (
             <div className="grid min-h-64 place-items-center text-[#667085]">
               <LoaderCircle className="h-6 w-6 animate-spin" aria-label="Chargement" />
             </div>
-          ) : usersPage.users.length === 0 ? (
+          ) : usersPage.users.length === 0 ? (usersError ? null : (
             <EmptyState>
               {search
                 ? "Aucun utilisateur ne correspond à cette recherche."
                 : "Aucun utilisateur disponible."}
             </EmptyState>
-          ) : (
+          )) : (
             <div className="overflow-x-auto rounded-lg border border-[#e4e1dc]">
               <table className="w-full min-w-[760px] text-left text-sm">
                 <thead className="bg-[#f8f7f5] text-xs font-semibold uppercase tracking-wide text-[#667085]">
@@ -1110,7 +1141,9 @@ function UsersPanel({
 
           <div className="flex flex-col gap-3 border-t border-[#ebe8e3] pt-4 text-sm text-[#667085] sm:flex-row sm:items-center sm:justify-between">
             <span>
-              {usersPage.total} utilisateur{usersPage.total > 1 ? "s" : ""} · 20 maximum par page
+              {usersMutationConfirmed
+                ? "Total à actualiser"
+                : `${usersPage.total} utilisateur${usersPage.total > 1 ? "s" : ""}`} · 20 maximum par page
             </span>
             <div className="flex items-center gap-2">
               <ActionButton
@@ -1123,7 +1156,7 @@ function UsersPanel({
                 <ChevronLeft className="h-4 w-4" aria-hidden="true" />
               </ActionButton>
               <span className="min-w-24 text-center font-semibold text-[#344054]">
-                Page {usersPage.page} / {Math.max(usersPage.total_pages, 1)}
+                Page {usersPage.page}{usersMutationConfirmed ? " · pagination à actualiser" : ` / ${Math.max(usersPage.total_pages, 1)}`}
               </span>
               <ActionButton
                 variant="secondary"
