@@ -67,23 +67,26 @@ Les ajouts/retraits confirmés restent affichés même si la relecture échoue ;
 
 Only the frontend console changes. No API/BFF, client/contract, authorization, dependency, security policy, environment deployment or cluster pin change. Isolated HTTP recipes validate presentation and request sequencing, not deployed authorization or persistence. Completion still requires green CI, integration and a refreshed `local-current` snapshot.
 
-## Combined confirmation regression / Non-régression des confirmations combinées
+## Earlier combined confirmation regression / Première non-régression des confirmations combinées
 
 The candidate combines [PR #136](https://github.com/mairie360/Administrator_Web_Service/pull/136) (MAIR-463), [PR #138](https://github.com/mairie360/Administrator_Web_Service/pull/138) (MAIR-464), and [PR #140](https://github.com/mairie360/Administrator_Web_Service/pull/140) (MAIR-465). Their group-selection conflict is resolved by retaining both detail-request ownership and membership-read revisions. The added real-component/contract test confirms a member addition, deletes that same group, retries the failed group-list read without repeating either write, and opens a second group without leaking the previous members or overwriting its draft. The three targeted suites pass 20 cases; the full sequential Node coverage suite, TypeScript, contract check, lint (two existing warnings) and isolated one-worker production build also pass locally.
 
 Native in-app browser QA at 1280×720 exercised the combined build: confirmed member POST followed by GET503, confirmed group DELETE followed by GET503 and GET-only recovery, then confirmed role DELETE followed by GET503 and GET-only recovery. Independent create drafts survived; the deleted group/role stayed absent and the second group's members stayed independent. The isolated ledger contains 17 GET, one member POST, one group DELETE and one role DELETE, with no contract violations or relevant console warnings/errors. Test data and the ledger stay outside product sources; no real user data or deployed BFF was used.
 
-Cette composition conserve les deux protections de sélection et de lecture après résolution du conflit. La recette combinée prouve la conservation des confirmations et des brouillons, sans répétition d'écriture ni fuite de membres vers le groupe suivant. Elle ne constitue pas une validation mobile de cette composition, un contrôle d'autorisation/persistance déployée, ni une certification exhaustive du prototype. La livraison reste ouverte tant que la CI réelle n'est pas verte, les changements non intégrés dans `main` et le snapshot `local-current` non rafraîchi. Aucun API/BFF, client, contrat, dépendance, politique de sécurité ou déploiement n'est modifié.
+Cette première composition conserve les deux protections de sélection et de lecture après résolution du conflit. La recette combinée prouve la conservation des confirmations et des brouillons, sans répétition d'écriture ni fuite de membres vers le groupe suivant. Elle ne constitue pas une validation mobile de ce premier candidat, un contrôle d'autorisation/persistance déployée, ni une certification exhaustive du prototype. La livraison reste ouverte tant que la CI réelle n'est pas verte, les changements non intégrés dans `main` et le snapshot `local-current` non rafraîchi. Aucun API/BFF, client, contrat, dépendance, politique de sécurité ou déploiement n'était modifié dans cette première tranche.
+
 ## Confirmed user actions / Actions utilisateurs confirmées
 
 [MAIR-453](https://mairie-360.atlassian.net/browse/MAIR-453): a refused users read retains the last received rows and offers a dedicated GET-only retry using the current search/page. A confirmed create closes its form without inventing a user row; a confirmed delete removes only that user's row and closes its editor. Until server readback succeeds, totals and pagination are explicitly stale. Refused writes retain the draft/confirmation; older reads cannot resurrect a confirmed deletion. No API/BFF, generated client, contract, authentication or demonstration data changes.
 
 Une lecture refusée conserve les dernières lignes reçues et propose une reprise GET seule avec les critères actuels. Une création confirmée ferme son formulaire sans fabriquer de compte ; une suppression confirmée retire seulement sa ligne et ferme sa fiche. Totaux et pagination attendent la relecture serveur. Une écriture refusée conserve le brouillon/la confirmation ; une ancienne lecture ne rétablit pas le compte supprimé. Régressions : `node --test tests/administration-page-html.bff-mock.test.cjs`.
+
 ## Partial user edits / Modifications utilisateur partielles
 
 [MAIR-454](https://mairie-360.atlassian.net/browse/MAIR-454) / [issue #130](https://github.com/mairie360/Administrator_Web_Service/issues/130): profile and role writes are independent, not an atomic transaction. The editor and table retain each confirmed change and explain unconfirmed role writes without reporting full success. All started writes finish before controls unlock. Explicit retry submits only remaining differences; confirmed profiles, additions and removals are not replayed, and older list reads cannot undo them. Profile-only edits preserve unchanged roles.
 
 Les confirmations indépendantes restent visibles dans la fiche et le tableau ; les changements de rôle non confirmés sont distingués et leur sélection conservée. Une reprise explicite ne renvoie que les changements restants, après la fin de tous les appels engagés. Aucun API/BFF, contrat, client/proxy, authentification, dépendance, droit ou déploiement modifié. Les fixtures restent réservées aux tests ; elles ne certifient ni transaction atomique ni droits réels déployés. Vérification : `node --test tests/administration-page-html.bff-mock.test.cjs`.
+
 ## Shared UI alignment / Alignement UI partagé — MAIR-180
 
 This consumer pins the published `@mairie360/lib-components@0.6.10`, including
@@ -99,3 +102,45 @@ Le pin exact et l'intégrité du package publié sont alignés sur Elearning san
 le rétrograder. Les tests de release vérifient le manifeste, le lockfile et le
 vrai package installé. Une validation isolée ne remplace pas la CI verte,
 l'intégration des sept consommateurs et la recette de la copie locale livrée.
+
+## Full consumer composition / Composition complète du consommateur — 4 October 2026
+
+The current PR #140 candidate also composes user reload recovery (#129,
+MAIR-453), independent profile/role confirmations (#131, MAIR-454), pending
+session protection (#133, MAIR-460), and the published shared UI pin (#134,
+MAIR-180), alongside the earlier membership/role/group corrections. Only
+README merge conflicts needed manual resolution; both behaviours were retained.
+One additional real-component HTTP regression follows a partial profile/role
+confirmation with a confirmed user deletion and refused list readback. GET-only
+recovery preserves another user's draft without leaking the deleted account's
+remaining role request. All 80 targeted tests and 217 Node tests / 15 suites
+pass; sequential coverage is 96.39% lines, 92.93% branches and 91.15% functions,
+with the unchanged 60% gates. TypeScript, published User 0.5.0 contract and a
+one-worker production webpack build pass; lint has two existing effect warnings.
+
+Native browser QA exercised the composed build at actual 1280×720 and 390×844:
+partial profile confirmation, confirmed user deletion followed by GET503,
+member addition/group deletion/role deletion with failed readback and GET-only
+recovery, independent drafts, and mobile pending/refused/confirmed session
+refresh and group deletion. The mobile dialog fits the viewport; focus starts
+on Cancel and moves between its actions. No outer overflow, framework overlay
+or relevant console warning/error was observed. The disposable ledger records
+28 GET and 11 write attempts, including explicitly refused writes, with no
+validator violations within the declared error-response exceptions. The two
+session submissions retained the same synthetic value, checked in the local
+ledger because browser DOM observations redact password inputs. Confirmed
+refresh clears the field; retry only reads. No real account, password reset,
+permission grant, deployed transaction or persistence was tested. The prior
+20-case/desktop recipe above remains historical, not retroactively mobile proof.
+
+Cette recette du candidat composé complète les preuves isolées sans modifier
+les API/BFF, clients, contrats, authentification ou politique de sécurité. Le
+tarball UI 0.6.10 est vérifié contre le SHA512 du lock puis installé uniquement
+dans la copie QA autonome ; les dépendances utilisateur 0.6.8 sont conservées.
+La référence ancienne est relue mais aucune nouvelle comparaison visuelle
+appariée exhaustive n'est revendiquée. Les mocks, données jetables, captures et
+logs restent hors Git. Tous les serveurs sont arrêtés après la recette. Les
+tickets restent ouverts tant que CI, intégration dans main et actualisation de
+la copie livrée ne sont pas réellement validées. Aucun bypass d'audit rouge,
+déploiement, pin de cluster, donnée de démonstration produit ni changement de
+Login sans AppShell.

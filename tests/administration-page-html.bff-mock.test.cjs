@@ -877,6 +877,47 @@ test('a confirmed profile and role removal survive a separate failed addition an
   assert.doesNotMatch(view.text(), /Les changements de rôle ne sont pas tous confirmés/);
 });
 
+test('composed partial profile confirmation survives deletion readback failure without leaking into the next editor', async () => {
+  await renderLoadedConsole({ roles: [role(1), role(3)] });
+  await selectUserRow(7);
+  await changeField('edit-first-name', 'Alice confirmée');
+  await changeField('edit-role', '3');
+  bff.on('patch', '/bff/admin/users/{userId}', { status: 204 });
+  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', { status: 204 });
+  bff.on('post', '/bff/admin/users/{userId}/roles', bffError(503));
+  await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  assert.match(view.text(), /Les changements de rôle ne sont pas tous confirmés/);
+  const row = view.hostElements((_props, text, tag) => tag === 'tr' && text.includes('Identifiant #7'))[0];
+  assert.match(row.text, /Alice confirmée.*Aucun rôle/);
+
+  bff.on('delete', '/bff/admin/users/{userId}', { status: 204 });
+  bff.on('get', '/bff/admin/users', bffError(503));
+  await view.click('Supprimer l’utilisateur');
+  await view.act(() => view.find('ConfirmModal').find(modal => modal.props.open).props.onConfirm());
+  await view.waitFor(() => view.text().includes('Ne répétez pas l’action') && view.find('ConfirmModal').every(modal => !modal.props.open));
+  assert.doesNotMatch(view.text(), /Identifiant #7|Les changements de rôle ne sont pas tous confirmés/);
+  assert.match(view.text(), /Identifiant #8|Total à actualiser/);
+  assert.doesNotMatch(view.html, /id="edit-first-name"/);
+
+  // A new editor belongs to its own confirmed row, not to the deleted account's
+  // unsatisfied role request. GET recovery must not repeat any prior write.
+  await selectUserRow(8);
+  await changeField('edit-first-name', 'Bob brouillon');
+  bff.on('get', '/bff/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
+  await retryUsersRead();
+  await view.waitFor(() => view.text().includes('1 Utilisateurs') && !view.text().includes('Ne répétez pas l’action'));
+  assert.equal(view.hostElements(props => props.id === 'edit-first-name')[0].props.value, 'Bob brouillon');
+  assert.equal(view.hostElements(props => props.id === 'edit-role')[0].props.value, '1');
+  assert.doesNotMatch(view.text(), /Les changements de rôle ne sont pas tous confirmés|Identifiant #7/);
+  assert.deepEqual(bff.requests.filter(call => call.method !== 'GET').map(call => `${call.method} ${call.template}`), [
+    'PATCH /bff/admin/users/{userId}',
+    'DELETE /bff/admin/users/{userId}/roles/{roleId}',
+    'POST /bff/admin/users/{userId}/roles',
+    'DELETE /bff/admin/users/{userId}',
+  ]);
+  assert.equal(bff.calls('/bff/admin/users', 'GET').length, 3);
+});
+
 test('a failed removal is retried even when the confirmed target role is now first', async () => {
   const account = { ...user(7), roles: [{ id: 1, name: 'Rôle 1' }, { id: 2, name: 'Rôle 2' }, { id: 3, name: 'Rôle 3' }] };
   await renderLoadedConsole({ users: [account], roles: [role(1), role(2), role(3)] });
