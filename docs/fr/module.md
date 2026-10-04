@@ -1,5 +1,16 @@
 # Administrator_Web_Service — Présentation du module
 
+## Sidebar mesurée de référence — MAIR-180 / issue141
+
+Le CSS consommateur rétablit des cibles de navigation de 44px minimum et l'ombre
+de référence. Sur mobile, le bouton Fermer publié reste au-dessus de la sidebar ;
+clic, clavier et Échap conservent le retour de focus. Le repère rouge Administration
+et le masquage selon les droits ne changent pas. La comparaison desktop/mobile
+couvre recherche/fiche utilisateur, rôles, groupe/membres et sessions/historique
+sans écrire de données réelles. Les fixtures ne certifient ni droits déployés,
+réinitialisation de mot de passe, révocation ni persistance durable. La version
+fictive du footer et les préférences/notifications du prototype ne sont pas copiées.
+
 ## Navigation des modules actifs
 
 L'`AppShell` partagé gère désormais les menus ordinateur et mobile. Il affiche

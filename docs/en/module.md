@@ -2,6 +2,16 @@
 
 ## Active-module navigation
 
+The measured reference sidebar rhythm is restored by this front's consumer CSS
+(MAIR-180 / issue141): 44px minimum navigation targets and the reference shadow.
+Mobile sidebar stacking leaves the published Close button above it; click,
+keyboard navigation and Escape must retain opener focus. The existing red
+Administration marker and permission-based visibility are unchanged. Paired
+desktop/mobile checks cover users search/detail, roles, group detail/members and
+sessions/history without writing real data. Fixtures do not certify deployed
+authorization, password reset, revocation or durable persistence. The old fake
+footer version and reference-only preferences/notifications are not copied.
+
 The shared `AppShell` now owns desktop and mobile navigation. It shows only
 configured active destinations, omits the archived E-mails and Files modules,
 and preserves administrator visibility and Settings. Attachments and business

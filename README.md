@@ -1,5 +1,14 @@
 # Administrator_Web_Service
 
+## Reference sidebar / Sidebar de référence — MAIR-180
+
+[Issue #141](https://github.com/mairie360/Administrator_Web_Service/issues/141)
+tracks consumer CSS restoring measured 44px navigation targets and the reference
+shadow while keeping mobile Close reachable. The published red Administration
+marker, console data and shared AppShell behavior are unchanged. Scoped CSS and
+`tests/administration-typography.test.cjs` only; native desktop/mobile checks are
+required in addition to structural tests. No API/BFF or demo data is changed.
+
 Host the Mairie360 administration interface: navigation, session context and the shared administration component. The service exposes BFF User routes at the same origin as the interface.
 
 Héberger l’interface d’administration de Mairie360: navigation, contexte de session et composant d’administration partagé. Le service expose les routes de BFF User à la même origine que l’interface.
