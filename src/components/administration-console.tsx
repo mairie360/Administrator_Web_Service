@@ -457,6 +457,13 @@ export function AdministrationConsole() {
     [],
   );
 
+  const confirmRoleDeletion = useCallback((roleId: number) => {
+    // A confirmed DELETE is authoritative even if the follow-up GET fails.
+    // Invalidate earlier reads so they cannot restore the deleted role.
+    rolesReadRevision.current += 1;
+    setRoles((current) => current.filter((role) => role.id !== roleId));
+  }, []);
+
   const refreshRoles = useCallback(async () => {
     const revision = ++rolesReadRevision.current;
     try {
@@ -669,6 +676,7 @@ export function AdministrationConsole() {
           busyAction={busyAction}
           runAction={runAction}
           refreshRoles={refreshRoles}
+          onRoleDeleted={confirmRoleDeletion}
         />
       )}
       {activeTab === "groups" && (
@@ -1403,11 +1411,13 @@ function RolesPanel({
   busyAction,
   runAction,
   refreshRoles,
+  onRoleDeleted,
 }: {
   roles: AdministrationRole[];
   busyAction: string | null;
   runAction: RunAction;
   refreshRoles: () => Promise<void>;
+  onRoleDeleted: (roleId: number) => void;
 }) {
   const [mode, setMode] = useState<RoleWriteMode>("create");
   const [roleId, setRoleId] = useState("");
@@ -1596,10 +1606,16 @@ function RolesPanel({
           void runAction(
             `delete-role-${role.id}`,
             "Rôle supprimé.",
-            () => administrationApi.deleteRole(role.id),
+            async () => {
+              await administrationApi.deleteRole(role.id);
+              onRoleDeleted(role.id);
+            },
             refreshRoles,
           ).then((success) => {
-            if (success) setRoleToDelete(null);
+            if (success) {
+              setRoleToDelete(null);
+              if (roleId === String(role.id)) resetForm();
+            }
           });
         }}
       />
