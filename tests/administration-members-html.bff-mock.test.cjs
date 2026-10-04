@@ -227,3 +227,32 @@ test('retrying a failed member refresh cannot put the previous group into a newl
   assert.equal(membershipWrites().length, 1);
 });
 
+test('confirmed membership followed by confirmed group deletion recovers only the group list and keeps the next selection independent', async () => {
+  await openMemberGroup();
+  bff.on('post', '/bff/admin/groups/{groupId}/users', { status: 204 });
+  bff.on('get', '/bff/admin/groups/{groupId}/users', bffError(503));
+  await view.click('Ajouter');
+  await view.waitFor(() => view.props('GroupsPanel').busyAction === null && view.text().includes('Ne répétez pas l’action'));
+  assert.match(memberRows(), /Carol Morel/);
+  bff.on('delete', '/bff/admin/groups/{groupId}', { status: 204 });
+  bff.on('get', '/bff/admin/groups', bffError(503));
+  await view.click('Supprimer ce groupe');
+  await view.act(() => view.props('ConfirmModal').onConfirm());
+  await view.waitFor(() => view.props('GroupsPanel').busyAction === null && view.props('ConfirmModal').open === false);
+  assert.deepEqual(view.props('GroupsPanel').groups.map(value => value.id), [2]);
+  assert.equal(view.hostElements(props => props.id === 'edit-group-name').length, 0);
+  assert.doesNotMatch(view.text(), /Alice Dupont|Bob Martin|Carol Morel/);
+  const memberReads = bff.calls('/bff/admin/groups/{groupId}/users', 'GET').length;
+  bff.on('get', '/bff/admin/groups', { body: { groups: [group(2)] } });
+  await view.click('Réessayer l’actualisation');
+  await view.waitFor(() => !view.text().includes('Ne répétez pas l’action'));
+  assert.equal(bff.calls('/bff/admin/groups/{groupId}/users', 'GET').length, memberReads);
+  assert.equal(membershipWrites().length, 1);
+  assert.equal(bff.calls('/bff/admin/groups/{groupId}', 'DELETE').length, 1);
+  bff.on('get', '/bff/admin/groups/{groupId}/users', { body: { users: [member(10, ['David', 'Leroy'])] } });
+  await view.click((_props, text, tag) => tag === 'button' && text.includes('Groupe 2') && text.includes('Ouvrir le groupe'));
+  await view.waitFor(() => memberRows().includes('David Leroy'));
+  assert.doesNotMatch(memberRows(), /Alice Dupont|Bob Martin|Carol Morel/);
+  await changeField('edit-group-name', 'Brouillon indépendant du groupe 2');
+  assert.match(view.html, /id="edit-group-name"[^>]*value="Brouillon indépendant du groupe 2"/);
+});
