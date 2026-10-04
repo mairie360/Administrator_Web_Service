@@ -21,6 +21,14 @@ The role list applies a deletion only after the existing BFF operation succeeds,
 
 La liste reflète la suppression uniquement après confirmation du BFF existant, même si le GET suivant échoue. Une lecture ancienne ne réintroduit pas le rôle ; la reprise ne renvoie que le GET. Attente/refus conservent le rôle, la confirmation et le brouillon. Seul l’éditeur du rôle supprimé est réinitialisé, jamais un autre brouillon. Aucun changement API/BFF, client, contrat, dépendance ou authentification.
 
+## Confirmed group deletion / Suppression de groupe confirmée
+
+[MAIR-465](https://mairie-360.atlassian.net/browse/MAIR-465) / [issue #139](https://github.com/mairie360/Administrator_Web_Service/issues/139): after the existing DELETE succeeds, the frontend removes only that known group immediately. Older global list and deleted-group detail replies cannot restore it. The deleted selection is cleared, while independent creation and other-group drafts remain intact. Pending or refused DELETE leaves the group, draft and confirmation unchanged; the existing synchronous action guard prevents duplicate pending writes. A failed follow-up read offers GET-only recovery, never a repeat of a confirmed DELETE.
+
+Après confirmation du DELETE existant, seul le groupe concerné est retiré immédiatement. Les anciennes lectures ne peuvent pas le restaurer ou rouvrir sa fiche ; les brouillons indépendants sont conservés. Une suppression en attente ou refusée conserve le groupe et la confirmation. La reprise d’une actualisation échouée effectue uniquement GET.
+
+Verification: `node --test tests/administration-group-deletion.bff-mock.test.cjs` covers seven real-component/route/contract cases, including delayed reads and selection ownership. Isolated Next production/browser QA at 1280×720 and 390×844 exercised confirmed deletion + GET503, refused DELETE403 + explicit retry, draft retention and GET-only recovery: 16 GET and three DELETE requests (one confirmed group1, one refused then one confirmed group2), no POST/contract violations or relevant browser console errors. Fixtures are disposable and in memory only; this does not certify deployed authorization, deletion of real data or remote CI/integration. No API/BFF, client/contract, authentication, dependencies, deployment pins or product demo data changed.
+
 ## Contracts and background / Contrats et compléments
 
 - [BFF.md](BFF.md)

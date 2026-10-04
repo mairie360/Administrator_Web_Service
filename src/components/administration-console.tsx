@@ -484,6 +484,12 @@ export function AdministrationConsole() {
     }
   }, []);
 
+  const applyGroupDeletion = useCallback((groupId: number) => {
+    // Confirmation owns this resource even if an earlier global read is late.
+    groupsReadRevision.current += 1;
+    setGroups((current) => current.filter((group) => group.id !== groupId));
+  }, []);
+
   const refreshSessions = useCallback(async () => {
     const revision = ++sessionsReadRevision.current;
     try {
@@ -685,6 +691,7 @@ export function AdministrationConsole() {
           busyAction={busyAction}
           runAction={runAction}
           refreshGroups={refreshGroups}
+          onGroupDeleted={applyGroupDeletion}
         />
       )}
       {activeTab === "sessions" && (
@@ -1639,11 +1646,13 @@ function GroupsPanel({
   busyAction,
   runAction,
   refreshGroups,
+  onGroupDeleted,
 }: {
   groups: AdministrationGroup[];
   busyAction: string | null;
   runAction: RunAction;
   refreshGroups: () => Promise<void>;
+  onGroupDeleted: (groupId: number) => void;
 }) {
   const [createForm, setCreateForm] = useState({ name: "", description: "" });
   const [editForm, setEditForm] = useState({ name: "", description: "" });
@@ -1659,6 +1668,10 @@ function GroupsPanel({
   const groupDetailRevision = useRef(0);
   const groupMembersRevision = useRef(0);
   const selectedGroupRef = useRef<AdministrationGroup | null>(null);
+  const groupDetailSelection = useRef<{ requestedId: number | null; selectedId: number | null }>({
+    requestedId: null,
+    selectedId: null,
+  });
 
   useEffect(() => () => {
     groupDetailRevision.current += 1;
@@ -1670,6 +1683,7 @@ function GroupsPanel({
     const revision = ++groupDetailRevision.current;
     groupMembersRevision.current += 1;
     selectedGroupRef.current = null;
+    groupDetailSelection.current.requestedId = groupId;
     setGroupDetailLoading(true);
     setGroupDetailError(null);
 
@@ -1680,6 +1694,7 @@ function GroupsPanel({
       ]);
       if (revision !== groupDetailRevision.current) return;
       selectedGroupRef.current = group;
+      groupDetailSelection.current.selectedId = group?.id ?? null;
       setSelectedGroup(group);
       setGroupUsers(users);
       setEditForm({
@@ -1771,6 +1786,7 @@ function GroupsPanel({
       selectedGroupRef.current = updatedGroup;
       setSelectedGroup(updatedGroup);
       const confirmedGroup = updatedGroup as AdministrationGroup;
+      groupDetailSelection.current.selectedId = confirmedGroup.id;
       setEditForm({ name: confirmedGroup.name, description: confirmedGroup.description ?? "" });
     }
   };
@@ -1814,14 +1830,28 @@ function GroupsPanel({
     void runAction(
       "delete-group-" + group.id,
       "Groupe supprimé.",
-      () => administrationApi.deleteGroup(group.id),
       async () => {
-        selectedGroupRef.current = null;
-        groupMembersRevision.current += 1;
-        setSelectedGroup(null);
-        setGroupUsers([]);
-        await refreshGroups();
+        await administrationApi.deleteGroup(group.id);
+        onGroupDeleted(group.id);
+        // Only the deleted detail is invalidated. A newer selection and its
+        // draft must remain owned by that other group's request.
+        if (groupDetailSelection.current.requestedId === group.id) {
+          groupDetailRevision.current += 1;
+          groupDetailSelection.current.requestedId = null;
+          setGroupDetailLoading(false);
+          setGroupDetailError(null);
+        }
+        if (groupDetailSelection.current.selectedId === group.id) {
+          groupDetailSelection.current.selectedId = null;
+          selectedGroupRef.current = null;
+          groupMembersRevision.current += 1;
+          setSelectedGroup(null);
+          setGroupUsers([]);
+          setEditForm({ name: "", description: "" });
+          setMemberSearch("");
+        }
       },
+      refreshGroups,
     ).then((success) => {
       if (success) setDeletionTarget(null);
     });
