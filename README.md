@@ -15,6 +15,12 @@ The guides describe the implemented module, its current limitations, local setup
 
 Les guides décrivent le module implémenté, ses limites actuelles, le démarrage local, les routes, les données, les vérifications et la CI/CD.
 
+## Confirmed role deletion / Suppression confirmée d’un rôle
+
+The role list applies a deletion only after the existing BFF operation succeeds, even when the following GET fails. Older reads cannot restore the deleted role; the warning retries only the GET. Pending/refused deletion retains the role, confirmation dialog and edit draft. Confirmation clears only an editor for that deleted role, never an unrelated create draft. No API/BFF, client, contract, dependency or authentication behavior changes. Regression tests: `node --test tests/administration-role-confirmation.bff-mock.test.cjs`.
+
+La liste reflète la suppression uniquement après confirmation du BFF existant, même si le GET suivant échoue. Une lecture ancienne ne réintroduit pas le rôle ; la reprise ne renvoie que le GET. Attente/refus conservent le rôle, la confirmation et le brouillon. Seul l’éditeur du rôle supprimé est réinitialisé, jamais un autre brouillon. Aucun changement API/BFF, client, contrat, dépendance ou authentification.
+
 ## Contracts and background / Contrats et compléments
 
 - [BFF.md](BFF.md)
