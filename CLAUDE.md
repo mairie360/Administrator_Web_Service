@@ -44,6 +44,15 @@ These commands run offline.
 
 ## Architecture
 
+- **Console boundaries (MAIR-406 / issue146)** — `administration-console.tsx`
+  owns global reads, revisions and mutation orchestration. Four stable top-level
+  panels are imported directly from `src/components/administration/`; local
+  state/callbacks/mount semantics stay unchanged. Shared `controls.tsx` and
+  `confirm-modal.tsx` have no administration data dependency; `types.ts` only
+  exports `RunAction`. No barrel/cycle, new effect/fetch or lazy boundary. The
+  component-boundary suite and HTML refresh regression cover extraction and
+  preservation of active drafts/history, not deployed authorization.
+
 - **Shared shell and profile routing (MAIR-180)** — `src/app/page.tsx` passes the
   active module, session user, logout callback and runtime front URLs to the
   library `AppShell`. There is no local Sidebar/Header/Footer composition or

@@ -1,5 +1,16 @@
 # Administrator_Web_Service — Présentation du module
 
+## Panneaux Administration indépendants — MAIR-406
+
+Utilisateurs, rôles, groupes et sessions conservent leurs formulaires,
+confirmations, erreurs et relectures. Chaque panneau est un composant top-level
+stable dans `src/components/administration/` ; la console garde l'orchestration.
+Les contrôles et la confirmation partagés n'accèdent pas aux données métier.
+Actualiser la console conserve le brouillon du panneau actif ou la vue historique
+des sessions ; changer d'onglet garde le montage/démontage existant.
+L'issue #146 suit cette tranche de conception, sans certifier commandes par token,
+droits déployés, authentification réelle ou intégration dans main.
+
 ## Reprendre le document protégé après une redirection de données — MAIR-406
 
 Une redirection opaque pendant une requête de données recharge une seule fois

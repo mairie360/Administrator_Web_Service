@@ -387,6 +387,46 @@ const groupForm = () => view.hostElements((props, _text, tag) => tag === 'form' 
 const editGroupForm = () => view.hostElements((props, _text, tag) => tag === 'form' && props.className === 'space-y-4')[0];
 const openGroups = () => view.click((props, text) => props.role === 'tab' && text === 'Groupes');
 
+test('independent panel drafts and session history survive a console refresh after modular extraction', async () => {
+  await renderLoadedConsole();
+  const refreshConsole = async () => {
+    const count = bff.requests.length;
+    await view.act(() => view.hostElements('Actualiser')[0].props.onClick());
+    await view.waitFor(() => bff.requests.length === count + 4 && consoleLoaded());
+  };
+  const fieldValue = id => view.hostElements(props => props.id === id)[0]?.props.value;
+
+  await view.click('Nouvel utilisateur');
+  await changeField('create-first-name', 'Brouillon utilisateur');
+  await refreshConsole();
+  assert.equal(fieldValue('create-first-name'), 'Brouillon utilisateur');
+  assert.equal(bff.calls('/bff/admin/users', 'GET').length, 1);
+
+  await view.click((props, text) => props.role === 'tab' && text === 'Rôles');
+  await changeField('role-name', 'Brouillon rôle');
+  await refreshConsole();
+  assert.equal(fieldValue('role-name'), 'Brouillon rôle');
+
+  bff.on('get', '/bff/admin/groups/{groupId}', { body: { group: group(1) } });
+  bff.on('get', '/bff/admin/groups/{groupId}/users', { body: { users: [] } });
+  await openGroups();
+  await changeField('group-name', 'Brouillon création');
+  await view.click((props, text, tag) => tag === 'button' && text.includes('Groupe 1'));
+  await view.waitFor(() => view.html.includes('id="edit-group-name"'));
+  await changeField('edit-group-name', 'Brouillon groupe');
+  await refreshConsole();
+  assert.equal(fieldValue('group-name'), 'Brouillon création');
+  assert.equal(fieldValue('edit-group-name'), 'Brouillon groupe');
+  assert.match(view.text(), /Groupe 1/);
+
+  await view.click((props, text) => props.role === 'tab' && text === 'Sessions');
+  await view.click((props, text, tag) => tag === 'button' && text.startsWith('Historique'));
+  await refreshConsole();
+  assert.match(view.text(), /Firefox s-0/);
+  assert.doesNotMatch(view.text(), /Firefox s-1/);
+  assert.equal(bff.requests.filter(request => request.method !== 'GET').length, 0);
+});
+
 test('a delayed initial console read cannot erase a group confirmed by a later creation', async () => {
   mockConsoleData();
   const initialRoles = deferred();

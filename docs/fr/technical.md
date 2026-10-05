@@ -1,5 +1,17 @@
 # Administrator_Web_Service — Documentation technique
 
+## Frontières des composants de console — MAIR-406
+
+`administration-console.tsx` conserve lectures globales, révisions de requêtes et
+garde synchrone de mutations. Elle importe directement `users-panel`,
+`roles-panel`, `groups-panel` et `sessions-panel` depuis `components/administration`.
+Leur état local et leurs callbacks restent identiques. `controls.tsx` partage
+champs, panneaux, boutons, états vides et formatage des dates ; `confirm-modal.tsx`
+conserve la gestion de focus/busy. `types.ts` ne partage que le type `RunAction`.
+Aucun cycle, barrel, fetch, effet, chargement différé ou changement API/BFF ajouté.
+Les contrôles de frontières et la régression HTTP/HTML d'actualisation complètent
+les suites existantes de requêtes et confirmations.
+
 ## Reprise d'une redirection opaque dans le client — MAIR-406
 
 `requestBff` impose `redirect: 'manual'` après les options de l'appelant. Après

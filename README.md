@@ -1,5 +1,24 @@
 # Administrator_Web_Service
 
+## Independent console panels / Panneaux indépendants — MAIR-406
+
+[Issue #146](https://github.com/mairie360/Administrator_Web_Service/issues/146)
+tracks the design-only split requested by the existing audit. The console now
+owns orchestration; users, roles, groups and sessions live in separate top-level
+components under `src/components/administration/`. Shared controls and the
+confirmation dialog have explicit imports, without a barrel or circular
+dependency. The twelve existing function bodies and parameters are preserved.
+An HTTP/HTML regression checks that console refresh keeps each active panel's
+drafts and the selected session-history view, without writing business data.
+
+La console orchestre les quatre panneaux séparés utilisateurs/rôles/groupes/
+sessions. Champs, boutons et confirmations sont partagés sans dépendance aux
+données. Les mêmes fonctions, callbacks, état, classes, lectures et mutations
+sont conservés ; ce découpage ne corrige ni ne certifie les commandes par token,
+les droits déployés ou l'authentification réelle. Aucun API/BFF, client réseau,
+contrat, dépendance, workflow, environnement ou pin n'est modifié. L'intégration
+et la CI verte restent des critères distincts, pas une conséquence du refactoring.
+
 ## Protected document recovery / Reprise de navigation — MAIR-406
 
 [Issue #145](https://github.com/mairie360/Administrator_Web_Service/issues/145)

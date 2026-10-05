@@ -1,5 +1,16 @@
 # Administrator_Web_Service — Module overview
 
+## Independent administration panels — MAIR-406
+
+Users, roles, groups and sessions retain their existing forms, confirmations,
+errors and readback behavior. Each panel is a stable top-level component in
+`src/components/administration/`; the console keeps shared orchestration.
+The common controls and confirmation dialog do not access administration data.
+Refreshing the console preserves the current panel's unsaved draft or selected
+session-history view; switching tabs retains the existing mount/unmount behavior.
+This design slice is tracked by issue #146. It does not certify token-based
+session commands, deployed permissions, real authentication or main integration.
+
 ## Reopening a protected page after a data redirect — MAIR-406
 
 When a data fetch returns an opaque redirect, reopen the current protected page

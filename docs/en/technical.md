@@ -1,5 +1,17 @@
 # Administrator_Web_Service — Technical documentation
 
+## Console component boundaries — MAIR-406
+
+`administration-console.tsx` retains global reads, request revisions and the
+synchronous mutation guard. It imports `users-panel`, `roles-panel`,
+`groups-panel` and `sessions-panel` directly from `components/administration`.
+Their local state and callbacks are unchanged. `controls.tsx` shares fields,
+panels, buttons, empty states and date formatting; `confirm-modal.tsx` keeps the
+existing focus/busy handling. `types.ts` shares only the `RunAction` type.
+No cyclic dependency, barrel export, new fetch, effect, lazy-loading boundary or
+API/BFF change is introduced. Component-boundary tests and the real HTTP/HTML
+refresh regression complement the existing request/confirmation suites.
+
 ## Opaque redirect recovery in the data client — MAIR-406
 
 `requestBff` sets `redirect: 'manual'` after caller options. After fetch, the
