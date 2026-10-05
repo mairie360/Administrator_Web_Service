@@ -60,14 +60,52 @@ describe('requestBff', () => {
     assert.equal(bff.requests[0].headers['content-type'], undefined);
   });
 
-  test('a stored JWT wins over the session cookie, and an explicit Authorization header wins over both', async () => {
+  test('legacy browser storage cannot replace the session cookie; explicit caller headers stay intact', async () => {
     bff.on('get', '/me', bffError(401));
     installStorage({ 'mairie360.auth.jwt': ' stored.jwt ' });
 
     await assert.rejects(requestBff('/me'));
     await assert.rejects(requestBff('/me', { headers: { Authorization: 'Bearer explicit.jwt' } }));
 
-    assert.deepEqual(bff.requests.map(({ headers }) => headers.authorization), ['Bearer stored.jwt', 'Bearer explicit.jwt']);
+    assert.deepEqual(bff.requests.map(({ headers }) => headers.authorization), [`Bearer ${front.cookie}`, 'Bearer explicit.jwt']);
+  });
+
+  test('does not read or migrate the legacy storage key during a data request', async () => {
+    bff.on('get', '/health', { raw: 'OK', contentType: 'text/plain' });
+    const store = installStorage({ 'mairie360.projects.jwt': 'legacy.jwt' });
+
+    assert.equal(await requestBff('/health'), 'OK');
+
+    assert.equal(bff.requests[0].headers.authorization, `Bearer ${front.cookie}`);
+    assert.deepEqual([...store], [['mairie360.projects.jwt', 'legacy.jwt']]);
+  });
+
+  test('a data request never accesses browser storage, including a denied storage getter', async () => {
+    bff.on('get', '/health', { raw: 'OK', contentType: 'text/plain' });
+    let accesses = 0;
+    global.window = {
+      get localStorage() {
+        accesses += 1;
+        throw new DOMException('Accès refusé', 'SecurityError');
+      },
+    };
+
+    assert.equal(await requestBff('/health'), 'OK');
+    assert.equal(accesses, 0);
+    assert.equal(bff.requests[0].headers.authorization, `Bearer ${front.cookie}`);
+  });
+
+  test('storage alone supplies no Authorization header without a session cookie', async () => {
+    bff.on('get', '/me', bffError(401));
+    installStorage({ 'mairie360.auth.jwt': 'stored.jwt', 'mairie360.projects.jwt': 'legacy.jwt' });
+    front.cookie = undefined;
+
+    // /me passes through the existing middleware; the /api adapter lets us
+    // separately inspect the existing proxy without inventing a new route.
+    await assert.rejects(requestBff('/api/user/me'));
+
+    assert.equal(bff.requests.length, 1);
+    assert.equal(bff.requests[0].headers.authorization, undefined);
   });
 });
 

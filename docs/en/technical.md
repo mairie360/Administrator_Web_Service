@@ -1,5 +1,18 @@
 # Administrator_Web_Service — Technical documentation
 
+## Cookie forwarding without stored JWT injection — MAIR-406
+
+`src/lib/bff-client.ts` builds headers from `RequestInit` and supplies missing
+JSON defaults only. It no longer imports `getStoredAuthorizationHeader`; old
+storage keys cannot supply an automatic bearer header or be migrated by a data
+request. Explicit Authorization is preserved, while the unchanged frontend
+proxy uses the cookie when no header is supplied. Cleanup helpers, middleware,
+auth adapters, session management and the published User0.5.0 contract are
+unchanged. Four regressions cover cookie precedence, legacy-key preservation,
+zero storage accesses (including denied access) and storage without a cookie.
+HTTP fixtures exercise real routes/proxy; they do not prove native storage,
+deployed rights, signature validation or server-side revocation.
+
 ## Shared footer — MAIR-180
 
 The unchanged CI audit exposed the transitive tooling dependency

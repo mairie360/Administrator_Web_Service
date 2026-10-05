@@ -1,5 +1,25 @@
 # Administrator_Web_Service
 
+## Cookie-owned data requests / Requêtes liées au cookie — MAIR-406
+
+The frontend data client no longer reads or migrates `mairie360.auth.jwt` or
+`mairie360.projects.jwt` to inject an Authorization header. The existing proxy
+uses the session cookie; explicitly supplied caller headers remain unchanged.
+Storage cleanup helpers, routes, middleware and session adapters are unchanged.
+This does not validate a cookie signature or grant administrator rights.
+
+Le client de données n'utilise plus les anciens jetons du navigateur pour
+remplacer la session du cookie. Aucune donnée du stockage utilisateur n'est
+effacée ou migrée pendant une lecture. Les headers explicites sont conservés.
+La révocation par identifiant, l'accès non-admin et la navigation après expiration
+restent des sujets distincts de l'audit MAIR-406, pas des critères terminés.
+
+Regression: `node --test tests/bff-client.bff-mock.test.cjs tests/administration-api.bff-mock.test.cjs`.
+Four assertions fail before the correction and pass afterwards through the real
+frontend routes/proxy and contract-driven HTTP fixtures. These are not native
+browser storage or deployed authorization proofs. No API/BFF, contract, package,
+security policy or deployment change; no demonstration data is shipped.
+
 ## Reference sidebar / Sidebar de référence — MAIR-180
 
 [Issue #141](https://github.com/mairie360/Administrator_Web_Service/issues/141)

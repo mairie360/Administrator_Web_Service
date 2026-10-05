@@ -1,5 +1,14 @@
 # Administrator_Web_Service — Module overview
 
+## Data-request session ownership — MAIR-406
+
+Legacy browser JWT storage no longer overrides the cookie used by the existing
+frontend proxy. Data requests do not read, migrate or erase that storage; explicit
+caller headers and existing logout cleanup remain unchanged. This is a client
+correction, not proof of administrator authorization, server-side revocation or
+an identifier-based replacement for the existing token session commands. Those
+other audit subjects remain open. No API/BFF or demonstration data changes.
+
 ## Active-module navigation
 
 The measured reference sidebar rhythm is restored by this front's consumer CSS

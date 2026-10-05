@@ -1,5 +1,14 @@
 # Administrator_Web_Service — Présentation du module
 
+## Session des requêtes de données — MAIR-406
+
+Les anciens jetons du stockage navigateur ne remplacent plus le cookie utilisé
+par le proxy frontend existant. Une requête ne lit, ne migre ni n'efface ce
+stockage ; les headers explicites et le nettoyage de déconnexion restent
+inchangés. Ce correctif client ne certifie ni droits administrateur, ni révocation
+serveur, ni remplacement des commandes de session par identifiant. Ces autres
+sujets d'audit restent ouverts. Aucun API/BFF ni donnée de démonstration modifié.
+
 ## Sidebar mesurée de référence — MAIR-180 / issue141
 
 Le CSS consommateur rétablit des cibles de navigation de 44px minimum et l'ombre

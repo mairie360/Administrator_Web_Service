@@ -1,5 +1,19 @@
 # Administrator_Web_Service — Documentation technique
 
+## Cookie sans injection de JWT stocké — MAIR-406
+
+`src/lib/bff-client.ts` construit les headers depuis `RequestInit` et ajoute
+seulement les valeurs JSON manquantes. Il n'importe plus
+`getStoredAuthorizationHeader` : les anciennes clés ne fournissent pas de bearer
+automatique et ne sont pas migrées pendant les appels. Authorization explicite
+reste conservé ; le proxy frontend inchangé utilise le cookie sans ce header.
+Helpers de nettoyage, middleware, adaptateurs d'authentification, gestion des
+sessions et contrat publié User0.5.0 inchangés. Quatre régressions vérifient la
+priorité du cookie, la conservation de la clé historique, zéro accès au stockage
+(y compris refusé) et le stockage seul sans cookie. Le harnais HTTP exécute les
+routes/proxy réels, pas le stockage natif ni les droits, signatures ou révocation
+serveur déployés.
+
 ## Résultats de la dernière recherche utilisateurs — MAIR-448
 
 Un compteur de lecture React protège la liste utilisateurs. Seule la dernière
