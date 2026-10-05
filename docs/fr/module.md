@@ -1,5 +1,14 @@
 # Administrator_Web_Service — Présentation du module
 
+## Une liste inconnue n’est pas vide — MAIR-470
+
+Rôles, groupes, sessions actives et historique restent inconnus jusqu’à leur
+première lecture réussie. Les compteurs affichent un tiret ; les panneaux
+distinguent attente et indisponibilité, avec les commandes de reprise GET
+existantes. Seule une réponse vide valide affiche zéro et le message de liste
+vide. Un refus ultérieur conserve les dernières listes reçues et les brouillons.
+Ce contrôle d’affichage ne certifie ni droits ni persistance déployés.
+
 ## Panneaux Administration indépendants — MAIR-406
 
 Utilisateurs, rôles, groupes et sessions conservent leurs formulaires,

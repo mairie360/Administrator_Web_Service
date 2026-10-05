@@ -79,12 +79,14 @@ function SessionTable({ sessions }: { sessions: AdministrationSession[] }) {
 export function SessionsPanel({
   activeSessions,
   sessionHistory,
+  loading,
   busyAction,
   runAction,
   refreshSessions,
 }: {
-  activeSessions: AdministrationSession[];
-  sessionHistory: AdministrationSession[];
+  activeSessions: AdministrationSession[] | null;
+  sessionHistory: AdministrationSession[] | null;
+  loading: boolean;
   busyAction: string | null;
   runAction: RunAction;
   refreshSessions: () => Promise<void>;
@@ -92,6 +94,7 @@ export function SessionsPanel({
   const [view, setView] = useState<"active" | "history">("active");
   const [refreshToken, setRefreshToken] = useState("");
   const formPending = busyAction !== null;
+  const visibleSessions = view === "active" ? activeSessions : sessionHistory;
 
   const submitTokenAction = async (action: "refresh" | "revoke") => {
     if (formPending || !refreshToken.trim()) return;
@@ -138,7 +141,7 @@ export function SessionsPanel({
             }`}
           >
             <Clock3 className="h-4 w-4" aria-hidden="true" />
-            Actives ({activeSessions.length})
+            Actives ({activeSessions?.length ?? "—"})
           </button>
           <button
             type="button"
@@ -148,10 +151,14 @@ export function SessionsPanel({
             }`}
           >
             <History className="h-4 w-4" aria-hidden="true" />
-            Historique ({sessionHistory.length})
+            Historique ({sessionHistory?.length ?? "—"})
           </button>
         </div>
-        <SessionTable sessions={view === "active" ? activeSessions : sessionHistory} />
+        {visibleSessions === null ? (
+          <EmptyState>
+            <p role="status">{loading ? "Chargement des sessions…" : "Les sessions n’ont pas pu être chargées. Utilisez Actualiser pour réessayer."}</p>
+          </EmptyState>
+        ) : <SessionTable sessions={visibleSessions} />}
       </Panel>
 
       <Panel

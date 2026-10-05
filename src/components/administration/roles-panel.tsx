@@ -11,12 +11,14 @@ type RoleWriteMode = "create" | "replace" | "update";
 
 export function RolesPanel({
   roles,
+  loading,
   busyAction,
   runAction,
   refreshRoles,
   onRoleDeleted,
 }: {
-  roles: AdministrationRole[];
+  roles: AdministrationRole[] | null;
+  loading: boolean;
   busyAction: string | null;
   runAction: RunAction;
   refreshRoles: () => Promise<void>;
@@ -82,7 +84,11 @@ export function RolesPanel({
           </ActionButton>
         }
       >
-        {roles.length === 0 ? (
+        {roles === null ? (
+          <EmptyState>
+            <p role="status">{loading ? "Chargement des rôles…" : "Les rôles n’ont pas pu être chargés. Utilisez Actualiser pour réessayer."}</p>
+          </EmptyState>
+        ) : roles.length === 0 ? (
           <EmptyState>Aucun rôle disponible.</EmptyState>
         ) : (
           <div className="divide-y divide-[#ebe8e3] rounded-lg border border-[#e4e1dc]">

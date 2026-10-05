@@ -27,10 +27,11 @@ const tabs: Array<{
 export function AdministrationConsole() {
   const [activeTab, setActiveTab] = useState<TabId>("users");
   const [usersTotal, setUsersTotal] = useState<number | null>(null);
-  const [roles, setRoles] = useState<AdministrationRole[]>([]);
-  const [groups, setGroups] = useState<AdministrationGroup[]>([]);
-  const [activeSessions, setActiveSessions] = useState<AdministrationSession[]>([]);
-  const [sessionHistory, setSessionHistory] = useState<AdministrationSession[]>([]);
+  // null means no successful read; [] is a confirmed empty collection.
+  const [roles, setRoles] = useState<AdministrationRole[] | null>(null);
+  const [groups, setGroups] = useState<AdministrationGroup[] | null>(null);
+  const [activeSessions, setActiveSessions] = useState<AdministrationSession[] | null>(null);
+  const [sessionHistory, setSessionHistory] = useState<AdministrationSession[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const actionPending = useRef(false);
@@ -149,7 +150,7 @@ export function AdministrationConsole() {
     // A confirmed DELETE is authoritative even if the follow-up GET fails.
     // Invalidate earlier reads so they cannot restore the deleted role.
     rolesReadRevision.current += 1;
-    setRoles((current) => current.filter((role) => role.id !== roleId));
+    setRoles((current) => current?.filter((role) => role.id !== roleId) ?? null);
   }, []);
 
   const refreshRoles = useCallback(async () => {
@@ -175,7 +176,7 @@ export function AdministrationConsole() {
   const applyGroupDeletion = useCallback((groupId: number) => {
     // Confirmation owns this resource even if an earlier global read is late.
     groupsReadRevision.current += 1;
-    setGroups((current) => current.filter((group) => group.id !== groupId));
+    setGroups((current) => current?.filter((group) => group.id !== groupId) ?? null);
   }, []);
 
   const refreshSessions = useCallback(async () => {
@@ -200,12 +201,12 @@ export function AdministrationConsole() {
       value: usersTotal ?? "—",
       icon: UserCog,
     },
-    { tab: "roles" as const, label: "Rôles", value: roles.length, icon: ShieldCheck },
-    { tab: "groups" as const, label: "Groupes", value: groups.length, icon: UsersRound },
+    { tab: "roles" as const, label: "Rôles", value: roles?.length ?? "—", icon: ShieldCheck },
+    { tab: "groups" as const, label: "Groupes", value: groups?.length ?? "—", icon: UsersRound },
     {
       tab: "sessions" as const,
       label: "Sessions actives",
-      value: activeSessions.length,
+      value: activeSessions?.length ?? "—",
       icon: Activity,
     },
   ];
@@ -358,7 +359,7 @@ export function AdministrationConsole() {
 
       {activeTab === "users" && (
         <UsersPanel
-          roles={roles}
+          roles={roles ?? []}
           busyAction={busyAction}
           runAction={runAction}
           onTotalChange={setUsersTotal}
@@ -367,6 +368,7 @@ export function AdministrationConsole() {
       {activeTab === "roles" && (
         <RolesPanel
           roles={roles}
+          loading={loading || busyAction === "refresh-roles"}
           busyAction={busyAction}
           runAction={runAction}
           refreshRoles={refreshRoles}
@@ -376,6 +378,7 @@ export function AdministrationConsole() {
       {activeTab === "groups" && (
         <GroupsPanel
           groups={groups}
+          loading={loading || busyAction === "refresh-groups"}
           busyAction={busyAction}
           runAction={runAction}
           refreshGroups={refreshGroups}
@@ -386,6 +389,7 @@ export function AdministrationConsole() {
         <SessionsPanel
           activeSessions={activeSessions}
           sessionHistory={sessionHistory}
+          loading={loading || busyAction === "refresh-sessions"}
           busyAction={busyAction}
           runAction={runAction}
           refreshSessions={refreshSessions}

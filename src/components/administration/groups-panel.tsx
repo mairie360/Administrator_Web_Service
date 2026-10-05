@@ -21,12 +21,14 @@ type GroupDeletionTarget =
 
 export function GroupsPanel({
   groups,
+  loading,
   busyAction,
   runAction,
   refreshGroups,
   onGroupDeleted,
 }: {
-  groups: AdministrationGroup[];
+  groups: AdministrationGroup[] | null;
+  loading: boolean;
   busyAction: string | null;
   runAction: RunAction;
   refreshGroups: () => Promise<void>;
@@ -254,7 +256,11 @@ export function GroupsPanel({
             </ActionButton>
           }
         >
-          {groups.length === 0 ? (
+          {groups === null ? (
+            <EmptyState>
+              <p role="status">{loading ? "Chargement des groupes…" : "Les groupes n’ont pas pu être chargés. Utilisez Actualiser pour réessayer."}</p>
+            </EmptyState>
+          ) : groups.length === 0 ? (
             <EmptyState>Aucun groupe pour le moment.</EmptyState>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">

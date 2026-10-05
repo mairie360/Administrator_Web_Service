@@ -1,5 +1,14 @@
 # Administrator_Web_Service — Module overview
 
+## Unknown collections are not empty — MAIR-470
+
+Roles, groups, active sessions and session history remain unknown until their
+first successful read. Their counters show an em dash; their panels distinguish
+loading from unavailable and retain the existing GET-only refresh controls.
+Only a valid empty response displays the empty-list message and zero count.
+Subsequent read failures preserve the last received collections and drafts.
+This frontend presentation does not certify deployed permissions or persistence.
+
 ## Independent administration panels — MAIR-406
 
 Users, roles, groups and sessions retain their existing forms, confirmations,

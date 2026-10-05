@@ -264,7 +264,7 @@ test('the console loads roles, groups, sessions and users and renders the counts
   assert.equal(view.passes, 1);
   assert.match(view.html, /<h1[^>]*>Administration<\/h1>/);
   assert.match(view.html, /aria-label="Chargement"/);
-  assert.match(view.text(), /— Utilisateurs 0 Rôles 0 Groupes 0 Sessions actives/);
+  assert.match(view.text(), /— Utilisateurs — Rôles — Groupes — Sessions actives/);
 
   const html = await view.waitFor(() => bff.requests.length === 5 && consoleLoaded() && !view.html.includes('aria-label="Chargement"') && view.text().includes('2 Utilisateurs'));
 
@@ -349,7 +349,7 @@ test('a 401 from the BFF is rendered as the administrator-session alert', async 
   assert.match(html, /<p[^>]*>Session administrateur requise<\/p>/);
   assert.match(view.text(), /Authentification requise\. Reconnectez-vous au portail Mairie360\./, 'the users panel reports its own 401');
   assert.match(view.text(), /Votre session a expiré\. Reconnectez-vous pour accéder à l’administration\./);
-  assert.match(view.text(), /— Utilisateurs 0 Rôles 0 Groupes 0 Sessions actives/);
+  assert.match(view.text(), /— Utilisateurs — Rôles — Groupes — Sessions actives/);
 });
 
 test('a partial failure keeps the data that loaded and lists the failed source', async () => {
@@ -362,7 +362,7 @@ test('a partial failure keeps the data that loaded and lists the failed source',
   assert.match(html, /<p[^>]*>Certaines données n’ont pas pu être chargées<\/p>/);
   assert.match(view.text(), /Le service d’administration est momentanément indisponible\. Réessayez plus tard\./);
   assert.doesNotMatch(view.text(), /Erreur BFF|Core API unavailable|\b503\b/);
-  assert.match(view.text(), /0 Rôles 1 Groupes 1 Sessions actives/);
+  assert.match(view.text(), /— Rôles 1 Groupes 1 Sessions actives/);
   assert.match(view.text(), /Alice Dupont/);
 });
 
@@ -383,6 +383,68 @@ const deferred = () => {
   return { promise, resolve };
 };
 const changeField = (id, value) => view.fire(props => props.id === id, 'onChange', { target: { value } });
+
+const initialLists = [
+  { path: '/bff/admin/roles', tab: 'Rôles', unknown: 'Les rôles n’ont pas pu être chargés.', empty: 'Aucun rôle disponible.', body: { roles: [] } },
+  { path: '/bff/admin/groups', tab: 'Groupes', unknown: 'Les groupes n’ont pas pu être chargés.', empty: 'Aucun groupe pour le moment.', body: { groups: [] } },
+  { path: '/bff/admin/sessions', tab: 'Sessions', unknown: 'Les sessions n’ont pas pu être chargées.', empty: 'Aucune session à afficher.', body: { sessions: [] } },
+  { path: '/bff/admin/sessions/history', tab: 'Sessions', history: true, unknown: 'Les sessions n’ont pas pu être chargées.', empty: 'Aucune session à afficher.', body: { sessions: [] } },
+];
+for (const source of initialLists) {
+  test(`an unread ${source.path} is unavailable, not an empty list, and a GET retry can confirm emptiness`, async () => {
+    mockConsoleData();
+    bff.on('get', source.path, bffError(503));
+    view = mount(React.createElement(AdministrationConsole));
+    await view.waitFor(() => bff.requests.length === 5 && consoleLoaded());
+    await view.click((props, text) => props.role === 'tab' && text === source.tab);
+    if (source.history) await view.click((props, text, tag) => tag === 'button' && text.startsWith('Historique'));
+    assert.ok(view.text().includes(source.unknown));
+    assert.ok(!view.text().includes(source.empty));
+    const count = bff.calls(source.path).length;
+    bff.on('get', source.path, { body: source.body });
+    await view.act(() => view.hostElements('Actualiser')[0].props.onClick());
+    await view.waitFor(() => bff.calls(source.path).length === count + 1 && consoleLoaded());
+    assert.ok(view.text().includes(source.empty));
+    assert.ok(!view.text().includes(source.unknown));
+    assert.equal(bff.requests.filter(request => request.method !== 'GET').length, 0);
+  });
+}
+
+test('the initial pending lists have unknown counters and never show a confirmed empty state', async () => {
+  const waiting = deferred();
+  mockConsoleData();
+  bff.on('get', '/bff/admin/roles', async () => { await waiting.promise; return { body: { roles: [] } }; });
+  view = mount(React.createElement(AdministrationConsole));
+  try {
+    await view.waitFor(() => bff.requests.length === 5);
+    assert.match(view.text(), /— Rôles — Groupes — Sessions actives/);
+    for (const tab of ['Rôles', 'Groupes', 'Sessions']) {
+      await view.click((props, text) => props.role === 'tab' && text === tab);
+      assert.match(view.text(), /Chargement des/);
+      assert.doesNotMatch(view.text(), /Aucun rôle disponible|Aucun groupe pour le moment|Aucune session à afficher/);
+    }
+  } finally {
+    waiting.resolve();
+    await view.waitFor(consoleLoaded);
+  }
+});
+
+test('a refused global reread retains the last known lists and their counts', async () => {
+  await renderLoadedConsole();
+  for (const source of initialLists) bff.on('get', source.path, bffError(503));
+  await view.act(() => view.hostElements('Actualiser')[0].props.onClick());
+  await view.waitFor(() => bff.requests.length === 9 && consoleLoaded());
+  assert.match(view.text(), /2 Rôles 1 Groupes 1 Sessions actives/);
+  await view.click((props, text) => props.role === 'tab' && text === 'Rôles');
+  assert.match(view.text(), /Rôle 1/);
+  await view.click((props, text) => props.role === 'tab' && text === 'Groupes');
+  assert.match(view.text(), /Groupe 1/);
+  await view.click((props, text) => props.role === 'tab' && text === 'Sessions');
+  assert.match(view.text(), /Firefox s-1/);
+  await view.click((props, text, tag) => tag === 'button' && text.startsWith('Historique'));
+  assert.match(view.text(), /Firefox s-0/);
+  assert.equal(bff.requests.length, 9);
+});
 const groupForm = () => view.hostElements((props, _text, tag) => tag === 'form' && props.className?.includes('sm:items-end'))[0];
 const editGroupForm = () => view.hostElements((props, _text, tag) => tag === 'form' && props.className === 'space-y-4')[0];
 const openGroups = () => view.click((props, text) => props.role === 'tab' && text === 'Groupes');
