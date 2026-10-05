@@ -1,5 +1,19 @@
 # Administrator_Web_Service — Documentation technique
 
+## Reprise d'une redirection opaque dans le client — MAIR-406
+
+`requestBff` impose `redirect: 'manual'` après les options de l'appelant. Après
+fetch, le signal est vérifié avant de traiter la réponse. `opaqueredirect` est
+identifié avant lecture du statut, des headers ou du corps : le navigateur
+recharge son document courant une seule fois par `Location` (propriété faible),
+puis rejette avec `BffNavigationRequiredError`. Le SSR rejette sans accéder à
+`window` ; les lectures concurrentes ne multiplient pas les navigations et aucune
+écriture n'est répétée. Le middleware inchangé gère Login et le retour validé.
+Les erreurs ordinaires gardent `BffRequestError` ; une panne réseau seule ne
+prouve pas une expiration. Six régressions couvrent concurrence opaque, mutation,
+annulation, 401/403/503 ordinaires, panne réseau et SSR. Routes, proxy, hook auth,
+contrat, politique de sécurité, dépendances, API/BFF et déploiement inchangés.
+
 ## Affichage après vérification du profil — MAIR-406
 
 `src/app/page.tsx` dérive quatre branches explicites de `useAuthSession` inchangé :

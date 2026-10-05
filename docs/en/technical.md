@@ -1,5 +1,19 @@
 # Administrator_Web_Service — Technical documentation
 
+## Opaque redirect recovery in the data client — MAIR-406
+
+`requestBff` sets `redirect: 'manual'` after caller options. After fetch, the
+caller signal is checked before response handling. `opaqueredirect` is recognized
+before reading status, headers or body: the browser reopens its current document
+once per `Location` (weak ownership), then rejects with
+`BffNavigationRequiredError`. SSR rejects without accessing `window`; concurrent
+reads cannot cause repeated navigation and no write is replayed. The unchanged
+middleware owns Login and its validated return URL. Ordinary errors still throw
+`BffRequestError`; a generic network failure is not evidence of expiration.
+Six client regressions cover opaque concurrency, mutation, abort, ordinary
+401/403/503, network failure and SSR. No routes, proxy, auth hook, contract,
+security policy, dependency, API/BFF or deployment change.
+
 ## Profile-first page rendering — MAIR-406
 
 `src/app/page.tsx` derives four explicit branches from the unchanged

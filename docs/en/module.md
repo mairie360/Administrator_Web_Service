@@ -1,5 +1,14 @@
 # Administrator_Web_Service — Module overview
 
+## Reopening a protected page after a data redirect — MAIR-406
+
+When a data fetch returns an opaque redirect, reopen the current protected page
+once and let its existing middleware navigate to Login with that page's return
+path and query. Do not keep treating this as a generic service failure, infer a
+destination from a network error, or replay a write. Ordinary 401/403/503 failures
+and aborted requests retain their distinct behavior. The disposable local QA
+Login landing is not real authentication; no API/BFF or auth policy is changed.
+
 ## Console visibility from the resolved profile — MAIR-406
 
 The existing session hook must finish successfully with an Admin profile before
@@ -10,8 +19,9 @@ Profile failure is a distinct unavailable state with a document-reload retry;
 the existing 401 logout path is preserved. The old prototype's README reserves
 Administration, although its actual page also mounted the console unconditionally.
 Do not copy that defect or treat this presentation gate as server authorization.
-Token session commands, redirect recovery and other mixed-audit criteria remain
-separate. No API/BFF, authentication helper, contract or product fixture changes.
+Token session commands and other mixed-audit criteria remain separate; redirect
+recovery is qualified above, not claimed integrated. No API/BFF, authentication
+helper, contract or product fixture changes.
 
 ## Data-request session ownership — MAIR-406
 

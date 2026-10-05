@@ -1,5 +1,15 @@
 # Administrator_Web_Service — Présentation du module
 
+## Reprendre le document protégé après une redirection de données — MAIR-406
+
+Une redirection opaque pendant une requête de données recharge une seule fois
+la page protégée courante. Son middleware existant ouvre Login avec le chemin
+et la query de cette page, pas ceux d'un endpoint. Ne pas assimiler ce cas à une
+panne générique, déduire une destination d'une erreur réseau ou répéter une
+écriture. Les erreurs ordinaires 401/403/503 et les requêtes annulées restent
+distinctes. La destination Login de recette jetable ne constitue pas une vraie
+authentification ; aucun API/BFF ni politique d'authentification modifié.
+
 ## Console réservée au profil résolu — MAIR-406
 
 Le hook de session existant doit résoudre un profil Admin avant que la page monte
@@ -10,9 +20,10 @@ un état indisponible distinct, avec reprise par rechargement du document ; le
 parcours de déconnexion sur 401 est conservé. Le README du prototype réserve cet
 accès, mais sa page montait également la console sans condition : ne pas recopier
 ce défaut. Ce contrôle d'affichage ne remplace pas l'autorisation serveur. Les
-commandes de session par token, la navigation après expiration et les autres
-critères de l'audit restent distincts. Aucun API/BFF, helper d'authentification,
-contrat ou donnée de démonstration modifié.
+commandes de session par token et les autres critères de l'audit restent
+distincts ; la reprise de navigation est qualifiée ci-dessus, sans intégration
+revendiquée. Aucun API/BFF, helper d'authentification, contrat ou donnée de
+démonstration modifié.
 
 ## Session des requêtes de données — MAIR-406
 

@@ -1,5 +1,37 @@
 # Administrator_Web_Service
 
+## Protected document recovery / Reprise de navigation — MAIR-406
+
+[Issue #145](https://github.com/mairie360/Administrator_Web_Service/issues/145)
+tracks this navigation slice separately from stored-token and profile visibility.
+
+The data client handles an actual opaque redirect by reopening the current
+protected document once. The existing middleware then owns Login and the page's
+return path/query, rather than a data endpoint. It never reads the opaque
+destination or body, follows it through fetch, or resubmits a mutation. An
+aborted response causes no navigation. Ordinary 401/403/503 and network failures
+keep their existing handling; this is not a new logout or authorization policy.
+
+Le client distingue une redirection opaque d'une panne ou d'un refus métier.
+Il recharge une seule fois le document protégé pour laisser le middleware gérer
+Login et le retour vers la page. Aucune écriture n'est répétée automatiquement.
+La recette utilise un cookie d'expiration synthétique et une destination Login
+explicitement marquée QA : elle ne certifie pas l'authentification déployée.
+
+Regression: `node --test --test-concurrency=1 tests/bff-client.bff-mock.test.cjs`.
+Four new assertions fail before the fix and pass afterwards; two guards preserve
+ordinary errors. Routes, session hook, middleware, proxy, published User0.5.0,
+API/BFF, security policy, dependencies and deployment remain unchanged.
+The complete sequential suite passes 234 tests/16 suites with unchanged 60%
+coverage gates, followed by TypeScript, contract check, lint (two inherited
+warnings) and an isolated one-worker production build. Native 1280×720 QA
+reproduces the old search failure, then observes one protected-document redirect
+to the labelled Login QA landing with the correct page return path/query.
+Ordinary 403/503 remain distinct and recover through GET-only retry: 28 fixture
+reads, zero writes and zero contract violations. The requested mobile override
+remained measured at 1280×720 in both tabs, so mobile is not certified here.
+MAIR-406 remains a mixed, open audit until its other criteria and integration pass.
+
 ## Profile-gated console / Console conditionnée au profil — MAIR-406
 
 [Issue #144](https://github.com/mairie360/Administrator_Web_Service/issues/144)
@@ -34,9 +66,9 @@ This does not validate a cookie signature or grant administrator rights.
 Le client de données n'utilise plus les anciens jetons du navigateur pour
 remplacer la session du cookie. Aucune donnée du stockage utilisateur n'est
 effacée ou migrée pendant une lecture. Les headers explicites sont conservés.
-La révocation par identifiant et la navigation après expiration restent des
-sujets distincts non terminés ; l'affichage non-admin est traité séparément
-ci-dessus, sans revendiquer l'intégration ni les droits déployés.
+La révocation par identifiant reste un sujet distinct non terminé ; la reprise
+de navigation et l'affichage non-admin sont traités séparément ci-dessus, sans
+revendiquer l'intégration ni les droits déployés.
 
 Regression: `node --test tests/bff-client.bff-mock.test.cjs tests/administration-api.bff-mock.test.cjs`.
 Four assertions fail before the correction and pass afterwards through the real
