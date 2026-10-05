@@ -97,7 +97,8 @@ test('the page shell renders the BFF-backed console with the resolved user sessi
 
   assert.equal(view.passes, 1);
   assert.equal(view.props('Header').user.name, 'Chargement…');
-  assert.equal(view.find('AdministrationConsole').length, 1);
+  assert.equal(view.find('AdministrationConsole').length, 0);
+  assert.match(view.text(), /Vérification du profil/);
   assert.equal(view.find('AdministrationModule').length, 0);
   assert.equal(view.find('AppShell').length, 1);
   assert.match(view.html, /<div class="min-w-0 w-full">/);
@@ -127,6 +128,59 @@ test('the page shell renders the BFF-backed console with the resolved user sessi
   assert.doesNotMatch(footer, /Version|<button\b|<a\b/);
   assert.doesNotMatch(view.html, /role="alert"/);
 });
+
+test('a pending profile does not mount the console or request administration data', async () => {
+  const profile = deferred();
+  bff.on('get', '/me', () => profile.promise);
+  mockConsoleData();
+  view = mount(React.createElement(Home));
+  await view.waitFor(() => bff.calls('/me', 'GET').length === 1);
+
+  try {
+    assert.equal(view.find('AdministrationConsole').length, 0);
+    assert.match(view.text(), /Vérification du profil/);
+    assert.deepEqual(sequence(), ['GET /me']);
+  } finally {
+    profile.resolve({ body: me() });
+  }
+
+  await view.waitFor(() => consoleLoaded() && view.text().includes('Bob Martin'));
+  assert.equal(view.find('AdministrationConsole').length, 1);
+  assert.equal(bff.requests.filter(request => request.template.startsWith('/bff/admin/')).length, 5);
+});
+
+for (const roleName of ['Responsable', 'Maire', 'User', 'Guest']) {
+  test(`a resolved ${roleName} profile keeps navigation but never mounts the administration console`, async () => {
+    bff.on('get', '/me', { body: me({}, { roles: [{ id: 2, name: roleName }] }) });
+    mockConsoleData();
+    view = mount(React.createElement(Home));
+    await view.waitFor(() => view.props('Header').user.name === 'Alice Dupont');
+
+    assert.equal(view.find('AdministrationConsole').length, 0);
+    assert.equal(view.find('AppShell').length, 1);
+    assert.equal(view.props('Sidebar').isAdmin, false);
+    assert.match(view.text(), /Accès réservé aux administrateurs/);
+    assert.doesNotMatch(view.text(), /Bob Martin|Sessions actives|Créer un utilisateur/);
+    assert.deepEqual(sequence(), ['GET /me']);
+  });
+}
+
+for (const status of [403, 503]) {
+  test(`a refused profile (${status}) shows a recoverable error, not a role denial or the console`, async () => {
+    bff.on('get', '/me', bffError(status));
+    mockConsoleData();
+    view = mount(React.createElement(Home));
+    await view.waitFor(() => view.text().includes('Profil indisponible'));
+
+    assert.equal(view.find('AdministrationConsole').length, 0);
+    assert.match(view.html, /role="alert"/);
+    assert.doesNotMatch(view.text(), /Accès réservé aux administrateurs/);
+    assert.deepEqual(sequence(), ['GET /me']);
+    await view.click((props, text, tag) => tag === 'button' && text === 'Réessayer');
+    assert.equal(window.reloads, 1);
+    assert.deepEqual(sequence(), ['GET /me'], 'retry requests a document reload, never an administration write');
+  });
+}
 
 test('the users table contains its visually hidden action label without removing accessible text', async () => {
   await renderLoadedConsole();
@@ -199,6 +253,8 @@ test('a session refused by BFF User logs the page out and reloads it', async () 
 
   assert.deepEqual(sequence().filter((request) => request === 'GET /me' || request === 'POST /auth/logout'), ['GET /me', 'POST /auth/logout']);
   assert.equal(view.props('Header').user.name, 'Chargement…');
+  assert.equal(view.find('AdministrationConsole').length, 0);
+  assert.deepEqual(sequence(), ['GET /me', 'POST /auth/logout']);
 });
 
 test('the console loads roles, groups, sessions and users and renders the counts and the users table', async () => {

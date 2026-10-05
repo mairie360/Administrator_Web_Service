@@ -1,5 +1,18 @@
 # Administrator_Web_Service — Module overview
 
+## Console visibility from the resolved profile — MAIR-406
+
+The existing session hook must finish successfully with an Admin profile before
+the page mounts its console and starts administration reads. Pending profiles
+show a status, while Responsable, Maire, User and Guest profiles retain the shell
+but see an access-reserved message with no administration tables or actions.
+Profile failure is a distinct unavailable state with a document-reload retry;
+the existing 401 logout path is preserved. The old prototype's README reserves
+Administration, although its actual page also mounted the console unconditionally.
+Do not copy that defect or treat this presentation gate as server authorization.
+Token session commands, redirect recovery and other mixed-audit criteria remain
+separate. No API/BFF, authentication helper, contract or product fixture changes.
+
 ## Data-request session ownership — MAIR-406
 
 Legacy browser JWT storage no longer overrides the cookie used by the existing

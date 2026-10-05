@@ -1,5 +1,19 @@
 # Administrator_Web_Service — Présentation du module
 
+## Console réservée au profil résolu — MAIR-406
+
+Le hook de session existant doit résoudre un profil Admin avant que la page monte
+la console et lance les lectures Administration. L'attente affiche un statut ;
+Responsable, Maire, User et Guest gardent l'AppShell mais voient un message d'accès
+réservé, sans tableaux ni actions d'administration. Une erreur de profil donne
+un état indisponible distinct, avec reprise par rechargement du document ; le
+parcours de déconnexion sur 401 est conservé. Le README du prototype réserve cet
+accès, mais sa page montait également la console sans condition : ne pas recopier
+ce défaut. Ce contrôle d'affichage ne remplace pas l'autorisation serveur. Les
+commandes de session par token, la navigation après expiration et les autres
+critères de l'audit restent distincts. Aucun API/BFF, helper d'authentification,
+contrat ou donnée de démonstration modifié.
+
 ## Session des requêtes de données — MAIR-406
 
 Les anciens jetons du stockage navigateur ne remplacent plus le cookie utilisé

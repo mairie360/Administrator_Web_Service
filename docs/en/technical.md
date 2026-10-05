@@ -1,5 +1,19 @@
 # Administrator_Web_Service — Technical documentation
 
+## Profile-first page rendering — MAIR-406
+
+`src/app/page.tsx` derives four explicit branches from the unchanged
+`useAuthSession`: loading, error, Admin console, other-role denial. No extra
+effect, cached permission state, role parser or network call is introduced.
+Only the Admin branch mounts `AdministrationConsole`, so pending, failed and
+non-admin profiles cannot initiate its five initial administration reads.
+The error button reloads the document to retry the existing profile hook; no
+mutation is replayed. The existing hook handles 401 logout before resolution.
+Real-page/route/HTTP tests cover deferred resolution, four non-admin roles,
+403/503 profile failures, retry, 401 and unchanged authorized console loading.
+This is not signature, deployed authorization, revocation or stale-role
+revalidation certification. API/BFF, middleware, proxy and User0.5.0 stay intact.
+
 ## Cookie forwarding without stored JWT injection — MAIR-406
 
 `src/lib/bff-client.ts` builds headers from `RequestInit` and supplies missing

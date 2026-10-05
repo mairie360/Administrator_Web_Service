@@ -1,5 +1,28 @@
 # Administrator_Web_Service
 
+## Profile-gated console / Console conditionnée au profil — MAIR-406
+
+[Issue #144](https://github.com/mairie360/Administrator_Web_Service/issues/144)
+tracks this page-rendering slice separately from stored-token issue #142.
+
+The page mounts the administration console only after the existing profile hook
+resolves an Admin session. Pending profiles show a loading status; other resolved
+roles see an access-reserved message without starting administration reads. A
+profile error has its own unavailable state and document-reload retry, not a
+false role denial. The existing 401 logout behavior and shared shell remain.
+
+La console attend le profil administrateur. Responsable, Maire, User et Guest
+conservent la navigation mais ne chargent ni tableaux ni actions Administration.
+Une erreur de profil propose « Réessayer » sans écriture métier. Le prototype
+conservé décrit cet accès réservé dans son README mais sa page montait elle aussi
+la console sans condition : ce défaut n'est pas recopié. Ce contrôle d'affichage
+ne remplace pas l'autorisation serveur et ne clôt pas l'audit mixte MAIR-406.
+
+Regression: `node --test tests/administration-page-html.bff-mock.test.cjs`.
+No API/BFF, session hook, middleware, proxy, contract, dependency, environment or
+product fixture changes. Error fixtures are explicitly outside the package's
+published success schemas; native local QA is not a deployed authorization proof.
+
 ## Cookie-owned data requests / Requêtes liées au cookie — MAIR-406
 
 The frontend data client no longer reads or migrates `mairie360.auth.jwt` or
@@ -11,8 +34,9 @@ This does not validate a cookie signature or grant administrator rights.
 Le client de données n'utilise plus les anciens jetons du navigateur pour
 remplacer la session du cookie. Aucune donnée du stockage utilisateur n'est
 effacée ou migrée pendant une lecture. Les headers explicites sont conservés.
-La révocation par identifiant, l'accès non-admin et la navigation après expiration
-restent des sujets distincts de l'audit MAIR-406, pas des critères terminés.
+La révocation par identifiant et la navigation après expiration restent des
+sujets distincts non terminés ; l'affichage non-admin est traité séparément
+ci-dessus, sans revendiquer l'intégration ni les droits déployés.
 
 Regression: `node --test tests/bff-client.bff-mock.test.cjs tests/administration-api.bff-mock.test.cjs`.
 Four assertions fail before the correction and pass afterwards through the real

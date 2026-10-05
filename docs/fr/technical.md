@@ -1,5 +1,19 @@
 # Administrator_Web_Service — Documentation technique
 
+## Affichage après vérification du profil — MAIR-406
+
+`src/app/page.tsx` dérive quatre branches explicites de `useAuthSession` inchangé :
+attente, erreur, console Admin, accès réservé pour les autres rôles. Aucun nouvel
+effet, état de permission mémorisé, parseur de rôles ou appel réseau ajouté.
+Seule la branche Admin monte `AdministrationConsole` : les profils en attente,
+en erreur ou non-admin ne lancent pas ses cinq lectures initiales. Le bouton de
+reprise recharge le document pour relancer le hook existant, sans répéter une
+mutation. Le hook garde sa déconnexion sur 401 avant résolution. Les tests du
+vrai composant/routes/HTTP couvrent résolution différée, quatre rôles non-admin,
+erreurs profil 403/503, reprise, 401 et chargement autorisé conservé. Ce n'est pas
+une preuve de signature, droits déployés, révocation ou revalidation d'un rôle
+devenu obsolète. API/BFF, middleware, proxy et contrat User0.5.0 restent inchangés.
+
 ## Cookie sans injection de JWT stocké — MAIR-406
 
 `src/lib/bff-client.ts` construit les headers depuis `RequestInit` et ajoute
