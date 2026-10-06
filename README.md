@@ -151,6 +151,36 @@ Pour MAIR-230 et l’issue #123, le workflow consommateur exécute **Semgrep et 
 
 ## Pending session form drafts / Brouillons des sessions en attente
 
+Additional verification, 6 October 2026 — MAIR-460 / MAIR-470: targeted session
+readback now waits for both existing parallel GETs, applies each successful list
+independently and preserves the refused source. A fast failure no longer unlocks
+the confirmed command's form while the other read is pending. Four added
+real-component/HTTP regressions failed on `a511e97` and pass after this correction.
+The preserved prototype has the same `Promise.all` defect; its files are unchanged.
+
+The full sequential Node suite passes 250 tests / 16 suites with unchanged 60%
+coverage gates (97.92% lines, 93.58% branches, 90.97% functions). TypeScript,
+published User0.5.0 snapshot check and lint pass (two existing warnings). Production
+webpack build passes with a temporary one-worker limit and 768 MB heap; the config
+is restored before publication. Existing dependencies were reused, not freshly
+installed. Native integrated-browser QA: 1280×720 and actual 390×844, independent
+success/refusal in both directions, desktop refresh and mobile revoke with an
+8000/8001 ms history read after active GET503, locked field/commands throughout,
+confirmed clearing, distinct readback warning and GET-only retry. Ledger: 24 GET,
+one refresh POST200 and one revoke POST204, zero validation violations within the
+declared synthetic 503 error-schema exceptions; no console errors/warnings,
+framework overlay or external horizontal overflow observed. Fixtures/screenshots
+stay outside Git. No real token, authentication, revocation or deployment is proved.
+The disposable helper and frontend child are stopped; CI/main integration and an
+exact refreshed local-current remain required before closure.
+
+Complément du 6 octobre : les deux sources gardent leur succès indépendant et le
+verrou existant reste actif jusqu’à leur fin. Reprise GET seule sans rejouer de
+commande, aucune donnée QA publiée. Le SDK/client/proxy/authentification, les
+API/BFF, dépendances, workflows, protections de main, contrôles sécurité/RGAA et
+déploiements restent inchangés. Les autres recettes ci-dessous sont historiques
+et gardent leur périmètre ; elles ne remplacent pas cette nouvelle vérification.
+
 [MAIR-460](https://mairie-360.atlassian.net/browse/MAIR-460) / [issue #132](https://github.com/mairie360/Administrator_Web_Service/issues/132): the token input and both refresh/revoke commands are locked while the existing action and readback are pending. Rejected writes retain the local draft; confirmed writes clear it, including when readback fails. The existing readback warning/retry remains GET-only, and the console's synchronous action guard still prevents competing mutations before React commits.
 
 Five real-component/published-contract regressions cover both commands, deferred write/readback, same-tick duplicate/competing callbacks, refusal, explicit retry, confirmation followed by failed readback, and empty input. The full Node suite passes 183 tests. TypeScript and contract checks pass; lint has no errors and two pre-existing effect warnings outside this form. An isolated production webpack build passes with one worker and a 768 MB heap, using existing dependencies. Native integrated-browser QA at 1280×720 and 390×844 verifies pending locks, confirmed clearing, refused draft retention, active/history views and GET-only recovery against disposable in-memory contract fixtures. The mobile document stays 390 px wide; session tables retain their own horizontal scrolling. No runtime overlay or relevant console error was observed. This is frontend QA, not proof of real session revocation, backend authorization or deployment. CI/integration and exact-main snapshot refresh remain prerequisites for closure.

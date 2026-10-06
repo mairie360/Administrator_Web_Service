@@ -181,17 +181,16 @@ export function AdministrationConsole() {
 
   const refreshSessions = useCallback(async () => {
     const revision = ++sessionsReadRevision.current;
-    try {
-      const [current, history] = await Promise.all([
-        administrationApi.listActiveSessions(),
-        administrationApi.listSessionHistory(),
-      ]);
-      if (revision !== sessionsReadRevision.current) return;
-      setActiveSessions(current);
-      setSessionHistory(history);
-    } catch (error) {
-      if (revision === sessionsReadRevision.current) throw error;
-    }
+    // Both reads own the pending command until they settle, even if one fails early.
+    const [current, history] = await Promise.allSettled([
+      administrationApi.listActiveSessions(),
+      administrationApi.listSessionHistory(),
+    ]);
+    if (revision !== sessionsReadRevision.current) return;
+    if (current.status === "fulfilled") setActiveSessions(current.value);
+    if (history.status === "fulfilled") setSessionHistory(history.value);
+    if (current.status === "rejected") throw current.reason;
+    if (history.status === "rejected") throw history.reason;
   }, []);
 
   const metrics = [

@@ -540,6 +540,25 @@ test('a targeted sessions refresh preserves both current and history against a d
   assert.match(view.text(), /0 Sessions actives/);
 });
 
+for (const failedSource of ['active', 'history']) {
+  test(`a partial sessions refresh applies the independent success when ${failedSource} fails`, async () => {
+    await renderLoadedConsole();
+    await view.click((props, text) => props.role === 'tab' && text === 'Sessions');
+    const previousActive = view.props('SessionsPanel').activeSessions;
+    const previousHistory = view.props('SessionsPanel').sessionHistory;
+    const latestHistory = [session('independent-history', { revoked_at: '2026-09-15T08:00:00Z' })];
+    bff.on('get', '/bff/admin/sessions', failedSource === 'active'
+      ? bffError(503) : { body: { sessions: [] } });
+    bff.on('get', '/bff/admin/sessions/history', failedSource === 'history'
+      ? bffError(503) : { body: { sessions: latestHistory } });
+    await assert.rejects(view.props('SessionsPanel').refreshSessions(), error => error.status === 503);
+    await view.act(() => undefined);
+    assert.deepEqual(view.props('SessionsPanel').activeSessions, failedSource === 'active' ? previousActive : []);
+    assert.deepEqual(view.props('SessionsPanel').sessionHistory, failedSource === 'history' ? previousHistory : latestHistory);
+    assert.equal(bff.requests.some(request => request.method !== 'GET'), false);
+  });
+}
+
 test('obsolete resource failures cannot hide newer data or suppress an independent current failure', async () => {
   mockConsoleData();
   const initialRoles = deferred();
@@ -1263,6 +1282,47 @@ for (const action of ['refresh', 'revoke']) {
     const writes = bff.requests.filter(request => request.method !== 'GET');
     assert.equal(writes.length, 1);
     assert.equal(writes[0].body.refresh_token === token, true);
+  });
+
+  test(`session ${action}: a fast readback failure keeps commands locked until the independent read settles`, async () => {
+    await renderLoadedConsole();
+    await view.click((props, text) => props.role === 'tab' && text === 'Sessions');
+    const token = require('node:crypto').randomUUID();
+    await changeField('session-refresh-token', token);
+    const history = deferred();
+    const consumed = deferred();
+    const [{ administrationApi }] = loadTs(['src/lib/administration-api.ts']);
+    const originalListActiveSessions = administrationApi.listActiveSessions;
+    administrationApi.listActiveSessions = async () => {
+      try { return await originalListActiveSessions(); }
+      finally { consumed.resolve(); }
+    };
+    bff.on('post', route, confirmation);
+    bff.on('get', '/bff/admin/sessions', bffError(503));
+    bff.on('get', '/bff/admin/sessions/history', () => history.promise);
+    try {
+      await view.click((props, text, tag) => tag === 'button' && text === label);
+      await view.waitFor(() => bff.calls('/bff/admin/sessions/history', 'GET').length === 2);
+      await consumed.promise;
+      await view.act(() => undefined);
+      assert.equal(sessionTokenField().disabled, true);
+      assert.equal(sessionCommand(label).disabled, true);
+      assert.equal(sessionCommand(competingLabel).disabled, true);
+      assert.equal(sessionTokenField().value === token, true);
+    } finally {
+      administrationApi.listActiveSessions = originalListActiveSessions;
+      history.resolve({ body: { sessions: [session('independent-readback')] } });
+      await view.waitFor(() => view.props('SessionsPanel').busyAction === null);
+    }
+    await view.waitFor(() => sessionTokenField().value === '');
+    assert.deepEqual(view.props('SessionsPanel').sessionHistory.map(item => item.id), ['independent-readback']);
+    assert.match(view.text(), /Ne répétez pas l’action/);
+    bff.on('get', '/bff/admin/sessions', { body: { sessions: [] } });
+    bff.on('get', '/bff/admin/sessions/history', { body: { sessions: [session('independent-readback')] } });
+    await view.click('Réessayer l’actualisation');
+    await view.waitFor(() => !view.text().includes('Ne répétez pas l’action'));
+    assert.equal(bff.requests.filter(request => request.method !== 'GET').length, 1);
+    assert.equal(bff.calls(route, 'POST').length, 1);
   });
 
   test(`session ${action}: retains refusal, clears confirmation and retries failed readback with GET only`, async () => {

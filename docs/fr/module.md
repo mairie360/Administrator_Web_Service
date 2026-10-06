@@ -9,6 +9,16 @@ existantes. Seule une réponse vide valide affiche zéro et le message de liste
 vide. Un refus ultérieur conserve les dernières listes reçues et les brouillons.
 Ce contrôle d’affichage ne certifie ni droits ni persistance déployés.
 
+## Relectures indépendantes des sessions — MAIR-460 / MAIR-470
+
+Actualiser les sessions actives et l’historique conserve chaque réponse réussie
+même si l’autre liste est indisponible. La source refusée garde ses dernières
+données valides. Après une commande Rafraîchir/Révoquer confirmée, le champ et les
+deux commandes restent verrouillés jusqu’à la fin des deux lectures, y compris
+si un refus rapide précède une réussite lente. La saisie confirmée est alors
+effacée ; reprendre l’avertissement de relecture ne lance que les GET, jamais
+une nouvelle commande.
+
 ## Panneaux Administration indépendants — MAIR-406
 
 Utilisateurs, rôles, groupes et sessions conservent leurs formulaires,

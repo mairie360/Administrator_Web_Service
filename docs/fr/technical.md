@@ -1,5 +1,20 @@
 # Administrator_Web_Service — Documentation technique
 
+## Lectures partielles des sessions — MAIR-460 / MAIR-470
+
+`refreshSessions` lance les deux GET existants en parallèle et attend
+`Promise.allSettled`. La révision courante applique chaque résultat réussi
+indépendamment avant de relancer l’erreur originale de la première source refusée
+(actives, puis historique). Les listes refusées restent inchangées, y compris
+un `null` encore inconnu. Une lecture dépassée ou terminée après démontage ne
+modifie rien et ne propage pas de refus. Attendre les deux sources conserve le
+verrou `runAction` jusqu’à la fin de la relecture partielle ; la reprise de son
+avertissement reste GET seule.
+Quatre régressions vrais composants/HTTP échouent avant correction puis passent :
+succès indépendant dans les deux sens et refus rapide avec historique différé
+pour chacune des commandes Rafraîchir/Révoquer. Aucun nouvel appel, état, effet,
+client, contrat, stockage de credentials ni changement API/BFF.
+
 ## Frontières des composants de console — MAIR-406
 
 `administration-console.tsx` conserve lectures globales, révisions de requêtes et

@@ -9,6 +9,15 @@ Only a valid empty response displays the empty-list message and zero count.
 Subsequent read failures preserve the last received collections and drafts.
 This frontend presentation does not certify deployed permissions or persistence.
 
+## Independent session readback — MAIR-460 / MAIR-470
+
+Refreshing active sessions and history preserves each successful response even
+when the other list is unavailable. The failed source keeps its last valid data.
+After a confirmed refresh/revoke command, the token field and both commands stay
+locked until both reads finish, including a fast failure followed by a slow
+success. Only then is the confirmed input cleared; retrying the readback warning
+sends GET requests only, never another command.
+
 ## Independent administration panels — MAIR-406
 
 Users, roles, groups and sessions retain their existing forms, confirmations,

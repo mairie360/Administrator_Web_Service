@@ -1,5 +1,19 @@
 # Administrator_Web_Service — Technical documentation
 
+## Partial session reads — MAIR-460 / MAIR-470
+
+`refreshSessions` starts both existing GETs concurrently and awaits
+`Promise.allSettled`. The current resource revision applies each fulfilled
+result independently before rethrowing the original first rejected source
+(active, then history). Failed lists remain unchanged, including an unread
+`null`. Superseded or unmounted reads apply nothing and propagate no failure.
+Waiting for both sources keeps the existing `runAction` busy guard in force
+through partial readback; its warning/retry remains GET-only.
+Four real-component/HTTP regressions fail before the correction and pass after
+it: independent success in both directions and fast failure with deferred
+history for each refresh/revoke command. No new request, state, effect, client,
+contract, credential storage or API/BFF change.
+
 ## Console component boundaries — MAIR-406
 
 `administration-console.tsx` retains global reads, request revisions and the
