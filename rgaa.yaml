@@ -1,0 +1,253 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/mairie360/CICD/main/tests/a11y/rgaa.schema.json
+# RGAA 4.1.2 scope of the administration front (MAIR-316), checked by the RGAA job of mairie360/CICD
+# frontend-cicd.yml in release-prod, on the staging-<sha> image (format: CICD README, "RGAA scope").
+version: 1
+target: http://administrator-front:5000
+
+# Same JWT_SECRET as the services of docker-compose-accessibility.yml: the engine signs an
+# accessToken for the user of the state (as:), the front relays it to bff-user, then core-api.
+session:
+  jwt_secret: b"secret"
+
+users:
+  # Administration rights come from the database (role "Admin" in init-accessibility.sql), the
+  # role claim is ignored.
+  admin:
+    id: 10
+    role: admin
+  # Only for user-password-reset, the only writing state: the states run in parallel.
+  writer:
+    id: 11
+    role: admin
+  # Seed user of init-test.sql (role "User"): every administration call answers 403.
+  agent:
+    id: 2
+    role: user
+
+criteria:
+  # Images: the logo and the icons of the shell, the tabs and the buttons.
+  - "1.1"
+  - "1.2"
+  - "1.3"
+  # 1.4-1.9: no CAPTCHA, chart, image of text or figure caption.
+  # 2.x: no frame.
+  - "3.1"
+  - "3.2"
+  - "3.3"
+  # 4.x: no media.
+  # Tables: the users and sessions tables (simple data tables).
+  - "5.4"
+  - "5.5"
+  - "5.6"
+  - "5.7"
+  # 5.1, 5.2: no complex table; 5.3, 5.8: no layout table.
+  # Links: the navigation of the shell (lib-components AppShell).
+  - "6.1"
+  - "6.2"
+  # Scripts: tabs, selectable rows, confirmation dialogs, status and error messages.
+  - "7.1"
+  - "7.3"
+  - "7.5"
+  - "8.1"
+  - "8.2"
+  - "8.3"
+  - "8.4"
+  - "8.5"
+  - "8.6"
+  - "8.9"
+  # 8.7, 8.8: no text in another language; 8.10: no right-to-left text.
+  - "9.1"
+  - "9.2"
+  - "9.3"
+  # 9.4: no quotation.
+  - "10.1"
+  - "10.2"
+  - "10.3"
+  - "10.4"
+  - "10.5"
+  - "10.6"
+  - "10.7"
+  - "10.8"
+  - "10.9"
+  - "10.10"
+  - "10.11"
+  - "10.12"
+  # Forms: search, user, password, role, group and session forms.
+  - "11.1"
+  - "11.2"
+  - "11.3"
+  - "11.4"
+  - "11.5"
+  - "11.6"
+  - "11.7"
+  - "11.9"
+  - "11.10"
+  - "11.11"
+  - "11.12"
+  - "11.13"
+  # 11.8: no select with option groups.
+  # Navigation of the shell, landmarks, skip link, focus order.
+  - "12.6"
+  - "12.7"
+  - "12.8"
+  - "12.9"
+  # 13.3: no downloadable document.
+  - "13.9"
+  - "13.11"
+
+states:
+  # Users tab (default tab).
+  - id: users
+    as: admin
+    route: /
+    steps:
+      - wait_for: { text: remi.aubert@mairie360.fr }
+  - id: users-page-2
+    description: Second page of the users table
+    as: admin
+    route: /
+    steps:
+      - wait_for: { text: remi.aubert@mairie360.fr }
+      - click: { role: button, name: Page suivante }
+      - wait_for: { text: Page 2 / 2 }
+  - id: users-search-empty
+    description: A search without result (empty state)
+    as: admin
+    route: /
+    steps:
+      - wait_for: { text: remi.aubert@mairie360.fr }
+      - fill: { label: Rechercher un utilisateur, value: zzzz }
+      - click: { role: button, name: Rechercher, exact: true }
+      - wait_for: { text: Aucun utilisateur ne correspond à cette recherche. }
+  - id: user-create-form
+    as: admin
+    route: /
+    steps:
+      - wait_for: { text: remi.aubert@mairie360.fr }
+      - click: { role: button, name: Nouvel utilisateur }
+      - wait_for: { role: heading, name: Créer un utilisateur }
+  - id: user-edit
+    description: A row selected, the edit form and the password reset form
+    as: admin
+    route: /
+    steps:
+      - click: { text: remi.aubert@mairie360.fr }
+      - wait_for: { role: heading, name: Modifier l’utilisateur }
+  - id: user-password-mismatch
+    description: Password confirmation that does not match (role="alert")
+    as: admin
+    route: /
+    steps:
+      - click: { text: remi.aubert@mairie360.fr }
+      - fill: { label: Nouveau mot de passe, value: Rgaa-2026-Pass }
+      - fill: { label: Confirmer le mot de passe, value: Rgaa-2026-Other }
+      - wait_for: { text: Les deux mots de passe ne correspondent pas. }
+  - id: user-delete-confirm
+    description: Deletion confirmation dialog (cancelled by the end of the state, nothing deleted)
+    as: admin
+    route: /
+    steps:
+      - click: { text: remi.aubert@mairie360.fr }
+      - click: { role: button, name: Supprimer l’utilisateur }
+      - wait_for: { role: alertdialog }
+  - id: user-password-reset
+    description: Password reset confirmed (role="status"); writes the password of the seed user 12 only
+    as: writer
+    route: /
+    steps:
+      - click: { text: remi.aubert@mairie360.fr }
+      - fill: { label: Nouveau mot de passe, value: Rgaa-2026-Pass }
+      - fill: { label: Confirmer le mot de passe, value: Rgaa-2026-Pass }
+      - click: { role: button, name: Réinitialiser le mot de passe }
+      - wait_for: { role: alertdialog }
+      - click: { role: button, name: Réinitialiser, exact: true }
+      - wait_for: { text: Mot de passe modifié. }
+  # Roles tab.
+  - id: roles
+    as: admin
+    route: /
+    steps:
+      - click: { role: tab, name: Rôles }
+      - wait_for: { role: heading, name: Rôles disponibles }
+      - wait_for: { text: Administrateur système }
+  - id: roles-refreshed
+    description: Roles reloaded (status message, read only)
+    as: admin
+    route: /
+    steps:
+      - click: { role: tab, name: Rôles }
+      - wait_for: { text: Administrateur système }
+      - click: { selector: '.administration-panel button:has-text("Actualiser")' }
+      - wait_for: { text: Rôles actualisés. }
+  - id: role-edit
+    description: Edit form of a role (write mode select)
+    as: admin
+    route: /
+    steps:
+      - click: { role: tab, name: Rôles }
+      - wait_for: { text: Administrateur système }
+      - click: { selector: '.administration-panel button:has-text("Modifier") >> nth=0' }
+      - wait_for: { role: heading, name: Modifier le rôle }
+  - id: role-delete-confirm
+    description: Deletion confirmation dialog of a role (nothing deleted)
+    as: admin
+    route: /
+    steps:
+      - click: { role: tab, name: Rôles }
+      - wait_for: { text: Administrateur système }
+      - click: { selector: '.administration-panel button:has-text("Supprimer") >> nth=0' }
+      - wait_for: { role: alertdialog }
+  # Groups tab.
+  - id: groups
+    as: admin
+    route: /
+    steps:
+      - click: { role: tab, name: Groupes }
+      - wait_for: { role: button, name: Services techniques }
+  - id: group-detail
+    description: A group opened, its members and the user search to add one
+    as: admin
+    route: /
+    steps:
+      - click: { role: tab, name: Groupes }
+      - click: { role: button, name: Services techniques }
+      - wait_for: { role: heading, name: Membres }
+      - wait_for: { text: remi.aubert@mairie360.fr }
+  - id: group-empty
+    description: A group without member (empty state)
+    as: admin
+    route: /
+    steps:
+      - click: { role: tab, name: Groupes }
+      - click: { role: button, name: Archives }
+      - wait_for: { text: Ce groupe ne contient aucun utilisateur. }
+  - id: group-delete-confirm
+    description: Deletion confirmation dialog of a group (nothing deleted)
+    as: admin
+    route: /
+    steps:
+      - click: { role: tab, name: Groupes }
+      - click: { role: button, name: Services techniques }
+      - click: { role: button, name: Supprimer ce groupe }
+      - wait_for: { role: alertdialog }
+  # Sessions tab.
+  - id: sessions
+    as: admin
+    route: /
+    steps:
+      - click: { role: tab, name: Sessions }
+      - wait_for: { text: Firefox 133 sur Ubuntu }
+  - id: sessions-history
+    as: admin
+    route: /
+    steps:
+      - click: { role: tab, name: Sessions }
+      - click: { role: button, name: Historique }
+      - wait_for: { text: Chrome 131 sur Windows 11 }
+  # A user without the Admin role: every administration call answers 403.
+  - id: forbidden
+    description: Page opened by a user without administration rights (error message)
+    as: agent
+    route: /
+    steps:
+      - wait_for: { text: Certaines données n’ont pas pu être chargées }

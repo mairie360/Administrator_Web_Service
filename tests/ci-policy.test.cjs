@@ -26,6 +26,8 @@ test('the reusable frontend workflow receives only its declared named secrets', 
   assert.deepEqual(mappings.map(([, name, source]) => [name, source]), [
     ['CODECOV_TOKEN', 'CODECOV_TOKEN'],
     ['N8N_WEBHOOK_SECRET', 'N8N_WEBHOOK_SECRET'],
+    // AI pre-audit of the RGAA check (release-prod), MAIR-320.
+    ['ANTHROPIC_API_KEY', 'ANTHROPIC_API_KEY'],
   ]);
   assert.doesNotMatch(workflow, /semgrep_fail_on_findings:\s*false|semgrep_config:|continue-on-error:/);
 });
@@ -108,25 +110,48 @@ test('Docker and both consumer workflows use the same pinned exact Node LTS rele
 
 test('Docker excludes local environments and scan artifacts but retains tracked npm policy', () => {
   const ignored = read('.dockerignore').split(/\r?\n/).map(line => line.trim());
-  for (const pattern of ['node_modules', '.next', '.git', '.env*', '.npmrc.*', 'cicd-repo', 'coverage', 'test-results', 'playwright-report']) {
+  for (const pattern of ['node_modules', '.next', '.git', '.env*', '.npmrc.*', 'cicd-repo', 'rgaa-report', '.rgaa-ai-cache', 'coverage', 'test-results', 'playwright-report']) {
     assert.ok(ignored.includes(pattern), `${pattern} must be excluded from the build context`);
   }
   assert.ok(!ignored.includes('.npmrc') && !ignored.includes('.npmrc*'));
 });
 
-test('all three Compose files send the existing credential only to the frontend build', () => {
+test('the development Compose file sends the existing credential only to the frontend build', () => {
   const yaml = require('js-yaml');
-  for (const file of ['docker-compose.yml', 'docker-compose-security.yml', 'docker-compose-performance.yml']) {
-    const compose = yaml.load(read(file));
-    assert.deepEqual(compose.secrets, { node_auth_token: { environment: 'NODE_AUTH_TOKEN' } });
-    assert.deepEqual(compose.services['administrator-front'].build, {
-      context: '.', dockerfile: 'Dockerfile', secrets: ['node_auth_token'],
-    });
+  const compose = yaml.load(read('docker-compose.yml'));
+  assert.deepEqual(compose.secrets, { node_auth_token: { environment: 'NODE_AUTH_TOKEN' } });
+  assert.deepEqual(compose.services['administrator-front'].build, {
+    context: '.', dockerfile: 'Dockerfile', secrets: ['node_auth_token'],
+  });
+  for (const [name, service] of Object.entries(compose.services)) {
+    assert.ok(!service.environment || !Object.hasOwn(service.environment, 'NODE_AUTH_TOKEN'), `${name} must not receive a runtime token`);
+    assert.ok(!service.secrets, `${name} must not receive a runtime secret`);
+    if (name !== 'administrator-front') assert.ok(!service.build, `${name} must keep using its existing image`);
+  }
+});
+
+test('isolated test stacks run the published image, the scripts build it with a secret only', () => {
+  const yaml = require('js-yaml');
+  const stacks = {
+    'docker-compose-security.yml': 'security_test.sh',
+    'docker-compose-performance.yml': 'performance_test.sh',
+    'docker-compose-accessibility.yml': 'accessibility_test.sh',
+  };
+  for (const [file, script] of Object.entries(stacks)) {
+    const source = read(file);
+    const compose = yaml.load(source);
+    assert.equal(compose.secrets, undefined, `${file} must not declare a build secret`);
+    // The CI exports IMAGE_REF (dev-<sha> for ZAP / k6, staging-<sha> for RGAA): never rebuilt.
+    assert.match(compose.services['administrator-front'].image, /^\$\{IMAGE_REF:\?/);
     for (const [name, service] of Object.entries(compose.services)) {
-      assert.ok(!service.environment || !Object.hasOwn(service.environment, 'NODE_AUTH_TOKEN'), `${name} must not receive a runtime token`);
-      assert.ok(!service.secrets, `${name} must not receive a runtime secret`);
-      if (name !== 'administrator-front') assert.ok(!service.build, `${name} must keep using its existing image`);
+      assert.ok(!service.build, `${name} of ${file} must use an existing image`);
+      assert.ok(!service.secrets, `${name} of ${file} must not receive a runtime secret`);
     }
+    const code = source.split('\n').filter((line) => !line.trimStart().startsWith('#')).join('\n');
+    assert.doesNotMatch(code, /NODE_AUTH_TOKEN|\bbuild-arg\b/);
+    const shell = read(script);
+    assert.match(shell, /docker build -t administrator-front:local --secret id=node_auth_token,env=NODE_AUTH_TOKEN \./);
+    assert.doesNotMatch(shell, /--build-arg|up -d --build/);
   }
 });
 
