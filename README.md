@@ -165,12 +165,14 @@ webpack build passes with a temporary one-worker limit and 768 MB heap; the conf
 is restored before publication. Existing dependencies were reused, not freshly
 installed. Native integrated-browser QA: 1280×720 and actual 390×844, independent
 success/refusal in both directions, desktop refresh and mobile revoke with an
-8000/8001 ms history read after active GET503, locked field/commands throughout,
+8001/8003 ms history read after active GET503, locked field/commands throughout,
 confirmed clearing, distinct readback warning and GET-only retry. Ledger: 24 GET,
 one refresh POST200 and one revoke POST204, zero validation violations within the
 declared synthetic 503 error-schema exceptions; no console errors/warnings,
 framework overlay or external horizontal overflow observed. Fixtures/screenshots
 stay outside Git. No real token, authentication, revocation or deployment is proved.
+The final recipe uses a string role description; the first recipe's ancillary
+null-description role fixture was excluded and all target interactions rerun.
 The disposable helper and frontend child are stopped; CI/main integration and an
 exact refreshed local-current remain required before closure.
 
