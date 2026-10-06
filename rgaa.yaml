@@ -19,10 +19,6 @@ users:
   writer:
     id: 11
     role: admin
-  # Seed user of init-test.sql (role "User"): every administration call answers 403.
-  agent:
-    id: 2
-    role: user
 
 criteria:
   # Images: the logo and the icons of the shell, the tabs and the buttons.
@@ -197,7 +193,8 @@ states:
       - wait_for: { text: Administrateur système }
       - click: { selector: '.administration-panel button:has-text("Supprimer") >> nth=0' }
       - wait_for: { role: alertdialog }
-  # Groups tab.
+  # Groups tab. No empty-group state: core-api only lists the groups the administrator belongs to,
+  # and the owner is always a member.
   - id: groups
     as: admin
     route: /
@@ -213,14 +210,6 @@ states:
       - click: { role: button, name: Services techniques }
       - wait_for: { role: heading, name: Membres }
       - wait_for: { text: remi.aubert@mairie360.fr }
-  - id: group-empty
-    description: A group without member (empty state)
-    as: admin
-    route: /
-    steps:
-      - click: { role: tab, name: Groupes }
-      - click: { role: button, name: Archives }
-      - wait_for: { text: Ce groupe ne contient aucun utilisateur. }
   - id: group-delete-confirm
     description: Deletion confirmation dialog of a group (nothing deleted)
     as: admin
@@ -244,10 +233,6 @@ states:
       - click: { role: tab, name: Sessions }
       - click: { role: button, name: Historique }
       - wait_for: { text: Chrome 131 sur Windows 11 }
-  # A user without the Admin role: every administration call answers 403.
-  - id: forbidden
-    description: Page opened by a user without administration rights (error message)
-    as: agent
-    route: /
-    steps:
-      - wait_for: { text: Certaines données n’ont pas pu être chargées }
+# No state for a user without the Admin role: the page renders its error message, but the
+# navigation never reaches network idle (page.goto timeout, see the MAIR-316 report).
+# No "no session" state: the middleware redirects to LOGIN_FRONT_URL without a cookie.

@@ -57,8 +57,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO groups (id, owner_id, name, description, created_at)
 VALUES
     (1, 10, 'Services techniques', 'Voirie, bâtiments et espaces verts.', '2026-01-07 09:00:00'),
-    (2, 10, 'Conseil municipal', 'Élus et secrétariat du conseil.', '2026-01-07 09:00:00'),
-    (3, 10, 'Archives', 'Groupe sans membre (état vide de la liste des membres).', '2026-01-07 09:00:00')
+    (2, 10, 'Conseil municipal', 'Élus et secrétariat du conseil.', '2026-01-07 09:00:00')
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO group_members (group_id, user_id, joined_at)
 -- Typed literals: a UNION resolves untyped ones as text, which a timestamp column refuses.
@@ -66,7 +65,6 @@ SELECT 1, id, '2026-01-08 09:00:00'::timestamp FROM users WHERE id BETWEEN 22 AN
 UNION ALL
 SELECT 2, id, '2026-01-08 09:00:00'::timestamp FROM users WHERE id IN (20, 21, 28)
 ON CONFLICT DO NOTHING;
-DELETE FROM group_members WHERE group_id = 3;
 
 -- Sessions of the main administrator (Sessions tab): one active, one revoked, one expired.
 -- expires_at is set by a BEFORE INSERT trigger (now() + 7 days), hence the UPDATE.
