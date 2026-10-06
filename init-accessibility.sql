@@ -29,7 +29,7 @@ SELECT 19 + n, v.first_name, v.last_name,
        lower(translate(v.first_name || '.' || v.last_name, 'éèçëï ', 'eecei-')) || '@mairie360.fr',
        'dummy', CASE WHEN n % 3 = 0 THEN '01020304' || lpad(n::text, 2, '0') END,
        CASE WHEN n % 7 = 0 THEN 'inactive' ELSE 'active' END,
-       '2026-01-06 10:00:00+01', '2026-01-06 10:00:00+01'
+       '2026-01-06 10:00:00+01'::timestamptz, '2026-01-06 10:00:00+01'::timestamptz
 FROM (VALUES
     (1, 'Alice', 'Bernard'), (2, 'Bruno', 'Petit'), (3, 'Chloé', 'Robert'), (4, 'David', 'Richard'),
     (5, 'Emma', 'Durand'), (6, 'François', 'Dubois'), (7, 'Gabrielle', 'Moreau'), (8, 'Hugo', 'Laurent'),
@@ -61,9 +61,10 @@ VALUES
     (3, 10, 'Archives', 'Groupe sans membre (état vide de la liste des membres).', '2026-01-07 09:00:00')
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO group_members (group_id, user_id, joined_at)
-SELECT 1, id, '2026-01-08 09:00:00' FROM users WHERE id BETWEEN 22 AND 27
+-- Typed literals: a UNION resolves untyped ones as text, which a timestamp column refuses.
+SELECT 1, id, '2026-01-08 09:00:00'::timestamp FROM users WHERE id BETWEEN 22 AND 27
 UNION ALL
-SELECT 2, id, '2026-01-08 09:00:00' FROM users WHERE id IN (20, 21, 28)
+SELECT 2, id, '2026-01-08 09:00:00'::timestamp FROM users WHERE id IN (20, 21, 28)
 ON CONFLICT DO NOTHING;
 DELETE FROM group_members WHERE group_id = 3;
 
