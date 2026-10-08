@@ -1,5 +1,80 @@
 # Administrator_Web_Service — Présentation du module
 
+## Une liste inconnue n’est pas vide — MAIR-470
+
+Rôles, groupes, sessions actives et historique restent inconnus jusqu’à leur
+première lecture réussie. Les compteurs affichent un tiret ; les panneaux
+distinguent attente et indisponibilité, avec les commandes de reprise GET
+existantes. Seule une réponse vide valide affiche zéro et le message de liste
+vide. Un refus ultérieur conserve les dernières listes reçues et les brouillons.
+Ce contrôle d’affichage ne certifie ni droits ni persistance déployés.
+
+## Relectures indépendantes des sessions — MAIR-460 / MAIR-470
+
+Actualiser les sessions actives et l’historique conserve chaque réponse réussie
+même si l’autre liste est indisponible. La source refusée garde ses dernières
+données valides. Après une commande Rafraîchir/Révoquer confirmée, le champ et les
+deux commandes restent verrouillés jusqu’à la fin des deux lectures, y compris
+si un refus rapide précède une réussite lente. La saisie confirmée est alors
+effacée ; reprendre l’avertissement de relecture ne lance que les GET, jamais
+une nouvelle commande.
+
+## Panneaux Administration indépendants — MAIR-406
+
+Utilisateurs, rôles, groupes et sessions conservent leurs formulaires,
+confirmations, erreurs et relectures. Chaque panneau est un composant top-level
+stable dans `src/components/administration/` ; la console garde l'orchestration.
+Les contrôles et la confirmation partagés n'accèdent pas aux données métier.
+Actualiser la console conserve le brouillon du panneau actif ou la vue historique
+des sessions ; changer d'onglet garde le montage/démontage existant.
+L'issue #146 suit cette tranche de conception, sans certifier commandes par token,
+droits déployés, authentification réelle ou intégration dans main.
+
+## Reprendre le document protégé après une redirection de données — MAIR-406
+
+Une redirection opaque pendant une requête de données recharge une seule fois
+la page protégée courante. Son middleware existant ouvre Login avec le chemin
+et la query de cette page, pas ceux d'un endpoint. Ne pas assimiler ce cas à une
+panne générique, déduire une destination d'une erreur réseau ou répéter une
+écriture. Les erreurs ordinaires 401/403/503 et les requêtes annulées restent
+distinctes. La destination Login de recette jetable ne constitue pas une vraie
+authentification ; aucun API/BFF ni politique d'authentification modifié.
+
+## Console réservée au profil résolu — MAIR-406
+
+Le hook de session existant doit résoudre un profil Admin avant que la page monte
+la console et lance les lectures Administration. L'attente affiche un statut ;
+Responsable, Maire, User et Guest gardent l'AppShell mais voient un message d'accès
+réservé, sans tableaux ni actions d'administration. Une erreur de profil donne
+un état indisponible distinct, avec reprise par rechargement du document ; le
+parcours de déconnexion sur 401 est conservé. Le README du prototype réserve cet
+accès, mais sa page montait également la console sans condition : ne pas recopier
+ce défaut. Ce contrôle d'affichage ne remplace pas l'autorisation serveur. Les
+commandes de session par token et les autres critères de l'audit restent
+distincts ; la reprise de navigation est qualifiée ci-dessus, sans intégration
+revendiquée. Aucun API/BFF, helper d'authentification, contrat ou donnée de
+démonstration modifié.
+
+## Session des requêtes de données — MAIR-406
+
+Les anciens jetons du stockage navigateur ne remplacent plus le cookie utilisé
+par le proxy frontend existant. Une requête ne lit, ne migre ni n'efface ce
+stockage ; les headers explicites et le nettoyage de déconnexion restent
+inchangés. Ce correctif client ne certifie ni droits administrateur, ni révocation
+serveur, ni remplacement des commandes de session par identifiant. Ces autres
+sujets d'audit restent ouverts. Aucun API/BFF ni donnée de démonstration modifié.
+
+## Sidebar mesurée de référence — MAIR-180 / issue141
+
+Le CSS consommateur rétablit des cibles de navigation de 44px minimum et l'ombre
+de référence. Sur mobile, le bouton Fermer publié reste au-dessus de la sidebar ;
+clic, clavier et Échap conservent le retour de focus. Le repère rouge Administration
+et le masquage selon les droits ne changent pas. La comparaison desktop/mobile
+couvre recherche/fiche utilisateur, rôles, groupe/membres et sessions/historique
+sans écrire de données réelles. Les fixtures ne certifient ni droits déployés,
+réinitialisation de mot de passe, révocation ni persistance durable. La version
+fictive du footer et les préférences/notifications du prototype ne sont pas copiées.
+
 ## Navigation des modules actifs
 
 L'`AppShell` partagé gère désormais les menus ordinateur et mobile. Il affiche

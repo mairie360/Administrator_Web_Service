@@ -45,3 +45,20 @@ html body {
 .administration-console .administration-panel {
   box-shadow: 0 5px 15px rgb(23 32 51 / 14%), 0 1px 3px rgb(23 32 51 / 12%);
 }
+
+/* This front's published navigation keeps the measured prototype rhythm. */
+aside[aria-label="Navigation principale"] {
+  position: relative;
+  z-index: 20;
+  box-shadow: 8px 0 24px rgb(12 28 48 / 28%);
+}
+
+aside[aria-label="Navigation principale"] > nav button {
+  min-height: 44px;
+  flex-shrink: 0;
+}
+
+/* Leave the published mobile Close control above the drawer sidebar. */
+[role="dialog"][aria-label="Navigation mobile"] aside[aria-label="Navigation principale"] {
+  z-index: 0;
+}

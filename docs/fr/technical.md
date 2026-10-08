@@ -1,5 +1,74 @@
 # Administrator_Web_Service — Documentation technique
 
+## Lectures partielles des sessions — MAIR-460 / MAIR-470
+
+`refreshSessions` lance les deux GET existants en parallèle et attend
+`Promise.allSettled`. La révision courante applique chaque résultat réussi
+indépendamment avant de relancer l’erreur originale de la première source refusée
+(actives, puis historique). Les listes refusées restent inchangées, y compris
+un `null` encore inconnu. Une lecture dépassée ou terminée après démontage ne
+modifie rien et ne propage pas de refus. Attendre les deux sources conserve le
+verrou `runAction` jusqu’à la fin de la relecture partielle ; la reprise de son
+avertissement reste GET seule.
+Quatre régressions vrais composants/HTTP échouent avant correction puis passent :
+succès indépendant dans les deux sens et refus rapide avec historique différé
+pour chacune des commandes Rafraîchir/Révoquer. Aucun nouvel appel, état, effet,
+client, contrat, stockage de credentials ni changement API/BFF.
+
+## Frontières des composants de console — MAIR-406
+
+`administration-console.tsx` conserve lectures globales, révisions de requêtes et
+garde synchrone de mutations. Elle importe directement `users-panel`,
+`roles-panel`, `groups-panel` et `sessions-panel` depuis `components/administration`.
+Leur état local et leurs callbacks restent identiques. `controls.tsx` partage
+champs, panneaux, boutons, états vides et formatage des dates ; `confirm-modal.tsx`
+conserve la gestion de focus/busy. `types.ts` ne partage que le type `RunAction`.
+Aucun cycle, barrel, fetch, effet, chargement différé ou changement API/BFF ajouté.
+Les contrôles de frontières et la régression HTTP/HTML d'actualisation complètent
+les suites existantes de requêtes et confirmations.
+
+## Reprise d'une redirection opaque dans le client — MAIR-406
+
+`requestBff` impose `redirect: 'manual'` après les options de l'appelant. Après
+fetch, le signal est vérifié avant de traiter la réponse. `opaqueredirect` est
+identifié avant lecture du statut, des headers ou du corps : le navigateur
+recharge son document courant une seule fois par `Location` (propriété faible),
+puis rejette avec `BffNavigationRequiredError`. Le SSR rejette sans accéder à
+`window` ; les lectures concurrentes ne multiplient pas les navigations et aucune
+écriture n'est répétée. Le middleware inchangé gère Login et le retour validé.
+Les erreurs ordinaires gardent `BffRequestError` ; une panne réseau seule ne
+prouve pas une expiration. Six régressions couvrent concurrence opaque, mutation,
+annulation, 401/403/503 ordinaires, panne réseau et SSR. Routes, proxy, hook auth,
+contrat, politique de sécurité, dépendances, API/BFF et déploiement inchangés.
+
+## Affichage après vérification du profil — MAIR-406
+
+`src/app/page.tsx` dérive quatre branches explicites de `useAuthSession` inchangé :
+attente, erreur, console Admin, accès réservé pour les autres rôles. Aucun nouvel
+effet, état de permission mémorisé, parseur de rôles ou appel réseau ajouté.
+Seule la branche Admin monte `AdministrationConsole` : les profils en attente,
+en erreur ou non-admin ne lancent pas ses cinq lectures initiales. Le bouton de
+reprise recharge le document pour relancer le hook existant, sans répéter une
+mutation. Le hook garde sa déconnexion sur 401 avant résolution. Les tests du
+vrai composant/routes/HTTP couvrent résolution différée, quatre rôles non-admin,
+erreurs profil 403/503, reprise, 401 et chargement autorisé conservé. Ce n'est pas
+une preuve de signature, droits déployés, révocation ou revalidation d'un rôle
+devenu obsolète. API/BFF, middleware, proxy et contrat User0.5.0 restent inchangés.
+
+## Cookie sans injection de JWT stocké — MAIR-406
+
+`src/lib/bff-client.ts` construit les headers depuis `RequestInit` et ajoute
+seulement les valeurs JSON manquantes. Il n'importe plus
+`getStoredAuthorizationHeader` : les anciennes clés ne fournissent pas de bearer
+automatique et ne sont pas migrées pendant les appels. Authorization explicite
+reste conservé ; le proxy frontend inchangé utilise le cookie sans ce header.
+Helpers de nettoyage, middleware, adaptateurs d'authentification, gestion des
+sessions et contrat publié User0.5.0 inchangés. Quatre régressions vérifient la
+priorité du cookie, la conservation de la clé historique, zéro accès au stockage
+(y compris refusé) et le stockage seul sans cookie. Le harnais HTTP exécute les
+routes/proxy réels, pas le stockage natif ni les droits, signatures ou révocation
+serveur déployés.
+
 ## Résultats de la dernière recherche utilisateurs — MAIR-448
 
 Un compteur de lecture React protège la liste utilisateurs. Seule la dernière

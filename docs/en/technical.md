@@ -1,5 +1,72 @@
 # Administrator_Web_Service — Technical documentation
 
+## Partial session reads — MAIR-460 / MAIR-470
+
+`refreshSessions` starts both existing GETs concurrently and awaits
+`Promise.allSettled`. The current resource revision applies each fulfilled
+result independently before rethrowing the original first rejected source
+(active, then history). Failed lists remain unchanged, including an unread
+`null`. Superseded or unmounted reads apply nothing and propagate no failure.
+Waiting for both sources keeps the existing `runAction` busy guard in force
+through partial readback; its warning/retry remains GET-only.
+Four real-component/HTTP regressions fail before the correction and pass after
+it: independent success in both directions and fast failure with deferred
+history for each refresh/revoke command. No new request, state, effect, client,
+contract, credential storage or API/BFF change.
+
+## Console component boundaries — MAIR-406
+
+`administration-console.tsx` retains global reads, request revisions and the
+synchronous mutation guard. It imports `users-panel`, `roles-panel`,
+`groups-panel` and `sessions-panel` directly from `components/administration`.
+Their local state and callbacks are unchanged. `controls.tsx` shares fields,
+panels, buttons, empty states and date formatting; `confirm-modal.tsx` keeps the
+existing focus/busy handling. `types.ts` shares only the `RunAction` type.
+No cyclic dependency, barrel export, new fetch, effect, lazy-loading boundary or
+API/BFF change is introduced. Component-boundary tests and the real HTTP/HTML
+refresh regression complement the existing request/confirmation suites.
+
+## Opaque redirect recovery in the data client — MAIR-406
+
+`requestBff` sets `redirect: 'manual'` after caller options. After fetch, the
+caller signal is checked before response handling. `opaqueredirect` is recognized
+before reading status, headers or body: the browser reopens its current document
+once per `Location` (weak ownership), then rejects with
+`BffNavigationRequiredError`. SSR rejects without accessing `window`; concurrent
+reads cannot cause repeated navigation and no write is replayed. The unchanged
+middleware owns Login and its validated return URL. Ordinary errors still throw
+`BffRequestError`; a generic network failure is not evidence of expiration.
+Six client regressions cover opaque concurrency, mutation, abort, ordinary
+401/403/503, network failure and SSR. No routes, proxy, auth hook, contract,
+security policy, dependency, API/BFF or deployment change.
+
+## Profile-first page rendering — MAIR-406
+
+`src/app/page.tsx` derives four explicit branches from the unchanged
+`useAuthSession`: loading, error, Admin console, other-role denial. No extra
+effect, cached permission state, role parser or network call is introduced.
+Only the Admin branch mounts `AdministrationConsole`, so pending, failed and
+non-admin profiles cannot initiate its five initial administration reads.
+The error button reloads the document to retry the existing profile hook; no
+mutation is replayed. The existing hook handles 401 logout before resolution.
+Real-page/route/HTTP tests cover deferred resolution, four non-admin roles,
+403/503 profile failures, retry, 401 and unchanged authorized console loading.
+This is not signature, deployed authorization, revocation or stale-role
+revalidation certification. API/BFF, middleware, proxy and User0.5.0 stay intact.
+
+## Cookie forwarding without stored JWT injection — MAIR-406
+
+`src/lib/bff-client.ts` builds headers from `RequestInit` and supplies missing
+JSON defaults only. It no longer imports `getStoredAuthorizationHeader`; old
+storage keys cannot supply an automatic bearer header or be migrated by a data
+request. Explicit Authorization is preserved, while the unchanged frontend
+proxy uses the cookie when no header is supplied. Cleanup helpers, middleware,
+auth adapters, session management and the published User0.5.0 contract are
+unchanged. Four regressions cover cookie precedence, legacy-key preservation,
+zero storage accesses (including denied access) and storage without a cookie.
+HTTP fixtures exercise real routes/proxy; they do not prove native storage,
+deployed rights, signature validation or server-side revocation.
+
 ## Shared footer — MAIR-180
 
 The unchanged CI audit exposed the transitive tooling dependency
