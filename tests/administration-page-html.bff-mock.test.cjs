@@ -608,6 +608,171 @@ const selectUserRow = (id, event = 'onClick') => {
 };
 const userEditForm = () => view.hostElements((props, _text, tag) => tag === 'form' && props.className === 'space-y-4')[0];
 
+const disposableCreationPassword = require('node:crypto').randomBytes(12).toString('base64url');
+const retryUsersRead = () => view.click((_props, text, tag) => tag === 'button' && text === 'Réessayer le chargement des utilisateurs');
+const usersPage = (users) => ({ users, page: 1, page_size: 20, total: users.length, total_pages: users.length ? 1 : 0 });
+const openUserCreation = async () => {
+  await view.click('Nouvel utilisateur');
+  for (const [id, value] of [
+    ['create-first-name', 'Camille'], ['create-last-name', 'Test'],
+    ['create-email', 'camille@mairie.test'], ['create-password', disposableCreationPassword],
+  ]) await changeField(id, value);
+};
+
+test('failed user reload retains the last received rows and retries only the current search', async () => {
+  await renderLoadedConsole();
+  bff.on('get', '/bff/admin/users', bffError(503));
+  await view.fire(props => props.role === 'search', 'onSubmit', { preventDefault() {} });
+  await view.waitFor(() => view.text().includes('momentanément indisponible'));
+  assert.match(view.text(), /Identifiant #7/);
+  assert.match(view.text(), /Identifiant #8/);
+  assert.match(view.text(), /Dernières données reçues/);
+  assert.doesNotMatch(view.text(), /L’action est enregistrée/);
+  bff.on('get', '/bff/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
+  await retryUsersRead();
+  await view.waitFor(() => !view.text().includes('momentanément indisponible') && !view.html.includes('aria-label="Chargement"'));
+  assert.doesNotMatch(view.text(), /Identifiant #7/);
+  assert.match(view.text(), /Identifiant #8/);
+  assert.deepEqual(bff.requests.filter(call => call.method !== 'GET'), []);
+});
+
+test('confirmed user creation with refused reload clears its form without inventing a user and retries only GET', async () => {
+  await renderLoadedConsole();
+  await openUserCreation();
+  bff.on('post', '/bff/admin/users', { status: 204 });
+  bff.on('get', '/bff/admin/users', bffError(503));
+  await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  assert.match(view.text(), /Utilisateur créé/);
+  assert.match(view.text(), /L’action est enregistrée, mais les utilisateurs n’ont pas pu être actualisés/);
+  assert.match(view.text(), /Ne répétez pas l’action/);
+  assert.match(view.text(), /Identifiant #7/);
+  assert.doesNotMatch(view.text(), /Camille Test/);
+  assert.doesNotMatch(view.html, /id="create-password"/);
+  assert.match(view.text(), /— Utilisateurs/);
+  const confirmed = user(9, ['Camille', 'Test']);
+  bff.on('get', '/bff/admin/users', { body: usersPage([user(7), confirmed]) });
+  await retryUsersRead();
+  await view.waitFor(() => view.text().includes('Camille Test'));
+  assert.doesNotMatch(view.text(), /Ne répétez pas l’action/);
+  assert.equal(bff.calls('/bff/admin/users', 'POST').length, 1);
+  assert.equal(bff.calls('/bff/admin/users', 'GET').length, 3);
+  await view.click('Nouvel utilisateur');
+  assert.equal(view.hostElements(props => props.id === 'create-first-name')[0].props.value, '');
+  assert.equal(view.hostElements(props => props.id === 'create-password')[0].props.value, '');
+});
+
+test('refused user creation preserves its draft and never becomes a confirmed-reload warning', async () => {
+  await renderLoadedConsole();
+  await openUserCreation();
+  bff.on('post', '/bff/admin/users', bffError(503));
+  await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  assert.equal(view.hostElements(props => props.id === 'create-first-name')[0].props.value, 'Camille');
+  assert.equal(view.hostElements(props => props.id === 'create-password')[0].props.value, disposableCreationPassword);
+  assert.doesNotMatch(view.text(), /Utilisateur créé|L’action est enregistrée/);
+  assert.equal(bff.calls('/bff/admin/users', 'GET').length, 1);
+  bff.on('post', '/bff/admin/users', { status: 204 });
+  await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
+  assert.match(view.text(), /Utilisateur créé/);
+  assert.equal(bff.calls('/bff/admin/users', 'POST').length, 2);
+});
+
+test('confirmed user deletion with refused reload removes only its row and retries GET without another DELETE', async () => {
+  await renderLoadedConsole();
+  await selectUserRow(7);
+  bff.on('delete', '/bff/admin/users/{userId}', { status: 204 });
+  bff.on('get', '/bff/admin/users', bffError(503));
+  await view.click('Supprimer l’utilisateur');
+  await view.act(() => view.find('ConfirmModal').find(modal => modal.props.open).props.onConfirm());
+  await view.waitFor(() => view.text().includes('Utilisateur supprimé') && view.text().includes('momentanément indisponible') && view.find('ConfirmModal').every(modal => !modal.props.open));
+  assert.match(view.text(), /L’action est enregistrée, mais les utilisateurs n’ont pas pu être actualisés/);
+  assert.doesNotMatch(view.text(), /Identifiant #7/);
+  assert.match(view.text(), /Identifiant #8/);
+  assert.doesNotMatch(view.html, /id="edit-first-name"/);
+  assert.match(view.text(), /— Utilisateurs/);
+  assert.match(view.text(), /Total à actualiser/);
+  bff.on('get', '/bff/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
+  await retryUsersRead();
+  await view.waitFor(() => view.text().includes('1 Utilisateurs'));
+  assert.equal(bff.calls('/bff/admin/users/{userId}', 'DELETE').length, 1);
+  assert.equal(bff.calls('/bff/admin/users', 'GET').length, 3);
+  assert.doesNotMatch(view.text(), /Ne répétez pas l’action|Identifiant #7/);
+});
+
+test('refused user deletion keeps the record and confirmation available for an explicit retry', async () => {
+  await renderLoadedConsole();
+  await selectUserRow(7);
+  bff.on('delete', '/bff/admin/users/{userId}', bffError(503));
+  await view.click('Supprimer l’utilisateur');
+  await view.act(() => view.find('ConfirmModal').find(modal => modal.props.open).props.onConfirm());
+  await view.waitFor(() => view.text().includes('momentanément indisponible'));
+  assert.match(view.text(), /Identifiant #7/);
+  assert.equal(view.find('ConfirmModal').some(modal => modal.props.open), true);
+  assert.doesNotMatch(view.text(), /Utilisateur supprimé|L’action est enregistrée/);
+  assert.equal(bff.calls('/bff/admin/users', 'GET').length, 1);
+  bff.on('delete', '/bff/admin/users/{userId}', { status: 204 });
+  bff.on('get', '/bff/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
+  await view.act(() => view.find('ConfirmModal').find(modal => modal.props.open).props.onConfirm());
+  await view.waitFor(() => view.text().includes('Utilisateur supprimé') && view.find('ConfirmModal').every(modal => !modal.props.open) && !view.html.includes('aria-label="Chargement"'));
+  assert.equal(bff.calls('/bff/admin/users/{userId}', 'DELETE').length, 2);
+  assert.doesNotMatch(view.text(), /Identifiant #7/);
+});
+
+test('user read retry uses newly submitted criteria after a confirmed deletion and two refused reloads', async () => {
+  await renderLoadedConsole();
+  await selectUserRow(7);
+  bff.on('delete', '/bff/admin/users/{userId}', { status: 204 });
+  bff.on('get', '/bff/admin/users', bffError(503));
+  await view.click('Supprimer l’utilisateur');
+  await view.act(() => view.find('ConfirmModal').find(modal => modal.props.open).props.onConfirm());
+  await view.waitFor(() => view.text().includes('Ne répétez pas l’action') && view.find('ConfirmModal').every(modal => !modal.props.open));
+  await view.fire(props => props.type === 'search', 'onChange', { target: { value: 'Bob' } });
+  await view.fire(props => props.role === 'search', 'onSubmit', { preventDefault() {} });
+  await view.waitFor(() => bff.calls('/bff/admin/users', 'GET').length === 3 && view.text().includes('Ne répétez pas l’action'));
+  bff.on('get', '/bff/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
+  await retryUsersRead();
+  await view.waitFor(() => view.text().includes('1 Utilisateurs') && !view.text().includes('Ne répétez pas l’action'));
+  assert.equal(bff.calls('/bff/admin/users', 'GET').at(-1).url.searchParams.get('search'), 'Bob');
+  assert.equal(bff.calls('/bff/admin/users/{userId}', 'DELETE').length, 1);
+  assert.doesNotMatch(view.text(), /Identifiant #7/);
+});
+
+test('a users read started before a confirmed deletion cannot resurrect its row after reload failure', async () => {
+  await renderLoadedConsole();
+  await selectUserRow(7);
+  const older = deferred();
+  const consumed = deferred();
+  const [{ administrationApi }] = loadTs(['src/lib/administration-api.ts']);
+  const originalListUsers = administrationApi.listUsers;
+  administrationApi.listUsers = async (...args) => {
+    try { return await originalListUsers(...args); }
+    finally { consumed.resolve(); }
+  };
+  bff.on('get', '/bff/admin/users', () => older.promise);
+  await view.fire(props => props.role === 'search', 'onSubmit', { preventDefault() {} });
+  await view.waitFor(() => bff.calls('/bff/admin/users', 'GET').length === 2);
+  administrationApi.listUsers = originalListUsers;
+  try {
+    bff.on('delete', '/bff/admin/users/{userId}', { status: 204 });
+    bff.on('get', '/bff/admin/users', bffError(503));
+    await view.click('Supprimer l’utilisateur');
+    await view.act(() => view.find('ConfirmModal').find(modal => modal.props.open).props.onConfirm());
+    await view.waitFor(() => view.text().includes('Ne répétez pas l’action') && view.find('ConfirmModal').every(modal => !modal.props.open));
+    older.resolve({ body: usersPage([user(7), user(8, ['Bob', 'Martin'])]) });
+    await consumed.promise;
+    await new Promise(resolve => setImmediate(resolve));
+    await view.act(() => undefined);
+    assert.doesNotMatch(view.text(), /Identifiant #7/);
+    assert.match(view.text(), /Identifiant #8/);
+    assert.match(view.text(), /Ne répétez pas l’action|Total à actualiser/);
+    assert.match(view.text(), /— Utilisateurs/);
+    assert.equal(bff.calls('/bff/admin/users/{userId}', 'DELETE').length, 1);
+  } finally {
+    administrationApi.listUsers = originalListUsers;
+    older.resolve({ body: usersPage([]) });
+    await consumed.promise;
+  }
+});
+
 test('profile save freezes fields and mouse/keyboard selection until confirmation', async () => {
   await renderLoadedConsole();
   await selectUserRow(7);
