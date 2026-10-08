@@ -1641,11 +1641,19 @@ function GroupsPanel({
   const [userOptionsError, setUserOptionsError] = useState<string | null>(null);
   const [deletionTarget, setDeletionTarget] = useState<GroupDeletionTarget | null>(null);
   const groupDetailRevision = useRef(0);
+  const groupMembersRevision = useRef(0);
+  const selectedGroupRef = useRef<AdministrationGroup | null>(null);
 
-  useEffect(() => () => { groupDetailRevision.current += 1; }, []);
+  useEffect(() => () => {
+    groupDetailRevision.current += 1;
+    groupMembersRevision.current += 1;
+    selectedGroupRef.current = null;
+  }, []);
 
   const loadGroup = useCallback(async (groupId: number) => {
     const revision = ++groupDetailRevision.current;
+    groupMembersRevision.current += 1;
+    selectedGroupRef.current = null;
     setGroupDetailLoading(true);
     setGroupDetailError(null);
 
@@ -1655,6 +1663,7 @@ function GroupsPanel({
         administrationApi.listGroupUsers(groupId),
       ]);
       if (revision !== groupDetailRevision.current) return;
+      selectedGroupRef.current = group;
       setSelectedGroup(group);
       setGroupUsers(users);
       setEditForm({
@@ -1669,8 +1678,15 @@ function GroupsPanel({
   }, []);
 
   const refreshSelectedGroupUsers = useCallback(async () => {
-    if (!selectedGroup) return;
-    setGroupUsers(await administrationApi.listGroupUsers(selectedGroup.id));
+    // A saved retry belongs to this selection, not to whichever group is open later.
+    if (!selectedGroup || selectedGroupRef.current !== selectedGroup) return;
+    const revision = ++groupMembersRevision.current;
+    try {
+      const users = await administrationApi.listGroupUsers(selectedGroup.id);
+      if (revision === groupMembersRevision.current && selectedGroupRef.current === selectedGroup) setGroupUsers(users);
+    } catch (error) {
+      if (revision === groupMembersRevision.current && selectedGroupRef.current === selectedGroup) throw error;
+    }
   }, [selectedGroup]);
 
   useEffect(() => {
@@ -1736,6 +1752,7 @@ function GroupsPanel({
     );
 
     if (success && updatedGroup) {
+      selectedGroupRef.current = updatedGroup;
       setSelectedGroup(updatedGroup);
       const confirmedGroup = updatedGroup as AdministrationGroup;
       setEditForm({ name: confirmedGroup.name, description: confirmedGroup.description ?? "" });
@@ -1763,7 +1780,13 @@ function GroupsPanel({
       void runAction(
         "remove-group-user-" + user.id,
         "Utilisateur retiré du groupe.",
-        () => administrationApi.removeUserFromGroup(group.id, user.id),
+        async () => {
+          await administrationApi.removeUserFromGroup(group.id, user.id);
+          if (selectedGroupRef.current === group) {
+            groupMembersRevision.current += 1;
+            setGroupUsers((users) => users.filter((member) => member.id !== user.id));
+          }
+        },
         refreshSelectedGroupUsers,
       ).then((success) => {
         if (success) setDeletionTarget(null);
@@ -1777,6 +1800,8 @@ function GroupsPanel({
       "Groupe supprimé.",
       () => administrationApi.deleteGroup(group.id),
       async () => {
+        selectedGroupRef.current = null;
+        groupMembersRevision.current += 1;
         setSelectedGroup(null);
         setGroupUsers([]);
         await refreshGroups();
@@ -2054,11 +2079,16 @@ function GroupsPanel({
                             void runAction(
                               "add-group-user-" + user.id,
                               user.first_name + " " + user.last_name + " ajouté au groupe.",
-                              () =>
-                                administrationApi.addUserToGroup(
+                              async () => {
+                                await administrationApi.addUserToGroup(
                                   selectedGroup.id,
                                   user.id,
-                                ),
+                                );
+                                if (selectedGroupRef.current === selectedGroup) {
+                                  groupMembersRevision.current += 1;
+                                  setGroupUsers((users) => users.some((member) => member.id === user.id) ? users : [...users, user]);
+                                }
+                              },
                               refreshSelectedGroupUsers,
                             )
                           }
