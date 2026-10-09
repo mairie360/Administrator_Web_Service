@@ -352,3 +352,5 @@ En cas d’erreur de proxy, comparer la route et la méthode à l’inventaire, 
 - [docker-compose.yml](../../docker-compose.yml)
 
 Compléments historiques: [BFF.md](../../BFF.md), [BACKEND.md](../../BACKEND.md). Les besoins proposés doivent rester distincts du comportement effectivement implémenté.
+
+Les contrôles de présentation Administration montent la vraie page avec les hooks React, UI publiée 0.6.12 et les réponses HTTP contrôlées par le contrat User 0.5.0. Ils vérifient les styles calculés, la navigation et son tiroir, les ombres des panneaux et la préparation des grilles/textes longs. La politique analysée conserve le token de police Tailwind et les règles de tailles globales. JSDOM 30.1.1 est réservé aux tests : il ne compile pas Tailwind, ne calcule pas les media queries et ne prouve ni géométrie native, défilement ni conformité RGAA. Les recettes navigateur et la validation des services déployés restent distinctes.

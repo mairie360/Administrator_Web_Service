@@ -336,3 +336,5 @@ For a proxy error, compare the path and method with the inventory, then check th
 - [docker-compose.yml](../../docker-compose.yml)
 
 Historical supplements: [BFF.md](../../BFF.md), [BACKEND.md](../../BACKEND.md). Proposed requirements must remain distinct from implemented behavior.
+
+Administration styling now mounts the actual page with real React hooks, published UI 0.6.12 and contract-gated User 0.5.0 HTTP fixtures. Computed checks cover typography, sidebar rows/shadow, opening/closing the drawer, console panel shadows and long-label/grid preparation. A parsed policy preserves the Tailwind font token and global-size rules. These checks accept equivalent CSS spellings and reject later overrides. Development-only JSDOM 30.1.1 does not compile Tailwind, evaluate media queries or prove native geometry, scrolling or RGAA compliance; retain the native responsive recipes and deployed-service validation separately.
