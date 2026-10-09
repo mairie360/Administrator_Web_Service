@@ -305,3 +305,18 @@ tickets restent ouverts tant que CI, intégration dans main et actualisation de
 la copie livrée ne sont pas réellement validées. Aucun bypass d'audit rouge,
 déploiement, pin de cluster, donnée de démonstration produit ni changement de
 Login sans AppShell.
+
+### Unread user totals — MAIR-470 follow-up
+
+Before the first successful users response, the footer now distinguishes a
+loading or unavailable total and pagination from confirmed empty results.
+An empty successful response still shows zero users; a refused later read
+keeps the last confirmed rows and counts. The existing layout, query, request
+guards and mutation-confirmation behavior are preserved.
+
+Two behavioral regressions fail on the previous source and pass after the
+change. The composed candidate passes 252 Node tests with the unchanged 60%
+coverage gates, TypeScript, published User 0.5.0 contracts, lint and a production
+webpack build limited to one worker. Browser revalidation on integrated main
+and actual dev delivery remain separate requirements. No API/BFF, contract,
+dependency, authentication, workflow or accessibility configuration is changed.
