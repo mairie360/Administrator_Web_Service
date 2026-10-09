@@ -410,6 +410,36 @@ for (const source of initialLists) {
   });
 }
 
+test('unread user totals and pagination stay unknown until an empty response is confirmed', async () => {
+  const waiting = deferred();
+  mockConsoleData();
+  bff.on('get', '/bff/admin/users', async () => {
+    await waiting.promise;
+    return { body: { users: [], page: 1, page_size: 20, total: 0, total_pages: 0 } };
+  });
+  view = mount(React.createElement(AdministrationConsole));
+  try {
+    await view.waitFor(() => bff.calls('/bff/admin/users').length === 1 && view.html.includes('aria-label="Chargement"'));
+    assert.doesNotMatch(view.text(), /0 utilisateur|Page 1 \/ 1/);
+  } finally {
+    waiting.resolve();
+    await view.waitFor(() => consoleLoaded() && !view.html.includes('aria-label="Chargement"'));
+  }
+  assert.match(view.text(), /0 utilisateur/);
+  assert.match(view.text(), /Page 1 \/ 1/);
+});
+
+test('an initial refused user read never claims a zero total or a confirmed page', async () => {
+  mockConsoleData();
+  bff.on('get', '/bff/admin/users', bffError(503));
+  view = mount(React.createElement(AdministrationConsole));
+  await view.waitFor(() => consoleLoaded() && view.text().includes('Réessayer le chargement des utilisateurs'));
+  assert.doesNotMatch(view.text(), /0 utilisateur|Page 1 \/ 1/);
+  assert.match(view.text(), /Nombre d’utilisateurs indisponible/);
+  assert.match(view.text(), /Pagination indisponible/);
+  assert.equal(bff.requests.filter(request => request.method !== 'GET').length, 0);
+});
+
 test('the initial pending lists have unknown counters and never show a confirmed empty state', async () => {
   const waiting = deferred();
   mockConsoleData();

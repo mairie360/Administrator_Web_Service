@@ -28,6 +28,7 @@ export function UsersPanel({
   onTotalChange: (total: number | null) => void;
 }) {
   const [usersPage, setUsersPage] = useState<AdministrationUsersPage>(emptyUsersPage);
+  const [hasReceivedUsers, setHasReceivedUsers] = useState(false);
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -73,6 +74,7 @@ export function UsersPanel({
       const response = await administrationApi.listUsers({ page, search });
       if (!isCurrent()) return;
       setUsersPage(response);
+      setHasReceivedUsers(true);
       setUsersMutationConfirmed(false);
       onTotalChange(response.total);
 
@@ -475,7 +477,11 @@ export function UsersPanel({
             <span>
               {usersMutationConfirmed
                 ? "Total à actualiser"
-                : `${usersPage.total} utilisateur${usersPage.total > 1 ? "s" : ""}`} · 20 maximum par page
+                : hasReceivedUsers
+                  ? `${usersPage.total} utilisateur${usersPage.total > 1 ? "s" : ""}`
+                  : usersLoading
+                    ? "Nombre d’utilisateurs en cours de chargement"
+                    : "Nombre d’utilisateurs indisponible"} · 20 maximum par page
             </span>
             <div className="flex items-center gap-2">
               <ActionButton
@@ -488,7 +494,9 @@ export function UsersPanel({
                 <ChevronLeft className="h-4 w-4" aria-hidden="true" />
               </ActionButton>
               <span className="min-w-24 text-center font-semibold text-[#344054]">
-                Page {usersPage.page}{usersMutationConfirmed ? " · pagination à actualiser" : ` / ${Math.max(usersPage.total_pages, 1)}`}
+                {hasReceivedUsers || usersMutationConfirmed
+                  ? <>Page {usersPage.page}{usersMutationConfirmed ? " · pagination à actualiser" : ` / ${Math.max(usersPage.total_pages, 1)}`}</>
+                  : usersLoading ? "Pagination en cours de chargement" : "Pagination indisponible"}
               </span>
               <ActionButton
                 variant="secondary"
