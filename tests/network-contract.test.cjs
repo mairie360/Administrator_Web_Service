@@ -40,7 +40,7 @@ function concreteRequest({ method, template }) {
 
 /** Répond 200 sans corps à toute opération du contrat publié. */
 function answerEveryOperation() {
-  for (const { method, template } of contract.operations()) bff.on(method, template, { status: 200, outOfContract: true });
+  for (const { method, template } of contract.operations()) bff.on(method, template, { status: 200, outOfContract: true, ...(template === '/auth/logout' ? { body: { message: 'Logged out successfully' } } : {}) });
 }
 
 before(async () => {
@@ -109,8 +109,8 @@ describe('a single BFF', () => {
     for (const variable of BFF_URL_VARIABLES) {
       front.useBffUrl(bff.url, variable);
       await front.browserFetch('/api/user/me');
-      await front.browserFetch('/api/auth/logout', { method: 'POST' });
-      await front.browserFetch('/bff/admin/roles');
+      await front.browserFetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      await front.browserFetch('/api/bff/bff/admin/roles');
     }
 
     assert.equal(bff.requests.length, BFF_URL_VARIABLES.length * 3);
@@ -148,18 +148,19 @@ describe('catch-all proxy src/app/[...path]', () => {
   test('forwards every contract operation to the same BFF operation', async () => {
     answerEveryOperation();
 
-    for (const operation of contract.operations()) {
+    const operations = contract.operations().filter(({ template }) => !template.startsWith('/auth/'));
+    for (const operation of operations) {
       const { pathname, body } = concreteRequest(operation);
-      const response = await front.browserFetch(pathname, {
+      const response = await front.browserFetch('/api/bff' + pathname, {
         method: operation.method,
-        ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}),
+        ...(body || pathname === '/auth/logout' ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) } : {}),
       });
       assert.ok(response.status < 300, `${operation.method} ${pathname} → ${response.status}`);
     }
 
     assert.deepEqual(
       bff.requests.map(({ method, template }) => `${method} ${template}`),
-      contract.operations().map(({ method, template }) => `${method} ${template}`),
+      operations.map(({ method, template }) => `${method} ${template}`),
     );
   });
 
@@ -217,17 +218,15 @@ describe('catch-all proxy src/app/[...path]', () => {
     assert.deepEqual(front.serverCalls, []);
   });
 
-  test('only the BFF self-description documents are relayed outside the contract', async () => {
+  test('undeclared BFF self-description documents never leave the frontend', async () => {
     for (const documentPath of METADATA_PATHS) {
       const response = await front.browserFetch(documentPath);
-      assert.equal((await response.json()).info.title, 'bff_user');
+      assert.equal(response.status, 404);
     }
     const post = await front.browserFetch('/openapi.json', { method: 'POST', body: '{}' });
-
-    assert.equal(post.status, 405);
-    assert.deepEqual(bff.requests.map(({ method, template, metadata }) => [method, template, metadata]), METADATA_PATHS.map((documentPath) => ['GET', documentPath, true]));
-  });
-});
+    assert.equal(post.status, 404);
+    assert.deepEqual(bff.requests, []);
+  });});
 
 describe('route handlers src/app/api', () => {
   test('every exported handler forwards only to a contract operation', async () => {
@@ -238,7 +237,7 @@ describe('route handlers src/app/api', () => {
     for (const { prefix, module } of adapters) {
       for (const method of Object.keys(module).filter((name) => /^[A-Z]+$/.test(name))) {
         bff.requests.length = 0;
-        const response = await front.browserFetch(prefix, { method });
+        const response = await front.browserFetch(prefix, { method, ...(prefix === '/api/auth/logout' ? { headers: { 'Content-Type': 'application/json' }, body: '{}' } : {}) });
         assert.ok(response.status < 300, `${method} ${prefix} → ${response.status}`);
         assert.equal(bff.requests.length, 1, `${method} ${prefix} doit appeler exactement une opération du contrat`);
       }
@@ -250,7 +249,7 @@ describe('no network access outside the BFF contract', () => {
   const sources = sourceFiles;
   const relative = (file) => path.relative(ROOT, file);
 
-  test('only the BFF client, the session hook and the proxy call fetch, and no other network API is used', () => {
+  test('only the BFF client, the session hook and explicit logout call fetch, and no other network API is used', () => {
     const offenders = [];
     const fetchers = [];
     for (const file of sources(SRC)) {
@@ -261,11 +260,11 @@ describe('no network access outside the BFF contract', () => {
       if (policy.absoluteUrls(ast).some(url => !/^https?:\/\/localhost[:/]/.test(url))) offenders.push(`${relative(file)} : URL absolue`);
     }
     assert.deepEqual(offenders, []);
-    assert.deepEqual(fetchers.sort(), ['src/lib/auth-session.ts', 'src/lib/bff-client.ts', 'src/lib/bff-proxy.ts']);
+    assert.deepEqual(fetchers.sort(), ['src/lib/auth-session.ts', 'src/lib/bff-client.ts', 'src/lib/logout.ts']);
   });
 
   test('browser-side fetch targets are same-origin adapters and admin calls use the declared /bff/admin prefix', () => {
-    const targets = policy.calls(policy.parse('src/lib/auth-session.ts'), 'fetch').map(node => { assert.ok(policy.ts.isStringLiteralLike(node.arguments[0])); return node.arguments[0].text; });
+    const targets = ['src/lib/auth-session.ts', 'src/lib/logout.ts'].flatMap(file => policy.calls(policy.parse(file), 'fetch')).map(node => { assert.ok(policy.ts.isStringLiteralLike(node.arguments[0])); return node.arguments[0].text; });
     const adapters = front.routes.filter(({ catchAll }) => !catchAll).map(({ prefix }) => prefix);
     assert.deepEqual(targets, ['/api/user/me', '/api/auth/logout']);
     targets.forEach((target) => assert.ok(adapters.includes(target), `${target} n'a pas de route handler`));

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { clearStoredAuthJwtToken } from "./auth-token";
+import { isSessionRecoveryPending, navigateToLogin } from "./logout";
+export { logoutAndReload } from "./logout";
 
 export const APP_ROLES = [
   "Admin",
@@ -151,7 +152,10 @@ export function useAuthSession(initialUser: AuthSessionUser = EMPTY_SESSION_USER
         });
 
         if (response.status === 401) {
-          await logoutAndReload();
+          if (isSessionRecoveryPending()) return;
+          if (!navigateToLogin()) setSession(current => ({
+            ...current, loading: false, error: "La connexion est temporairement indisponible.",
+          }));
           return;
         }
 
@@ -244,19 +248,4 @@ export function useAuthSession(initialUser: AuthSessionUser = EMPTY_SESSION_USER
   }, [initialUser]);
 
   return session;
-}
-
-export async function logoutAndReload() {
-  try {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-      cache: "no-store",
-    });
-  } finally {
-    try {
-      clearStoredAuthJwtToken();
-    } finally {
-      window.location.reload();
-    }
-  }
 }

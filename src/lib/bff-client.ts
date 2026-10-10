@@ -1,3 +1,5 @@
+import { navigateToLogin } from './logout';
+
 export class BffRequestError extends Error {
   readonly status: number;
 
@@ -15,10 +17,9 @@ export class BffNavigationRequiredError extends Error {
   }
 }
 
-const navigatingLocations = new WeakSet<Location>();
-
 function createRequestHeaders(init: RequestInit) {
   const headers = new Headers(init.headers);
+  headers.delete('Authorization');
 
   if (!headers.has("Accept")) {
     headers.set("Accept", "application/json");
@@ -32,26 +33,26 @@ function createRequestHeaders(init: RequestInit) {
 }
 
 export async function requestBff<T>(path: string, init: RequestInit = {}) {
-  const response = await fetch(path, {
+  const browserPath = path.startsWith('/api/') ? path : '/api/bff' + path;
+  const response = await fetch(browserPath, {
     ...init,
     headers: createRequestHeaders(init),
     redirect: "manual",
+    cache: 'no-store',
+    credentials: 'same-origin',
   });
 
   init.signal?.throwIfAborted();
 
-  // An opaque response exposes no safe destination or body. Reopen the current
-  // protected document so the existing middleware owns Login and its return URL.
-  // Concurrent reads must not navigate repeatedly or replay a submitted write.
+  // An opaque response exposes no safe destination or body. Return directly to
+  // validated Login without revocation, repeated navigation or replaying a write.
   if (response.type === "opaqueredirect") {
-    if (typeof window !== "undefined" && !navigatingLocations.has(window.location)) {
-      navigatingLocations.add(window.location);
-      window.location.reload();
-    }
+    navigateToLogin();
     throw new BffNavigationRequiredError();
   }
 
   if (!response.ok) {
+    if (response.status === 401) navigateToLogin();
     throw new BffRequestError(response.status);
   }
 

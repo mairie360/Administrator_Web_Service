@@ -46,6 +46,7 @@ function redirectToLogin(request: NextRequest) {
       requestedPage.pathname = request.nextUrl.pathname;
       requestedPage.search = request.nextUrl.search;
       destination.searchParams.set("redirect", requestedPage.href);
+      destination.searchParams.set("resumeSession", "1");
     } catch {
       // A missing or invalid public URL leaves Login's default destination in place.
     }
@@ -60,16 +61,7 @@ function redirectToLogin(request: NextRequest) {
       },
     },
   );
-  const cookieDomain = process.env.COOKIE_DOMAIN?.trim();
-
-  response.cookies.set({
-    name: ACCESS_TOKEN_COOKIE,
-    value: "",
-    path: "/",
-    expires: new Date(0),
-    maxAge: 0,
-    ...(cookieDomain ? { domain: cookieDomain } : {}),
-  });
+  response.headers.set("Cache-Control", "no-store");
 
   return response;
 }

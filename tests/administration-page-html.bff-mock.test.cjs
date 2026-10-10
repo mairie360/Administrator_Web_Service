@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const { after, afterEach, before, beforeEach, test } = require('node:test');
 const { bffError, bffUserContract } = require('./support/bff-user-contract.cjs');
 const { ContractMockServer } = require('./support/contract-mock-server.cjs');
-const { FrontHarness, loadTs } = require('./support/front-harness.cjs');
+const { FRONT_ORIGIN, FrontHarness, loadTs } = require('./support/front-harness.cjs');
 const { installReactRuntime, mount } = require('./support/server-view.cjs');
 
 // HTML of the administration front rendered with react-dom/server against the mocked BFF User: the real
@@ -27,7 +27,7 @@ function installWindow() {
     reloads: 0,
     requestAnimationFrame: (callback) => callback(),
     localStorage: { getItem: (key) => store.get(key) ?? null, setItem: (key, value) => store.set(key, value), removeItem: (key) => store.delete(key), clear: () => store.clear() },
-    location: { reload: () => { window.reloads += 1; } },
+    location: { origin: FRONT_ORIGIN, pathname: '/', search: '?panel=sessions', href: FRONT_ORIGIN + '/?panel=sessions', assigned: [], assign(url) { this.assigned.push(url); }, reload: () => { window.reloads += 1; } },
   };
   global.window = window;
   return window;
@@ -44,6 +44,7 @@ after(async () => {
 });
 beforeEach(() => {
   installWindow();
+  loadTs(['src/lib/front-urls.ts'])[0].setBrowserFrontUrls({ LOGIN_FRONT_URL: front.ownerOrigin, ADMINISTRATION_FRONT_URL: FRONT_ORIGIN });
   router.reset();
 });
 afterEach(() => {
@@ -241,20 +242,49 @@ test('desktop and mobile navigation expose only active modules and keep Settings
   }
 });
 
-test('a session refused by BFF User logs the page out and reloads it', async () => {
+test('a refused profile returns to Login without mounting the console or revoking the session', async () => {
   bff.on('get', '/me', bffError(401, 'Invalid or missing session token'));
-  for (const template of ['/bff/admin/roles', '/bff/admin/groups', '/bff/admin/sessions', '/bff/admin/sessions/history', '/bff/admin/users']) {
-    bff.on('get', template, bffError(401, 'Invalid or missing session token'));
-  }
-  bff.on('post', '/auth/logout', { body: { message: 'Logged out successfully' }, headers: { 'Set-Cookie': 'accessToken=; Max-Age=0; Path=/; HttpOnly' } });
   view = mount(React.createElement(Home));
-
-  await view.waitFor(() => window.reloads === 1);
-
-  assert.deepEqual(sequence().filter((request) => request === 'GET /me' || request === 'POST /auth/logout'), ['GET /me', 'POST /auth/logout']);
+  await view.waitFor(() => window.location.assigned.length === 1);
+  assert.equal(new URL(window.location.assigned[0]).searchParams.get('redirect'), window.location.href);
+  assert.equal(window.reloads, 0);
   assert.equal(view.props('Header').user.name, 'Chargement…');
   assert.equal(view.find('AdministrationConsole').length, 0);
-  assert.deepEqual(sequence(), ['GET /me', 'POST /auth/logout']);
+  assert.deepEqual(sequence(), ['GET /me']);
+  assert.equal(front.ownerCalls.length, 0);
+});
+
+for (const status of [200, 503]) test(`unconfirmed logout${status} keeps the mounted role draft and waits for explicit Login return`, async () => {
+  bff.on('get', '/me', { body: me() }); mockConsoleData();
+  view = mount(React.createElement(Home));
+  await view.waitFor(() => view.props('Header').user.name === 'Alice Dupont' && consoleLoaded());
+  await view.click((props, text) => props.role === 'tab' && text === 'Rôles');
+  const roleName = () => view.hostElements(props => props.id === 'role-name')[0].props;
+  await view.act(() => roleName().onChange({ target: { value: 'Brouillon local conservé' } }));
+  window.localStorage.setItem('mairie360.auth.jwt', 'legacy');
+  let finish;
+  front.ownerOverride = () => new Promise(resolve => { finish = resolve; });
+  await view.act(() => { view.props('AppShell').onLogout(); view.props('AppShell').onLogout(); });
+  await view.waitFor(() => typeof finish === 'function');
+  assert.equal(front.ownerCalls.length, 1);
+  assert.equal(roleName().value, 'Brouillon local conservé');
+  finish(Response.json({ message: 'Disposable owner receipt', session_revoked: false }, { status }));
+  await view.waitFor(() => view.text().includes('Retour à la connexion'));
+  assert.match(view.text(), /déconnexion n’a pas été confirmée/);
+  assert.equal(view.find('AdministrationConsole').length, 1);
+  assert.equal(roleName().value, 'Brouillon local conservé');
+  assert.equal(window.localStorage.getItem('mairie360.auth.jwt'), 'legacy');
+  assert.deepEqual(window.location.assigned, []);
+  bff.on('get', '/bff/admin/roles', bffError(401));
+  const [{ requestBff }] = loadTs(['src/lib/bff-client.ts']);
+  await assert.rejects(requestBff('/bff/admin/roles'), { status: 401 });
+  assert.deepEqual(window.location.assigned, [], 'a late data401 cannot dismiss the explicit recovery choice');
+  assert.equal(roleName().value, 'Brouillon local conservé');
+  await view.click('Retour à la connexion');
+  assert.equal(window.location.assigned.length, 1);
+  assert.equal(new URL(window.location.assigned[0]).searchParams.get('redirect'), window.location.href);
+  assert.equal(front.ownerCalls.length, 1);
+  assert.equal(bff.calls('/auth/logout').length, 0);
 });
 
 test('the console loads roles, groups, sessions and users and renders the counts and the users table', async () => {

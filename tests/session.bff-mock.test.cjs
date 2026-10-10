@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const { after, afterEach, before, beforeEach, describe, test } = require('node:test');
 const { bffError, bffUserContract } = require('./support/bff-user-contract.cjs');
 const { ContractMockServer, unreachableUrl } = require('./support/contract-mock-server.cjs');
-const { FrontHarness, loadTs, waitFor } = require('./support/front-harness.cjs');
+const { FRONT_ORIGIN, FrontHarness, loadTs, waitFor } = require('./support/front-harness.cjs');
 
 // Adaptateurs de session src/app/api/** et hook useAuthSession (src/lib/auth-session.ts) contre un faux
 // BFF User piloté par le contrat du paquet publié @mairie360/bff-user-openapi. Sans DOM : `react` est
@@ -40,7 +40,7 @@ function installWindow() {
   const window = {
     reloads: 0,
     localStorage: { getItem: (key) => store.get(key) ?? null, setItem: (key, value) => store.set(key, value), removeItem: (key) => store.delete(key), clear: () => store.clear() },
-    location: { reload: () => { window.reloads += 1; } },
+    location: { ...{ origin: FRONT_ORIGIN, pathname: '/', search: '?panel=sessions', href: FRONT_ORIGIN + '/?panel=sessions' }, assigned: [], assign(url) { this.assigned.push(url); }, reload: () => { window.reloads += 1; } },
     store,
   };
   global.window = window;
@@ -56,7 +56,7 @@ after(async () => {
   front.uninstall();
   await bff.stop();
 });
-beforeEach(() => { installWindow(); });
+beforeEach(() => { installWindow(); loadTs(['src/lib/front-urls.ts'])[0].setBrowserFrontUrls({ LOGIN_FRONT_URL: front.ownerOrigin, ADMINISTRATION_FRONT_URL: FRONT_ORIGIN }); });
 afterEach(() => {
   delete global.window;
   const violations = [...bff.violations, ...front.violations];
@@ -92,14 +92,16 @@ describe('session adapters forward to BFF User contract operations', () => {
     });
   }
 
-  test('POST /api/auth/logout → POST /auth/logout and keeps the cookie removal', async () => {
+  test('POST /api/auth/logout delegates to Login and distinguishes local expiry from confirmed revocation', async () => {
     bff.on('post', '/auth/logout', { body: { message: 'Logged out successfully' }, headers: { 'Set-Cookie': 'accessToken=; Max-Age=0; Path=/; HttpOnly' } });
 
-    const response = await fetch('/api/auth/logout', { method: 'POST' });
+    const response = await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
 
     assert.equal(response.status, 200);
     assert.match(response.headers.get('set-cookie'), /accessToken=;.*Max-Age=0/);
     assert.deepEqual(bff.calls('/auth/logout', 'post').length, 1);
+    assert.equal(front.ownerCalls.length, 1);
+    assert.equal((await response.json()).session_revoked, false);
   });
 
   test('session adapters are not behind the page middleware: a missing cookie reaches the BFF 401', async () => {
@@ -155,19 +157,19 @@ describe('useAuthSession', () => {
     assert.equal(hook.state.isAdmin, false);
   });
 
-  test('a 401 logs out through /api/auth/logout, clears only auth tokens and reloads the page', async () => {
-    bff.on('get', '/me', bffError(401))
-      .on('post', '/auth/logout', { body: { message: 'Logged out successfully' } });
+  test('a persistent profile401 returns to the exact Login target without logout or storage loss', async () => {
+    bff.on('get', '/me', bffError(401));
     global.window.store.set('mairie360.projects.jwt', 'legacy.jwt');
     global.window.store.set('unrelated.preference', 'keep');
-
     const hook = renderHook(() => authSession.useAuthSession());
-    await waitFor(() => global.window.reloads === 1);
-
-    assert.deepEqual(bff.requests.map(({ method, template }) => `${method} ${template}`), ['GET /me', 'POST /auth/logout']);
-    assert.equal(global.window.store.has('mairie360.auth.jwt'), false);
-    assert.equal(global.window.store.has('mairie360.projects.jwt'), false);
-    assert.equal(global.window.store.get('unrelated.preference'), 'keep');
+    await waitFor(() => global.window.location.assigned.length === 1);
+    assert.deepEqual(bff.requests.map(({ method, template }) => `${method} ${template}`), ['GET /me']);
+    const target = new URL(global.window.location.assigned[0]);
+    assert.equal(target.searchParams.get('redirect'), global.window.location.href);
+    assert.equal(target.searchParams.has('returnUrl'), false);
+    assert.deepEqual([...global.window.store], [['mairie360.auth.jwt','stored.jwt'], ['mairie360.projects.jwt','legacy.jwt'], ['unrelated.preference','keep']]);
+    assert.equal(global.window.reloads, 0);
+    assert.equal(front.ownerCalls.length, 0);
     assert.equal(hook.state.loading, true);
   });
 
@@ -208,20 +210,21 @@ describe('useAuthSession', () => {
     }
   });
 
-  test('logoutAndReload still clears only auth tokens and reloads when the logout call fails', async () => {
+  test('failed explicit logout preserves known storage and requires a deliberate return', async () => {
     global.window.store.set('mairie360.projects.jwt', 'legacy.jwt');
     global.window.store.set('unrelated.preference', 'keep');
     const harnessFetch = global.fetch;
     global.fetch = async () => { throw new TypeError('Failed to fetch'); };
     try {
-      await assert.rejects(authSession.logoutAndReload(), /Failed to fetch/);
+      await assert.rejects(authSession.logoutAndReload(), /déconnexion n’a pas été confirmée/);
     } finally {
       global.fetch = harnessFetch;
     }
-    assert.equal(global.window.store.has('mairie360.auth.jwt'), false);
-    assert.equal(global.window.store.has('mairie360.projects.jwt'), false);
+    assert.equal(global.window.store.has('mairie360.auth.jwt'), true);
+    assert.equal(global.window.store.has('mairie360.projects.jwt'), true);
     assert.equal(global.window.store.get('unrelated.preference'), 'keep');
-    assert.equal(global.window.reloads, 1);
+    assert.equal(global.window.reloads, 0);
+    assert.deepEqual(global.window.location.assigned, []);
   });
 });
 
