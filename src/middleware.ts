@@ -17,8 +17,8 @@ type JwtPayload = {
 function isExpiredJwt(token: string) {
   const segments = token.split(".");
 
-  if (segments.length !== 3) {
-    return false;
+  if (segments.length !== 3 || segments.some(segment => !segment)) {
+    return true;
   }
 
   try {
@@ -29,7 +29,8 @@ function isExpiredJwt(token: string) {
     const payload = JSON.parse(atob(base64Payload)) as JwtPayload;
 
     return (
-      typeof payload.exp === "number" &&
+      typeof payload.exp !== "number" ||
+      !Number.isFinite(payload.exp) ||
       payload.exp * 1000 <= Date.now()
     );
   } catch {

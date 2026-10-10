@@ -148,7 +148,8 @@ describe('catch-all proxy src/app/[...path]', () => {
   test('forwards every contract operation to the same BFF operation', async () => {
     answerEveryOperation();
 
-    const operations = contract.operations().filter(({ template }) => !template.startsWith('/auth/'));
+    const retired = new Set(['/bff/admin/sessions/refresh', '/bff/admin/sessions/revoke']);
+    const operations = contract.operations().filter(({ template }) => !template.startsWith('/auth/') && !retired.has(template));
     for (const operation of operations) {
       const { pathname, body } = concreteRequest(operation);
       const response = await front.browserFetch('/api/bff' + pathname, {

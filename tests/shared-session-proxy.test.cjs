@@ -132,6 +132,16 @@ test('Login authentication operations cannot be started through the administrati
   assert.deepEqual(bff.requests, []); assert.deepEqual(ownerBff.requests, []); assert.deepEqual(front.ownerCalls, []);
 });
 
+test('retired token refresh and revoke operations cannot leave the Administration frontend', async () => {
+  front.cookie = access;
+  for (const path of ['/bff/admin/sessions/refresh', '/bff/admin/sessions/revoke']) {
+    const response = await fetch('/api/bff' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"refresh_token":"disposable-forbidden-token"}' });
+    assert.equal(response.status, 404); assert.equal(response.headers.get('set-cookie'), null);
+  }
+  assert.deepEqual(bff.requests, []); assert.deepEqual(ownerBff.requests, []); assert.deepEqual(front.ownerCalls, []);
+  assert.equal(front.cookie, access); assert.equal(front.refreshCookie, refresh);
+});
+
 test('the older published User logout receipt expires local cookies without proving server revocation', async () => {
   front.cookie = access;
   ownerBff.on('post', '/auth/logout', { body: { message: 'Logged out successfully' } });

@@ -200,9 +200,9 @@ describe('administration API client against a contract-driven BFF User mock', ()
     });
   });
 
-  test('every retained administration client operation is exercised; retired session writes remain proxy-contract routes', () => {
-    // MAIR-406 removes frontend token consumers. The unchanged generic proxy suite
-    // still exercises all published routes, including these retired UI operations.
+  test('every retained administration client operation is exercised; retired token session writes stay unavailable', () => {
+    // MAIR-406 keeps read-only lists and retires token consumers. Neither the
+    // browser client nor the frontend proxy exposes those retired operations.
     const retired = new Set(['/bff/admin/sessions/refresh', '/bff/admin/sessions/revoke']);
     const declared = contract.operations().filter(({ template }) => template.startsWith('/bff/admin/') && !retired.has(template)).map(({ method, template }) => `${method} ${template}`);
     assert.deepEqual([...exercised].sort(), declared.sort());
