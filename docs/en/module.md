@@ -9,18 +9,13 @@ Only a valid empty response displays the empty-list message and zero count.
 Subsequent read failures preserve the last received collections and drafts.
 This frontend presentation does not certify deployed permissions or persistence.
 
-## Independent session readback — MAIR-460 / MAIR-470
+## Read-only session lists — MAIR-406
 
-Refreshing active sessions and history preserves each successful response even
-when the other list is unavailable. The failed source keeps its last valid data.
-After a confirmed refresh/revoke command, the token field and both commands stay
-locked until both reads finish, including a fast failure followed by a slow
-success. Only then is the confirmed input cleared; retrying the readback warning
-sends GET requests only, never another command.
+Active sessions and history remain available with their existing GET-only refresh, counters, expiry/revocation labels and independent failure handling. The token-entry form and its refresh/revoke actions are removed following the explicit decision of 10 October 2026; MAIR-460 token-draft checks are historical. The published User 0.5.0 contract does not define a typed session-ID revocation operation, so no replacement payload or command is invented. Real Dev permissions and session persistence still require a usable account.
 
 ## Independent administration panels — MAIR-406
 
-Users, roles, groups and sessions retain their existing forms, confirmations,
+Users, roles and groups retain their existing forms and confirmations; sessions retain their lists,
 errors and readback behavior. Each panel is a stable top-level component in
 `src/components/administration/`; the console keeps shared orchestration.
 The common controls and confirmation dialog do not access administration data.

@@ -362,17 +362,4 @@ export const administrationApi = {
     return extractArray(response, ["sessions"]).filter(isSession);
   },
 
-  refreshSession(refreshToken: string) {
-    return requestAdmin<void>(
-      "/sessions/refresh",
-      jsonRequest("POST", { refresh_token: refreshToken }),
-    );
-  },
-
-  revokeSession(refreshToken: string) {
-    return requestAdmin<void>(
-      "/sessions/revoke",
-      jsonRequest("POST", { refresh_token: refreshToken }),
-    );
-  },
 };

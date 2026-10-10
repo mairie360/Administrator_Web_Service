@@ -144,7 +144,6 @@ describe('administration API client against a contract-driven BFF User mock', ()
       ['deleteGroup', () => administrationApi.deleteGroup(5), 'DELETE', '/bff/admin/groups/5', undefined],
       ['addUserToGroup', () => administrationApi.addUserToGroup(5, 7), 'POST', '/bff/admin/groups/5/users', { group_id: 5, user_id: 7 }],
       ['removeUserFromGroup', () => administrationApi.removeUserFromGroup(5, 7), 'DELETE', '/bff/admin/groups/5/users/7', undefined],
-      ['revokeSession', () => administrationApi.revokeSession('opaque-refresh-token'), 'POST', '/bff/admin/sessions/revoke', { refresh_token: 'opaque-refresh-token' }],
     ];
 
     for (const [name, call, method, pathname, body] of cases) {
@@ -171,13 +170,7 @@ describe('administration API client against a contract-driven BFF User mock', ()
       assert.equal(await administrationApi.updateGroup(5, { name: 'Conseil', description: '' }), null);
     });
 
-    test('refreshSession sends the refresh token and ignores the Core response body', async () => {
-      bff.on('post', '/bff/admin/sessions/refresh', { body: { message: 'JWT refreshed successfully' } });
 
-      await administrationApi.refreshSession('opaque-refresh-token');
-
-      assert.deepEqual(bff.requests[0].body, { refresh_token: 'opaque-refresh-token' });
-    });
   });
 
   describe('errors', () => {
@@ -206,8 +199,11 @@ describe('administration API client against a contract-driven BFF User mock', ()
     });
   });
 
-  test('every /bff/admin operation of the BFF User contract is exercised by the client', () => {
-    const declared = contract.operations().filter(({ template }) => template.startsWith('/bff/admin/')).map(({ method, template }) => `${method} ${template}`);
+  test('every retained administration client operation is exercised; retired session writes remain proxy-contract routes', () => {
+    // MAIR-406 removes frontend token consumers. The unchanged generic proxy suite
+    // still exercises all published routes, including these retired UI operations.
+    const retired = new Set(['/bff/admin/sessions/refresh', '/bff/admin/sessions/revoke']);
+    const declared = contract.operations().filter(({ template }) => template.startsWith('/bff/admin/') && !retired.has(template)).map(({ method, template }) => `${method} ${template}`);
     assert.deepEqual([...exercised].sort(), declared.sort());
   });
 });

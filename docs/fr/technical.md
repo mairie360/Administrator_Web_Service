@@ -10,17 +10,14 @@ un `null` encore inconnu. Une lecture dépassée ou terminée après démontage 
 modifie rien et ne propage pas de refus. Attendre les deux sources conserve le
 verrou `runAction` jusqu’à la fin de la relecture partielle ; la reprise de son
 avertissement reste GET seule.
-Quatre régressions vrais composants/HTTP échouent avant correction puis passent :
-succès indépendant dans les deux sens et refus rapide avec historique différé
-pour chacune des commandes Rafraîchir/Révoquer. Aucun nouvel appel, état, effet,
-client, contrat, stockage de credentials ni changement API/BFF.
+Les régressions antérieures des commandes par jeton MAIR-460 sont historiques après la décision explicite de retrait du 10 octobre 2026. Le formulaire et les helpers frontend refreshSession/revokeSession sont retirés ; les lectures conservées sont vérifiées sur le vrai consommateur avec le contrat publié inchangé. Le proxy générique valide et relaie toujours les opérations publiées ; contrat, API/BFF, politique de cookies, scanners et approbations ne sont pas modifiés.
 
 ## Frontières des composants de console — MAIR-406
 
 `administration-console.tsx` conserve lectures globales, révisions de requêtes et
 garde synchrone de mutations. Elle importe directement `users-panel`,
 `roles-panel`, `groups-panel` et `sessions-panel` depuis `components/administration`.
-Leur état local et leurs callbacks restent identiques. `controls.tsx` partage
+Utilisateurs, rôles et groupes gardent leur état local et leurs callbacks ; les sessions ne conservent que la vue de liste sélectionnée après retrait du formulaire à jeton. `controls.tsx` partage
 champs, panneaux, boutons, états vides et formatage des dates ; `confirm-modal.tsx`
 conserve la gestion de focus/busy. `types.ts` ne partage que le type `RunAction`.
 Aucun cycle, barrel, fetch, effet, chargement différé ou changement API/BFF ajouté.

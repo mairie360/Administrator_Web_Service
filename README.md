@@ -178,7 +178,7 @@ For [MAIR-230](https://mairie-360.atlassian.net/browse/MAIR-230) and [issue #123
 
 Pour MAIR-230 et l’issue #123, le workflow consommateur exécute **Semgrep et Gitleaks** (secrets expurgés) sous le nom historique requis `CICD / Code Security Audit (Semgrep)`. Les actions de scan utilisent le commit publié et vérifié de CICD v4.0.1 ci-dessus, sans remplacer le workflow frontend partagé v4.0.2. Ce job supplémentaire n’a que la lecture du dépôt, récupère l’historique complet sans conserver les credentials, et échoue sur les findings ou erreurs de scan. Aucun succès artificiel ni changement de protection de branche.
 
-## Pending session form drafts / Brouillons des sessions en attente
+## Historical token-form verification / Vérification historique du formulaire à jeton
 
 Additional verification, 6 October 2026 — MAIR-460 / MAIR-470: targeted session
 readback now waits for both existing parallel GETs, applies each successful list
@@ -324,3 +324,10 @@ coverage gates, TypeScript, published User 0.5.0 contracts, lint and a productio
 webpack build limited to one worker. Browser revalidation on integrated main
 and actual dev delivery remain separate requirements. No API/BFF, contract,
 dependency, authentication, workflow or accessibility configuration is changed.
+
+
+## Read-only session management / Gestion des sessions en lecture — MAIR-406
+
+The token form and unused frontend token-command helpers are retired following the explicit decision of 10 October 2026. Active/history lists, status labels and GET refresh remain available. The former MAIR-460 token-draft verification above is historical. User0.5.0 has no typed session-ID revocation operation; no substitute payload or write is added. API/BFF, published contracts, cookie transport and all delivery/security/RGAA settings remain unchanged.
+
+Le formulaire à jeton et ses helpers frontend inutilisés sont retirés selon la décision explicite du 10 octobre 2026. Listes actives/historique, états et actualisation GET restent disponibles. La vérification MAIR-460 ci-dessus est historique ; aucune commande de révocation par identifiant n’est inventée sans contrat publié.
