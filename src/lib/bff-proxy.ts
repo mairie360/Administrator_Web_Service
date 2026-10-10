@@ -29,7 +29,7 @@ export async function forwardToBff(request: NextRequest, baseUrl: string, path: 
   if (request.method === 'POST' && path === '/auth/logout') return logoutProxy(request);
   // Login owns authentication operations; Administration exposes its published
   // business and profile routes without offering a second authentication entry.
-  if (path.startsWith('/auth/')) return Response.json({ message: 'Route indisponible.' }, {
+  if (path.startsWith('/auth/') || ['/bff/admin/sessions/refresh', '/bff/admin/sessions/revoke'].includes(path)) return Response.json({ message: 'Route indisponible.' }, {
     status: 404, headers: { 'Cache-Control': 'no-store' },
   });
   const headers = new Headers(request.headers);

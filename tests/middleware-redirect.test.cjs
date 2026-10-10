@@ -60,6 +60,22 @@ test('an unauthenticated visit returns to the public Administration URL, not the
   assert.doesNotMatch(login.href, /internal:3000/);
 });
 
+test('opaque cookies and JWTs without a finite expiry resume at Login without rendering the protected document', () => {
+  process.env.LOGIN_FRONT_URL = 'https://login.mairie.test/';
+  process.env.ADMINISTRATION_FRONT_URL = 'https://admin.mairie.test/';
+  const token = payload => `${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url(payload)}.signature`;
+  for (const value of ['opaque-session', 'two.segments', '.e30.signature', token({}), token({ exp: '9999999999' }), token({ exp: null }), token({ exp: 0 })]) {
+    const response = middleware(new NextRequest('http://internal:3000/?panel=sessions', { headers: { cookie: `accessToken=${value}; refreshToken=preserved` } }));
+    assert.equal(response.status, 307);
+    const destination = new URL(response.headers.get('location'));
+    assert.equal(destination.searchParams.get('redirect'), 'https://admin.mairie.test/?panel=sessions');
+    assert.equal(destination.searchParams.get('resumeSession'), '1');
+    assert.equal(response.headers.get('set-cookie'), null);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.equal(response.headers.get('x-middleware-request-x-nonce'), null);
+  }
+});
+
 test('a missing public Administration URL keeps Login’s default destination', () => {
   process.env.LOGIN_FRONT_URL = 'https://login.mairie.test/';
   delete process.env.ADMINISTRATION_FRONT_URL;
