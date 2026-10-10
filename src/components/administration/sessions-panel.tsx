@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock3, History, RefreshCw, Trash2 } from "lucide-react";
-import { administrationApi, type AdministrationSession } from "@/lib/administration-api";
+import { Clock3, History, RefreshCw } from "lucide-react";
+import { type AdministrationSession } from "@/lib/administration-api";
 import { administrationSessionState, nextSessionExpiryDelay } from "@/lib/administration-session-state";
-import { inputClassName, formatDate, Field, Panel, ActionButton, EmptyState } from "./controls";
+import { formatDate, Panel, ActionButton, EmptyState } from "./controls";
 import { type RunAction } from "./types";
 
 function SessionTable({ sessions }: { sessions: AdministrationSession[] }) {
@@ -92,23 +92,7 @@ export function SessionsPanel({
   refreshSessions: () => Promise<void>;
 }) {
   const [view, setView] = useState<"active" | "history">("active");
-  const [refreshToken, setRefreshToken] = useState("");
-  const formPending = busyAction !== null;
   const visibleSessions = view === "active" ? activeSessions : sessionHistory;
-
-  const submitTokenAction = async (action: "refresh" | "revoke") => {
-    if (formPending || !refreshToken.trim()) return;
-    const success = await runAction(
-      `${action}-session`,
-      action === "refresh" ? "Session rafraîchie." : "Session révoquée.",
-      () =>
-        action === "refresh"
-          ? administrationApi.refreshSession(refreshToken)
-          : administrationApi.revokeSession(refreshToken),
-      refreshSessions,
-    );
-    if (success) setRefreshToken("");
-  };
 
   return (
     <div className="space-y-5">
@@ -161,48 +145,6 @@ export function SessionsPanel({
         ) : <SessionTable sessions={visibleSessions} />}
       </Panel>
 
-      <Panel
-        title="Gérer une session"
-        description="Rafraîchissez ou révoquez une session à l’aide de son refresh token."
-      >
-        <div aria-busy={formPending} className="grid gap-4 md:grid-cols-[1fr_auto_auto] md:items-end">
-          <Field
-            label="Refresh token"
-            htmlFor="session-refresh-token"
-            hint="Le token reste uniquement dans ce formulaire et n’est pas mémorisé."
-          >
-            <input
-              id="session-refresh-token"
-              type="password"
-              autoComplete="off"
-              disabled={formPending}
-              className={inputClassName}
-              value={refreshToken}
-              onChange={(event) => {
-                if (!formPending) setRefreshToken(event.target.value);
-              }}
-            />
-          </Field>
-          <ActionButton
-            variant="secondary"
-            disabled={formPending || !refreshToken.trim()}
-            busy={busyAction === "refresh-session"}
-            onClick={() => void submitTokenAction("refresh")}
-          >
-            <RefreshCw className="h-4 w-4" aria-hidden="true" />
-            Rafraîchir
-          </ActionButton>
-          <ActionButton
-            variant="danger"
-            disabled={formPending || !refreshToken.trim()}
-            busy={busyAction === "revoke-session"}
-            onClick={() => void submitTokenAction("revoke")}
-          >
-            <Trash2 className="h-4 w-4" aria-hidden="true" />
-            Révoquer
-          </ActionButton>
-        </div>
-      </Panel>
     </div>
   );
 }

@@ -9,17 +9,14 @@ result independently before rethrowing the original first rejected source
 `null`. Superseded or unmounted reads apply nothing and propagate no failure.
 Waiting for both sources keeps the existing `runAction` busy guard in force
 through partial readback; its warning/retry remains GET-only.
-Four real-component/HTTP regressions fail before the correction and pass after
-it: independent success in both directions and fast failure with deferred
-history for each refresh/revoke command. No new request, state, effect, client,
-contract, credential storage or API/BFF change.
+The earlier MAIR-460 token-command regressions are historical following the explicit retirement decision on 10 October 2026. The frontend refreshSession/revokeSession helpers and token form are removed; retained read-only behavior is verified against the real consumer and unchanged published contract. The generic proxy still validates and relays published operations; this change does not alter the contract, API/BFF, cookie policy, scanners or approvals.
 
 ## Console component boundaries — MAIR-406
 
 `administration-console.tsx` retains global reads, request revisions and the
 synchronous mutation guard. It imports `users-panel`, `roles-panel`,
 `groups-panel` and `sessions-panel` directly from `components/administration`.
-Their local state and callbacks are unchanged. `controls.tsx` shares fields,
+Users, roles and groups keep their local state and callbacks; sessions retain only their selected list view after token-form retirement. `controls.tsx` shares fields,
 panels, buttons, empty states and date formatting; `confirm-modal.tsx` keeps the
 existing focus/busy handling. `types.ts` shares only the `RunAction` type.
 No cyclic dependency, barrel export, new fetch, effect, lazy-loading boundary or

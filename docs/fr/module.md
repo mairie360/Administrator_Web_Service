@@ -9,19 +9,13 @@ existantes. Seule une réponse vide valide affiche zéro et le message de liste
 vide. Un refus ultérieur conserve les dernières listes reçues et les brouillons.
 Ce contrôle d’affichage ne certifie ni droits ni persistance déployés.
 
-## Relectures indépendantes des sessions — MAIR-460 / MAIR-470
+## Listes de sessions en lecture — MAIR-406
 
-Actualiser les sessions actives et l’historique conserve chaque réponse réussie
-même si l’autre liste est indisponible. La source refusée garde ses dernières
-données valides. Après une commande Rafraîchir/Révoquer confirmée, le champ et les
-deux commandes restent verrouillés jusqu’à la fin des deux lectures, y compris
-si un refus rapide précède une réussite lente. La saisie confirmée est alors
-effacée ; reprendre l’avertissement de relecture ne lance que les GET, jamais
-une nouvelle commande.
+Les sessions actives et leur historique restent disponibles avec leur actualisation GET, compteurs, états d’expiration/révocation et erreurs indépendantes existants. Le formulaire à jeton et ses actions Rafraîchir/Révoquer sont retirés selon la décision explicite du 10 octobre 2026 ; les vérifications du brouillon MAIR-460 sont historiques. Le contrat publié User 0.5.0 ne définit pas d’opération typée de révocation par identifiant : aucun payload ni commande de remplacement n’est inventé. Les droits et la persistance réels en Dev restent à vérifier avec un compte utilisable.
 
 ## Panneaux Administration indépendants — MAIR-406
 
-Utilisateurs, rôles, groupes et sessions conservent leurs formulaires,
+Utilisateurs, rôles et groupes conservent leurs formulaires ; les sessions gardent leurs listes,
 confirmations, erreurs et relectures. Chaque panneau est un composant top-level
 stable dans `src/components/administration/` ; la console garde l'orchestration.
 Les contrôles et la confirmation partagés n'accèdent pas aux données métier.
