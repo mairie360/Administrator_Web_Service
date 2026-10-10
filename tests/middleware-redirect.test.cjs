@@ -64,7 +64,8 @@ test('opaque cookies and JWTs without a finite expiry resume at Login without re
   process.env.LOGIN_FRONT_URL = 'https://login.mairie.test/';
   process.env.ADMINISTRATION_FRONT_URL = 'https://admin.mairie.test/';
   const token = payload => `${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url(payload)}.signature`;
-  for (const value of ['opaque-session', 'two.segments', '.e30.signature', token({}), token({ exp: '9999999999' }), token({ exp: null }), token({ exp: 0 })]) {
+  const outOfRange = `${b64url({ alg: 'HS256', typ: 'JWT' })}.${Buffer.from('{"exp":1e999}').toString('base64url')}.signature`;
+  for (const value of ['opaque-session', 'two.segments', '.e30.signature', token({}), token({ exp: '9999999999' }), token({ exp: null }), token({ exp: 0 }), outOfRange]) {
     const response = middleware(new NextRequest('http://internal:3000/?panel=sessions', { headers: { cookie: `accessToken=${value}; refreshToken=preserved` } }));
     assert.equal(response.status, 307);
     const destination = new URL(response.headers.get('location'));
