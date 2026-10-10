@@ -1,6 +1,6 @@
-import { clearStoredAuthJwtToken } from './auth-token';
 import { frontUrl } from './front-urls';
 import { parseFrontUrl } from './front-url';
+import { clearStoredAuthJwtToken } from './auth-token';
 
 const navigatingLocations = new WeakSet<Location>();
 const recoveryLocations = new WeakSet<Location>();
@@ -33,10 +33,12 @@ export function navigateToLogin(options: { explicit?: boolean } = {}) {
   }
 }
 
-/** Only a confirmed Login owner receipt clears known legacy frontend storage. */
+/** Only a confirmed Login owner receipt permits automatic navigation. */
 export async function logoutAndReload() {
   const location = typeof window === 'undefined' ? undefined : window.location;
+  if (location) recoveryLocations.add(location);
   let confirmed = false;
+  let singleSignOut: URL | undefined;
   try {
     const response = await fetch('/api/auth/logout', {
       method: 'POST', cache: 'no-store', credentials: 'same-origin', redirect: 'manual',
@@ -47,11 +49,23 @@ export async function logoutAndReload() {
       'session_revoked' in body && body.session_revoked === true &&
       'message' in body && typeof body.message === 'string' && body.message.trim().length > 0;
     if (!confirmed) throw new Error('Unconfirmed logout receipt');
+    if (typeof body === 'object' && body !== null && 'logout_url' in body) {
+      singleSignOut = parseFrontUrl(typeof body.logout_url === 'string' ? body.logout_url : undefined);
+      if (!singleSignOut || singleSignOut.protocol !== 'https:' || singleSignOut.hash ||
+        !/^\/realms\/[^/]+\/protocol\/openid-connect\/logout$/.test(singleSignOut.pathname)) {
+        throw new Error('Invalid single sign-out destination');
+      }
+    }
   } catch {
     if (location) recoveryLocations.add(location);
     throw new Error('La déconnexion n’a pas été confirmée. Votre session reste à vérifier.');
   }
   clearStoredAuthJwtToken();
+  if (singleSignOut && location) {
+    location.assign(singleSignOut.href);
+    recoveryLocations.delete(location);
+    return;
+  }
   if (!navigateToLogin({ explicit: true })) {
     if (location) recoveryLocations.add(location);
     throw new Error('La déconnexion est confirmée, mais le retour à la connexion est indisponible.');
