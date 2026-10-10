@@ -1,7 +1,9 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const composePolicy = require('./support/compose-policy.cjs');
 const { after, afterEach, before, describe, test } = require('node:test');
+const policy = require('./support/source-policy.cjs');
 const { BFF_USER_PACKAGE, bffUserContract } = require('./support/bff-user-contract.cjs');
 const { ContractMockServer, METADATA_PATHS, unreachableUrl } = require('./support/contract-mock-server.cjs');
 const { BFF_URL_VARIABLES, FrontHarness, ROOT, SRC, loadTs } = require('./support/front-harness.cjs');
@@ -79,8 +81,8 @@ describe('published BFF User contract', () => {
 
   test('every Docker stack starts BFF User as its only BFF', () => {
     for (const file of fs.readdirSync(ROOT).filter((name) => /^docker-compose.*\.ya?ml$/.test(name))) {
-      const images = [...fs.readFileSync(path.join(ROOT, file), 'utf8').matchAll(/ghcr\.io\/mairie360\/(bff-[\w-]+):/g)].map(([, name]) => name);
-      assert.ok(images.every((name) => name === 'bff-user'), `${file} : ${images.join(', ')}`);
+      const images = composePolicy.bffImages(composePolicy.compose(file));
+      assert.ok(images.every(image => image.startsWith('ghcr.io/mairie360/bff-user:')), `${file}: ${images.join(', ')}`);
     }
   });
 
@@ -252,27 +254,26 @@ describe('no network access outside the BFF contract', () => {
     const offenders = [];
     const fetchers = [];
     for (const file of sources(SRC)) {
-      const code = fs.readFileSync(file, 'utf8');
-      if (/\bfetch\s*\(/.test(code)) fetchers.push(relative(file));
-      for (const api of ['XMLHttpRequest', 'WebSocket', 'EventSource', 'sendBeacon', 'axios', 'navigator.serviceWorker', 'new Worker']) {
-        if (code.includes(api)) offenders.push(`${relative(file)} : ${api}`);
-      }
-      if (/https?:\/\/(?!localhost[:/])[^\s'"`]+/.test(code.replace(/^\s*(\/\/|\*).*$/gm, ''))) offenders.push(`${relative(file)} : URL absolue`);
+      const ast = policy.parse(path.relative(ROOT, file));
+      if (policy.calls(ast, 'fetch').length) fetchers.push(relative(file));
+      for (const api of policy.networkReferences(ast)) offenders.push(`${relative(file)} : ${api}`);
+      for (const node of policy.nodes(ast, node => (policy.ts.isNewExpression(node) && policy.callName(node.expression) === 'Worker') || (policy.ts.isPropertyAccessExpression(node) && policy.ts.isIdentifier(node.expression) && node.expression.text === 'navigator' && node.name.text === 'serviceWorker'))) offenders.push(`${relative(file)} : worker`);
+      if (policy.absoluteUrls(ast).some(url => !/^https?:\/\/localhost[:/]/.test(url))) offenders.push(`${relative(file)} : URL absolue`);
     }
     assert.deepEqual(offenders, []);
     assert.deepEqual(fetchers.sort(), ['src/lib/auth-session.ts', 'src/lib/bff-client.ts', 'src/lib/bff-proxy.ts']);
   });
 
   test('browser-side fetch targets are same-origin adapters and admin calls use the declared /bff/admin prefix', () => {
-    const session = fs.readFileSync(path.join(SRC, 'lib', 'auth-session.ts'), 'utf8');
-    const targets = [...session.matchAll(/\bfetch\s*\(\s*(['"`])([^'"`]+)\1/g)].map((match) => match[2]);
+    const targets = policy.calls(policy.parse('src/lib/auth-session.ts'), 'fetch').map(node => { assert.ok(policy.ts.isStringLiteralLike(node.arguments[0])); return node.arguments[0].text; });
     const adapters = front.routes.filter(({ catchAll }) => !catchAll).map(({ prefix }) => prefix);
     assert.deepEqual(targets, ['/api/user/me', '/api/auth/logout']);
     targets.forEach((target) => assert.ok(adapters.includes(target), `${target} n'a pas de route handler`));
 
-    const admin = fs.readFileSync(path.join(SRC, 'lib', 'administration-api.ts'), 'utf8');
-    assert.match(admin, /const ADMIN_BASE_PATH = "\/bff\/admin";/);
-    const callers = sources(SRC).filter((file) => /\brequestBff\s*[<(]/.test(fs.readFileSync(file, 'utf8'))).map(relative);
+    const admin = policy.parse('src/lib/administration-api.ts');
+    const base = policy.nodes(admin, node => policy.ts.isVariableDeclaration(node) && policy.ts.isIdentifier(node.name) && node.name.text === 'ADMIN_BASE_PATH');
+    assert.equal(base.length, 1); assert.ok(policy.ts.isStringLiteralLike(base[0].initializer)); assert.equal(base[0].initializer.text, '/bff/admin');
+    const callers = sources(SRC).filter(file => policy.requestOwners(policy.parse(path.relative(ROOT, file)))).map(relative);
     assert.deepEqual(callers.sort(), ['src/lib/administration-api.ts', 'src/lib/bff-client.ts']);
   });
 
@@ -289,6 +290,8 @@ describe('no network access outside the BFF contract', () => {
 
   test('the published @mairie360/lib-components bundle performs no network call of its own', () => {
     const bundle = fs.readFileSync(require.resolve('@mairie360/lib-components'), 'utf8');
-    for (const api of [/\bfetch\s*\(/, /XMLHttpRequest/, /WebSocket/, /EventSource/, /sendBeacon/]) assert.doesNotMatch(bundle, api);
+    const ast = policy.ts.createSourceFile('shared-ui.js', bundle, policy.ts.ScriptTarget.Latest, true, policy.ts.ScriptKind.JS);
+    assert.equal(policy.calls(ast, 'fetch').length, 0);
+    assert.deepEqual(policy.networkReferences(ast), []);
   });
 });

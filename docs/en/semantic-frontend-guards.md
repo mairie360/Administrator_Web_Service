@@ -1,0 +1,5 @@
+# Semantic frontend guards — MAIR-437
+
+Component boundaries accept stable top-level function or arrow exports and ignore comments. Imported panel shadowing is rejected, including nested definitions in Administration. Actual React rerender, forms and drafts remain exercised by their existing suites; an AST policy alone is not a runtime identity proof.
+
+Only test helpers, assertions and documentation change. Application code, dependency manifests/locks, BFF/API contracts, security controls, coverage thresholds and RGAA configuration are unchanged. Isolated input comparisons and real-source suites are recorded separately from main, local-current and Dev image delivery. Deployed authentication, BFF permissions/persistence and rollout remain unverified without a usable Dev account.
