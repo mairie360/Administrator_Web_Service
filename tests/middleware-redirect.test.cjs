@@ -22,7 +22,7 @@ test('missing or invalid Login configuration returns an uncached unavailable sta
     assert.equal(response.headers.get('location'), null);
     assert.equal(response.headers.get('cache-control'), 'no-store');
     assert.match(response.headers.get('content-type'), /text\/plain/);
-    assert.match(response.headers.get('set-cookie'), /accessToken=;/);
+    assert.equal(response.headers.get('set-cookie'), null);
     assert.match(await response.text(), /Connexion temporairement indisponible/);
   }
 });
@@ -54,6 +54,9 @@ test('an unauthenticated visit returns to the public Administration URL, not the
   assert.equal(response.status, 307);
   assert.equal(login.origin, 'https://login.mairie.test');
   assert.equal(login.searchParams.get('redirect'), 'https://admin.mairie.test/users/42?tab=roles');
+  assert.equal(login.searchParams.get('resumeSession'), '1');
+  assert.equal(response.headers.get('set-cookie'), null);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.doesNotMatch(login.href, /internal:3000/);
 });
 

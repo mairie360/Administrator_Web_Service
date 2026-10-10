@@ -1,8 +1,13 @@
 import { NextRequest } from 'next/server';
+import { createSessionLogoutProxy, proxyPublishedBffRequest } from '@mairie360/lib-components/next';
 import contract from '../../contracts/openapi.json';
 
 type RouteContext = { params: Promise<{ path: string[] }> };
-type ContractPaths = Record<string, Record<string, unknown>>;
+
+const logoutProxy = createSessionLogoutProxy({
+  loginUrl: () => process.env.LOGIN_FRONT_URL?.trim() ?? '',
+  frontUrl: () => process.env.ADMINISTRATION_FRONT_URL?.trim() ?? '',
+});
 
 export function configuredBffUrl() {
   const value = (process.env.BFF_ADMIN_BASE_URL ??
@@ -19,32 +24,26 @@ export function configuredBffUrl() {
   }
 }
 
+/** Every relay uses the published User paths and the same Login session owner. */
 export async function forwardToBff(request: NextRequest, baseUrl: string, path: string) {
-  if (!baseUrl) {
-    return Response.json({ error: { message: 'Le service n’est pas configuré.' } }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
-  }
+  if (request.method === 'POST' && path === '/auth/logout') return logoutProxy(request);
+  // Login owns authentication operations; Administration exposes its published
+  // business and profile routes without offering a second authentication entry.
+  if (path.startsWith('/auth/')) return Response.json({ message: 'Route indisponible.' }, {
+    status: 404, headers: { 'Cache-Control': 'no-store' },
+  });
   const headers = new Headers(request.headers);
-  // x-nonce / content-security-policy sont ajoutés par le middleware et ne concernent pas le BFF.
-  for (const name of ['host', 'connection', 'content-length', 'accept-encoding', 'cookie', 'x-nonce', 'content-security-policy']) headers.delete(name);
-  const accessToken = request.cookies.get('accessToken')?.value;
-  if (!headers.has('authorization') && accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
-  const target = new URL(`${baseUrl.replace(/\/+$/, '')}${path}`);
-  target.search = new URL(request.url).search;
-  try {
-    const upstream = await fetch(target, {
-      method: request.method, headers, cache: 'no-store', redirect: 'manual',
-      signal: AbortSignal.timeout(15_000),
-      ...(!['GET', 'HEAD'].includes(request.method) ? { body: await request.arrayBuffer() } : {}),
-    });
-    const responseHeaders = new Headers(upstream.headers);
-    for (const name of ['content-encoding', 'content-length', 'transfer-encoding', 'connection']) responseHeaders.delete(name);
-    responseHeaders.set('Cache-Control', 'no-store');
-    return new Response(request.method === 'HEAD' || [204, 205, 304].includes(upstream.status) ? null : upstream.body, {
-      status: upstream.status, statusText: upstream.statusText, headers: responseHeaders,
-    });
-  } catch {
-    return Response.json({ error: { message: 'Le service est indisponible.' } }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
-  }
+  headers.delete('Authorization');
+  const body = ['GET', 'HEAD'].includes(request.method) ? undefined : await request.arrayBuffer();
+  const relay = new NextRequest(request.url, {
+    method: request.method, headers, ...(body ? { body } : {}),
+  });
+  return proxyPublishedBffRequest(relay, path.split('/').filter(Boolean), {
+    baseUrl: () => baseUrl,
+    paths: contract.paths,
+    loginUrl: () => process.env.LOGIN_FRONT_URL?.trim() ?? '',
+    frontUrl: () => process.env.ADMINISTRATION_FRONT_URL?.trim() ?? '',
+  });
 }
 
 export async function proxyBffRequest(request: NextRequest, context: RouteContext) {
@@ -52,14 +51,5 @@ export async function proxyBffRequest(request: NextRequest, context: RouteContex
   if (path.some((part) => !part || part === '.' || part === '..' || part.includes('/'))) {
     return Response.json({ error: { message: 'Chemin invalide.' } }, { status: 400 });
   }
-  const route = Object.entries(contract.paths as ContractPaths).find(([template]) => {
-    const segments = template.split('/').filter(Boolean);
-    return segments.length === path.length && segments.every((part, index) => /^\{[^}]+\}$/.test(part) || part === path[index]);
-  });
-  const metadata = path.length === 1 && ['openapi.json', 'swagger.json'].includes(path[0]);
-  if (!route && !metadata) return Response.json({ error: { message: 'Route inconnue.' } }, { status: 404 });
-  const allowed = metadata ? ['GET', 'HEAD'] : Object.keys(route![1]).filter((method) => ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'].includes(method)).map((method) => method.toUpperCase());
-  if (allowed.includes('GET') && !allowed.includes('HEAD')) allowed.push('HEAD');
-  if (!allowed.includes(request.method)) return Response.json({ error: { message: 'Méthode non autorisée.' } }, { status: 405, headers: { Allow: allowed.join(', ') } });
   return forwardToBff(request, configuredBffUrl(), `/${path.map(encodeURIComponent).join('/')}`);
 }

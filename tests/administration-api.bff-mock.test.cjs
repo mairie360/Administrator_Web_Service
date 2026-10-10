@@ -56,7 +56,7 @@ describe('administration API client against a contract-driven BFF User mock', ()
       assert.deepEqual(sequence(), ['GET /bff/admin/users?page=2&page_size=20&search=alice']);
       assert.equal(bff.requests[0].headers.authorization, `Bearer ${front.cookie}`);
       assert.equal(bff.requests[0].headers.cookie, undefined);
-      assert.deepEqual(front.browserCalls, [{ method: 'GET', target: '/bff/admin/users?page=2&page_size=20&search=alice' }]);
+      assert.deepEqual(front.browserCalls, [{ method: 'GET', target: '/api/bff/bff/admin/users?page=2&page_size=20&search=alice' }]);
     });
 
     test('listUsers omits an empty search and defaults to the first page', async () => {
@@ -191,11 +191,12 @@ describe('administration API client against a contract-driven BFF User mock', ()
       assert.deepEqual(front.serverCalls.map(({ url: target }) => target.pathname), ['/bff/admin/roles']);
     });
 
-    test('without a session cookie the middleware redirects to Login and the BFF is never called', async () => {
+    test('without a session cookie the API reports the actual BFF401 without page middleware', async () => {
       front.cookie = undefined;
-
-      await assert.rejects(administrationApi.listGroups(), (error) => error instanceof BffRequestError && error.status === 307);
-      assert.deepEqual(bff.requests, []);
+      bff.on('get', '/bff/admin/groups', bffError(401));
+      await assert.rejects(administrationApi.listGroups(), (error) => error instanceof BffRequestError && error.status === 401);
+      assert.equal(bff.requests.length, 1);
+      assert.equal(bff.requests[0].headers.authorization, undefined);
     });
   });
 

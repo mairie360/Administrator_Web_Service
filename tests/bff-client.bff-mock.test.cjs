@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const { after, afterEach, before, describe, test } = require('node:test');
 const { bffError, bffUserContract } = require('./support/bff-user-contract.cjs');
 const { ContractMockServer } = require('./support/contract-mock-server.cjs');
-const { FrontHarness, loadTs } = require('./support/front-harness.cjs');
+const { FRONT_ORIGIN, FrontHarness, loadTs } = require('./support/front-harness.cjs');
 
 // requestBff (src/lib/bff-client.ts) et le jeton stocké côté navigateur (src/lib/auth-token.ts),
 // contre le faux BFF User piloté par le contrat du paquet publié @mairie360/bff-user-openapi.
@@ -60,14 +60,14 @@ describe('requestBff', () => {
     assert.equal(bff.requests[0].headers['content-type'], undefined);
   });
 
-  test('legacy browser storage cannot replace the session cookie; explicit caller headers stay intact', async () => {
+  test('legacy storage and explicit browser Authorization cannot replace the session cookie', async () => {
     bff.on('get', '/me', bffError(401));
     installStorage({ 'mairie360.auth.jwt': ' stored.jwt ' });
 
     await assert.rejects(requestBff('/me'));
     await assert.rejects(requestBff('/me', { headers: { Authorization: 'Bearer explicit.jwt' } }));
 
-    assert.deepEqual(bff.requests.map(({ headers }) => headers.authorization), [`Bearer ${front.cookie}`, 'Bearer explicit.jwt']);
+    assert.deepEqual(bff.requests.map(({ headers }) => headers.authorization), [`Bearer ${front.cookie}`, `Bearer ${front.cookie}`]);
   });
 
   test('does not read or migrate the legacy storage key during a data request', async () => {
@@ -110,8 +110,9 @@ describe('requestBff', () => {
 });
 
 describe('protected document navigation', () => {
-  test('concurrent opaque redirects reload the protected document once without inspecting their destination or body', async (t) => {
-    const location = { reloads: 0, reload() { this.reloads += 1; } };
+  test('concurrent opaque redirects return to validated Login once without inspecting their destination or body', async (t) => {
+    const location = { origin: FRONT_ORIGIN, pathname: '/', search: '?panel=groups', href: FRONT_ORIGIN + '/?panel=groups', assigned: [], assign(url) { this.assigned.push(url); }, reloads: 0, reload() { this.reloads += 1; } };
+    loadTs(['src/lib/front-urls.ts'])[0].setBrowserFrontUrls({ LOGIN_FRONT_URL: 'https://login.mairie360.test', ADMINISTRATION_FRONT_URL: FRONT_ORIGIN });
     global.window = { location };
     const requests = [];
     t.mock.method(global, 'fetch', async (path, init) => {
@@ -131,14 +132,17 @@ describe('protected document navigation', () => {
     ]);
 
     assert.ok(results.every(result => result.status === 'rejected' && result.reason.name === 'BffNavigationRequiredError'));
-    assert.equal(location.reloads, 1);
+    assert.equal(location.reloads, 0);
+    assert.equal(location.assigned.length, 1);
+    assert.equal(new URL(location.assigned[0]).searchParams.get('redirect'), location.href);
     assert.equal(requests.length, 3);
     assert.ok(requests.every(({ init }) => init.redirect === 'manual'));
     assert.deepEqual(front.browserCalls, []);
   });
 
   test('an opaque redirect after a mutation never resubmits that mutation', async (t) => {
-    const location = { reloads: 0, reload() { this.reloads += 1; } };
+    const location = { origin: FRONT_ORIGIN, pathname: '/', search: '?panel=groups', href: FRONT_ORIGIN + '/?panel=groups', assigned: [], assign(url) { this.assigned.push(url); }, reloads: 0, reload() { this.reloads += 1; } };
+    loadTs(['src/lib/front-urls.ts'])[0].setBrowserFrontUrls({ LOGIN_FRONT_URL: 'https://login.mairie360.test', ADMINISTRATION_FRONT_URL: FRONT_ORIGIN });
     global.window = { location };
     const requests = [];
     t.mock.method(global, 'fetch', async (path, init) => {
@@ -149,16 +153,19 @@ describe('protected document navigation', () => {
     await assert.rejects(requestBff('/bff/admin/groups/1', { method: 'DELETE' }), {
       name: 'BffNavigationRequiredError',
     });
-    assert.equal(location.reloads, 1);
+    assert.equal(location.reloads, 0);
+    assert.equal(location.assigned.length, 1);
+    assert.equal(new URL(location.assigned[0]).searchParams.get('redirect'), location.href);
     assert.equal(requests.length, 1);
-    assert.equal(requests[0].path, '/bff/admin/groups/1');
+    assert.equal(requests[0].path, '/api/bff/bff/admin/groups/1');
     assert.equal(requests[0].init.method, 'DELETE');
     assert.equal(requests[0].init.redirect, 'manual');
     assert.equal(requests[0].init.body, undefined);
   });
 
   test('an aborted opaque response causes no document navigation', async (t) => {
-    const location = { reloads: 0, reload() { this.reloads += 1; } };
+    const location = { origin: FRONT_ORIGIN, pathname: '/', search: '?panel=groups', href: FRONT_ORIGIN + '/?panel=groups', assigned: [], assign(url) { this.assigned.push(url); }, reloads: 0, reload() { this.reloads += 1; } };
+    loadTs(['src/lib/front-urls.ts'])[0].setBrowserFrontUrls({ LOGIN_FRONT_URL: 'https://login.mairie360.test', ADMINISTRATION_FRONT_URL: FRONT_ORIGIN });
     global.window = { location };
     const controller = new AbortController();
     t.mock.method(global, 'fetch', async () => {
@@ -171,7 +178,8 @@ describe('protected document navigation', () => {
   });
 
   test('ordinary 401, 403 and 503 failures are not opaque redirects and never reload the document', async (t) => {
-    const location = { reloads: 0, reload() { this.reloads += 1; } };
+    const location = { origin: FRONT_ORIGIN, pathname: '/', search: '?panel=groups', href: FRONT_ORIGIN + '/?panel=groups', assigned: [], assign(url) { this.assigned.push(url); }, reloads: 0, reload() { this.reloads += 1; } };
+    loadTs(['src/lib/front-urls.ts'])[0].setBrowserFrontUrls({ LOGIN_FRONT_URL: 'https://login.mairie360.test', ADMINISTRATION_FRONT_URL: FRONT_ORIGIN });
     global.window = { location };
     let status = 401;
     t.mock.method(global, 'fetch', async () => ({
@@ -188,7 +196,8 @@ describe('protected document navigation', () => {
   });
 
   test('a generic network failure does not become a session redirect', async (t) => {
-    const location = { reloads: 0, reload() { this.reloads += 1; } };
+    const location = { origin: FRONT_ORIGIN, pathname: '/', search: '?panel=groups', href: FRONT_ORIGIN + '/?panel=groups', assigned: [], assign(url) { this.assigned.push(url); }, reloads: 0, reload() { this.reloads += 1; } };
+    loadTs(['src/lib/front-urls.ts'])[0].setBrowserFrontUrls({ LOGIN_FRONT_URL: 'https://login.mairie360.test', ADMINISTRATION_FRONT_URL: FRONT_ORIGIN });
     global.window = { location };
     t.mock.method(global, 'fetch', async () => { throw new TypeError('Network unavailable'); });
 

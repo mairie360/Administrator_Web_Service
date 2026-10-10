@@ -1,6 +1,7 @@
-import { NextRequest } from 'next/server';
-import { userBffRequest } from '@/lib/user-bff-proxy';
+import { createSessionLogoutProxy } from '@mairie360/lib-components/next';
 
-export function POST(request: NextRequest) {
-  return userBffRequest(request, '/auth/logout');
-}
+/** Delegate explicit logout to Login; the browser checks its revocation receipt. */
+export const POST = createSessionLogoutProxy({
+  loginUrl: () => process.env.LOGIN_FRONT_URL?.trim() ?? '',
+  frontUrl: () => process.env.ADMINISTRATION_FRONT_URL?.trim() ?? '',
+});

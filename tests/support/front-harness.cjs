@@ -2,6 +2,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const Module = require('node:module');
 const ts = require('typescript');
+const { AsyncLocalStorage } = require('node:async_hooks');
+const { createSessionRefreshHandler, createSessionLogoutHandler, forgetUserSession } = require('@mairie360/lib-components/next');
 
 const ROOT = path.join(__dirname, '..', '..');
 const SRC = path.join(ROOT, 'src');
@@ -67,23 +69,34 @@ const jwt = (payload = {}) => `${base64Url({ alg: 'HS256', typ: 'JWT' })}.${base
  * - `fetch` absolu (serveur) → autorisé uniquement vers le BFF mocké, tout autre hôte est une violation.
  */
 class FrontHarness {
-  constructor({ bff }) {
+  constructor({ bff, ownerBff = bff }) {
     this.bff = bff;
+    this.ownerBff = ownerBff;
     this.cookie = jwt();
     this.browserCalls = [];
     this.serverCalls = [];
     this.violations = [];
     this.allowedOrigins = new Set();
+    this.ownerOrigin = 'https://login.mairie360.test';
+    this.ownerCalls = [];
+    this.serverContext = new AsyncLocalStorage();
+    this.refreshCookie = undefined;
     const routeFiles = discoverRouteFiles();
     const [middleware, ...modules] = loadTs(['src/middleware.ts', ...routeFiles]);
     this.middleware = middleware;
     this.matcher = new RegExp(`^${middleware.config.matcher[0]}$`);
-    this.routes = routeFiles.map((file, index) => ({ file, module: modules[index], ...routePattern(file) }));
+    this.routes = routeFiles.map((file, index) => ({ file, module: modules[index], ...routePattern(file) }))
+      .sort((a, b) => Number(a.catchAll) - Number(b.catchAll) || b.prefix.length - a.prefix.length);
   }
 
   install() {
     this.originalFetch = global.fetch;
     this.useBffUrl(this.bff.url);
+    this.previousFrontEnv = { LOGIN_FRONT_URL: process.env.LOGIN_FRONT_URL, ADMINISTRATION_FRONT_URL: process.env.ADMINISTRATION_FRONT_URL };
+    process.env.LOGIN_FRONT_URL = this.ownerOrigin;
+    process.env.ADMINISTRATION_FRONT_URL = FRONT_ORIGIN;
+    const config = { userBffUrl: () => this.ownerBff.url, cookieOptions: () => ({ secure: false }), allowedOrigins: () => [FRONT_ORIGIN] };
+    this.ownerHandlers = { '/api/auth/refresh': createSessionRefreshHandler(config), '/api/auth/logout': createSessionLogoutHandler(config) };
     global.fetch = (input, init) => this.fetch(input, init);
     return this;
   }
@@ -91,6 +104,9 @@ class FrontHarness {
   uninstall() {
     global.fetch = this.originalFetch;
     BFF_URL_VARIABLES.forEach((name) => delete process.env[name]);
+    for (const [name, value] of Object.entries(this.previousFrontEnv)) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
   }
 
   /** Configure l'URL de l'unique BFF comme en déploiement : une seule variable, les autres absentes. */
@@ -100,7 +116,11 @@ class FrontHarness {
   }
 
   reset() {
+    forgetUserSession(this.ownerBff.url, this.refreshCookie);
     this.cookie = jwt();
+    this.refreshCookie = undefined;
+    this.ownerCalls.length = 0;
+    this.ownerOverride = undefined;
     this.browserCalls.length = 0;
     this.serverCalls.length = 0;
     this.violations.length = 0;
@@ -113,7 +133,13 @@ class FrontHarness {
     if (raw.startsWith('/') && !raw.startsWith('//')) return this.browserFetch(raw, init);
     const url = new URL(raw);
     if (url.origin === FRONT_ORIGIN) return this.browserFetch(`${url.pathname}${url.search}`, init);
-    if (url.origin === new URL(this.bff.url).origin || this.allowedOrigins.has(url.origin)) {
+    if (url.origin === this.ownerOrigin && this.serverContext.getStore()) {
+      const handler = this.ownerHandlers[url.pathname];
+      if (!handler) throw new Error('Undeclared Login owner operation');
+      this.ownerCalls.push({ url, init });
+      return this.ownerOverride ? this.ownerOverride(url, init) : handler(new (require('next/server').NextRequest)(url, init));
+    }
+    if (url.origin === new URL(this.bff.url).origin || url.origin === new URL(this.ownerBff.url).origin || this.allowedOrigins.has(url.origin)) {
       this.serverCalls.push({ method: init.method ?? 'GET', url });
       return this.originalFetch(input, init);
     }
@@ -125,9 +151,20 @@ class FrontHarness {
   async browserFetch(target, init = {}) {
     const method = (init.method ?? 'GET').toUpperCase();
     const headers = new Headers(init.headers);
-    if (this.cookie) headers.set('cookie', `accessToken=${this.cookie}`);
+    const cookies = [this.cookie && `accessToken=${this.cookie}`, this.refreshCookie && `refreshToken=${this.refreshCookie}`].filter(Boolean);
+    if (cookies.length) headers.set('cookie', cookies.join('; '));
+    if (!headers.has('origin')) headers.set('origin', FRONT_ORIGIN);
+    if (!headers.has('sec-fetch-site')) headers.set('sec-fetch-site', 'same-origin');
     this.browserCalls.push({ method, target });
-    return this.dispatch(target, { method, headers, body: init.body, signal: init.signal });
+    const response = await this.serverContext.run(true, () => this.dispatch(target, { method, headers, body: init.body, signal: init.signal }));
+    for (const cookie of response.headers.getSetCookie()) {
+      const [pair, ...attributes] = cookie.split(';');
+      const [name, ...values] = pair.split('=');
+      const value = attributes.some(item => /^\s*max-age=0\s*$/i.test(item)) ? undefined : values.join('=');
+      if (name.trim() === 'accessToken') this.cookie = value;
+      if (name.trim() === 'refreshToken') this.refreshCookie = value;
+    }
+    return response;
   }
 
   async dispatch(target, { method = 'GET', headers = new Headers(), body, signal } = {}) {
