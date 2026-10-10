@@ -62,7 +62,7 @@ function SessionTable({ sessions }: { sessions: AdministrationSession[] }) {
               <td className="px-4 py-3.5 text-[#475467]">{formatDate(session.expires_at)}</td>
               <td className="px-4 py-3.5">
                 <span
-                  className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${colors[state]}`}
+                  className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${colors[state]}`}
                 >
                   {labels[state]}
                 </span>
