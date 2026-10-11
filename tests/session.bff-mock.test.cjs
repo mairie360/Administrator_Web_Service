@@ -157,17 +157,18 @@ describe('useAuthSession', () => {
     assert.equal(hook.state.isAdmin, false);
   });
 
-  test('a persistent profile401 returns to the exact Login target without logout or storage loss', async () => {
+  test('a persistent profile401 cleans obsolete keys and preserves unrelated data without logout', async () => {
     bff.on('get', '/me', bffError(401));
     global.window.store.set('mairie360.projects.jwt', 'legacy.jwt');
     global.window.store.set('unrelated.preference', 'keep');
+    global.window.store.set('admin.draft', 'unfinished group');
     const hook = renderHook(() => authSession.useAuthSession());
     await waitFor(() => global.window.location.assigned.length === 1);
     assert.deepEqual(bff.requests.map(({ method, template }) => `${method} ${template}`), ['GET /me']);
     const target = new URL(global.window.location.assigned[0]);
     assert.equal(target.searchParams.get('redirect'), global.window.location.href);
     assert.equal(target.searchParams.has('returnUrl'), false);
-    assert.deepEqual([...global.window.store], [['mairie360.auth.jwt','stored.jwt'], ['mairie360.projects.jwt','legacy.jwt'], ['unrelated.preference','keep']]);
+    assert.deepEqual([...global.window.store], [['unrelated.preference', 'keep'], ['admin.draft', 'unfinished group']]);
     assert.equal(global.window.reloads, 0);
     assert.equal(front.ownerCalls.length, 0);
     assert.equal(hook.state.loading, true);
