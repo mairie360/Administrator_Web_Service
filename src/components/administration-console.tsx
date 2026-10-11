@@ -330,8 +330,8 @@ export function AdministrationConsole() {
         })}
       </div>
 
-      <div className="overflow-x-auto border-b border-[#d8d5cf]">
-        <div className="flex min-w-max gap-1" role="tablist" aria-label="Sections d’administration">
+      <div className="border-b border-[#d8d5cf]">
+        <div className="flex min-w-0 flex-wrap gap-1" role="tablist" aria-label="Sections d’administration">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
