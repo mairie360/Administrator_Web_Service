@@ -9,7 +9,7 @@ export function isSessionRecoveryPending() {
   return typeof window !== 'undefined' && recoveryLocations.has(window.location);
 }
 
-/** A persistent data refusal returns to Login without revoking or clearing a session. */
+/** A persistent data refusal returns to Login without revoking Login-owned cookies. */
 export function navigateToLogin(options: { explicit?: boolean } = {}) {
   if (typeof window === 'undefined') return false;
   const location = window.location;
@@ -24,6 +24,7 @@ export function navigateToLogin(options: { explicit?: boolean } = {}) {
   }
   navigatingLocations.add(location);
   try {
+    clearStoredAuthJwtToken();
     location.assign(destination.href);
     if (options.explicit) recoveryLocations.delete(location);
     return true;

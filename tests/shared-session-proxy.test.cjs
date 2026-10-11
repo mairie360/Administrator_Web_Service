@@ -75,12 +75,13 @@ test('an absent access cookie and forged browser bearer still use only owner-iss
   assert.deepEqual(bff.calls('/bff/admin/roles').map(req => req.headers.authorization), [undefined, `Bearer ${access}`]);
 });
 
-for (const status of [401, 503]) test(`renewal${status} stops replay without logout, storage loss or cookie mutation`, async () => {
+for (const status of [401, 503]) test(`renewal${status} stops replay without logout, unrelated storage loss or cookie mutation`, async () => {
   business(); front.ownerOverride = () => Response.json({ message: 'Disposable refusal' }, { status });
   await assert.rejects(read(), { status });
   assert.equal(bff.calls('/bff/admin/roles').length, 1);
   assert.equal(ownerBff.calls('/auth/logout').length, 0); assert.equal(front.refreshCookie, refresh);
-  assert.equal(window.store.get('mairie360.auth.jwt'), 'legacy');
+  assert.equal(window.store.get('mairie360.auth.jwt'), status === 401 ? undefined : 'legacy');
+  assert.equal(window.store.get('admin.draft'), 'keep');
   assert.equal(window.location.assigned.length, status === 401 ? 1 : 0);
   if (status === 401) {
     const target = new URL(window.location.assigned[0]);
