@@ -239,7 +239,6 @@ These data paths are exposed at the same origin through the proxy; Next.js pages
 | DELETE | `/bff/admin/roles/{roleId}` | — | 2XX |
 | GET | `/bff/admin/sessions` | — | 2XX |
 | GET | `/bff/admin/sessions/history` | — | 2XX |
-| POST | `/bff/admin/sessions/refresh` | application/json | 2XX |
 | POST | `/bff/admin/sessions/revoke` | application/json | 2XX |
 | GET | `/bff/admin/users` | — | 2XX |
 | POST | `/bff/admin/users` | application/json | 2XX |
@@ -282,7 +281,7 @@ Every response carries `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff
 
 ## Synchronization and verification
 
-The only contract is BFF User’s, as **published** in `@mairie360/bff-user-openapi`, pinned to an exact `X.Y.Z` version (never a `0.0.0-dev`/`staging` pre-release, never a copy from a BFF checkout, which can be ahead of the release). Renovate bumps the version; after a new package version:
+The only contract is BFF User’s, as **published** in `@mairie360/bff-user-openapi`, pinned to an exact version: a release `X.Y.Z`, or, while no release is cut, the `0.0.0-dev.<sha>` package the CICD publishes for the current commit of its `main` (MAIR-509; never a `staging` pre-release, never a copy from a BFF checkout, which can be ahead of what is published). `scripts/contract-version.mjs` holds that policy and maps a dev package to its `dev-<sha7>` image tag for the `docker-compose*.yml` stacks. After a new package version:
 
 ```bash
 npm run contracts:sync

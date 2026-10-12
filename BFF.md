@@ -37,13 +37,12 @@ Les chemins sont relatifs au BFF. Les proxies web conservent méthode, paramètr
 | DELETE | `/bff/admin/groups/{groupId}/users/{userId}` | 200 CoreResponse ; 201 CoreResponse ; 204 Aucun contenu retourné par le Core API |
 | GET | `/bff/admin/sessions` | 200 Données de l’administration ; 201 CoreResponse ; 204 Aucun contenu retourné par le Core API |
 | GET | `/bff/admin/sessions/history` | 200 Données de l’administration ; 201 CoreResponse ; 204 Aucun contenu retourné par le Core API |
-| POST | `/bff/admin/sessions/refresh` | 200 CoreResponse ; 201 CoreResponse ; 204 Aucun contenu retourné par le Core API |
 | POST | `/bff/admin/sessions/revoke` | 200 CoreResponse ; 201 CoreResponse ; 204 Aucun contenu retourné par le Core API |
 | GET | `/me` | 200 SessionResponse |
 | GET | `/session/me` | 200 SessionResponse |
 
 ## Mise à jour et validation
 
-Dans le BFF associé, exécuter `npm run contracts:generate`. Dans ce web service, exécuter `npm run contracts:sync`, puis `npm run contracts:check` et `npm run test:contracts`. Les dépôts peuvent être voisins ; sinon `BFF_CONTRACT_DIR` indique le répertoire `contracts` du BFF. La CI vérifie que les types correspondent au document livré, même sans checkout du dépôt voisin.
+Le paquet `@mairie360/bff-user-openapi` est épinglé à une version exacte : une release `X.Y.Z` de BFF_user, ou, tant qu’aucune release n’est coupée, le paquet `0.0.0-dev.<sha>` publié par la CICD pour le commit courant de son `main` (MAIR-509 ; jamais une pré-version `staging`, jamais une copie du checkout local du BFF). Mise à jour : `npm install --save-exact @mairie360/bff-user-openapi@<version>`, puis `npm run contracts:sync`, `npm run contracts:check` et `npm run test:contracts`. Le tag de l’image `bff-user` des `docker-compose*.yml` doit être construit depuis le même commit (`X.Y.Z`, ou `dev-<sha7>` pour un paquet dev, `scripts/contract-version.mjs`).
 
-Le générateur de types est fixé à `openapi-typescript@7.10.1`. Il est exécuté via npm ; aucun jeton privé ne figure dans les contrats.
+La reconstruction (`scripts/orval-contract.mjs`) s’exécute hors ligne ; aucun jeton privé ne figure dans les contrats. `POST /bff/admin/sessions/refresh` n’existe plus dans le contrat courant (le rafraîchissement de session n’est pas proposé depuis la console d’administration).

@@ -9,7 +9,8 @@ const { ContractMockServer, METADATA_PATHS, unreachableUrl } = require('./suppor
 const { BFF_URL_VARIABLES, FrontHarness, ROOT, SRC, loadTs } = require('./support/front-harness.cjs');
 
 // Garde-fou réseau du front : il ne parle qu'à un seul BFF, BFF User, et uniquement par les opérations du
-// contrat publié dans le paquet @mairie360/bff-user-openapi (version exacte X.Y.Z de package.json).
+// contrat publié dans le paquet @mairie360/bff-user-openapi (version exacte de package.json : release X.Y.Z ou
+// paquet dev 0.0.0-dev.<sha> du main du BFF, scripts/contract-version.mjs).
 // contracts/openapi.json, liste blanche du proxy et source des mocks, doit être la reconstruction exacte de
 // ce paquet (scripts/orval-contract.mjs).
 
@@ -23,11 +24,21 @@ let front;
 // Corps minimaux valides par schéma de requête du contrat.
 const REQUEST_BODIES = {
   LoginView: { email: 'alice@mairie.test', password: 'MotDePasse123', device_info: 'Firefox' },
-  RegisterView: { email: 'alice@mairie.test', first_name: 'Alice', last_name: 'Dupont', password: 'MotDePasse123' },
+  KeycloakLoginView: { code: 'keycloak-code', redirect_uri: 'https://login.mairie.test/callback', device_info: 'Firefox' },
+  RefreshView: {},
+  LogoutView: {},
   ForceChangePasswordView: { new_password: 'NouveauMotDePasse1', token: 'force-token' },
+  AdminUserCreateBody: { email: 'alice@mairie.test', first_name: 'Alice', last_name: 'Dupont', password: 'MotDePasse123' },
+  AdminUserPatchBody: { first_name: 'Alice' },
   AdminUserPasswordResetBody: { new_password: 'NouveauMotDePasse1' },
+  AdminUserRoleBody: { role_id: 3 },
+  AdminRoleWriteBody: { name: 'Élus', description: 'Rôle des élus' },
+  AdminRoleReplaceBody: { name: 'Élus', description: 'Rôle des élus' },
+  AdminRolePatchBody: { name: 'Élus' },
+  AdminGroupCreateBody: { name: 'Élus', description: 'Groupe des élus' },
   AdminGroupPatchBody: { name: 'Élus' },
-  AdminJsonBody: {},
+  AdminGroupUserBody: { user_id: 7 },
+  AdminSessionRevokeBody: { refresh_token: 'opaque-refresh-token' },
 };
 
 function concreteRequest({ method, template }) {
@@ -59,8 +70,9 @@ afterEach(() => {
 });
 
 describe('published BFF User contract', () => {
-  test(`${BFF_USER_PACKAGE} is pinned to an exact published X.Y.Z version, installed as locked`, () => {
-    assert.match(pinned ?? '', /^\d+\.\d+\.\d+$/, `${BFF_USER_PACKAGE} doit être épinglé à une version exacte (pas de plage ni de pré-version)`);
+  test(`${BFF_USER_PACKAGE} is pinned to an exact published version, installed as locked`, async () => {
+    const { isAcceptedContractVersion } = await import('../scripts/contract-version.mjs');
+    assert.ok(isAcceptedContractVersion(pinned), `${BFF_USER_PACKAGE} doit être épinglé à une version exacte X.Y.Z ou 0.0.0-dev.<sha> (pas de plage ni de pré-version staging)`);
     assert.equal(readJson(`node_modules/${BFF_USER_PACKAGE}/package.json`).version, pinned);
     assert.equal(readJson('package-lock.json').packages[`node_modules/${BFF_USER_PACKAGE}`].version, pinned);
   });
@@ -79,10 +91,21 @@ describe('published BFF User contract', () => {
     assert.deepEqual(snapshot, buildOrvalOpenApi(BFF_USER_PACKAGE, ROOT));
   });
 
-  test('every Docker stack starts BFF User as its only BFF', () => {
+  test('every Docker stack starts BFF User as its only BFF, in the image built from the contract package commit', async () => {
+    const { imageTagForContractVersion } = await import('../scripts/contract-version.mjs');
+    const expected = `ghcr.io/mairie360/bff-user:${imageTagForContractVersion(pinned)}`;
     for (const file of fs.readdirSync(ROOT).filter((name) => /^docker-compose.*\.ya?ml$/.test(name))) {
       const images = composePolicy.bffImages(composePolicy.compose(file));
-      assert.ok(images.every(image => image.startsWith('ghcr.io/mairie360/bff-user:')), `${file}: ${images.join(', ')}`);
+      assert.ok(images.length > 0 && images.every(image => image === expected), `${file}: ${images.join(', ')} (attendu ${expected})`);
+    }
+  });
+
+  test('the contract version policy accepts releases and dev packages and maps them to image tags', async () => {
+    const { isAcceptedContractVersion, imageTagForContractVersion } = await import('../scripts/contract-version.mjs');
+    assert.equal(imageTagForContractVersion('0.5.0'), '0.5.0');
+    assert.equal(imageTagForContractVersion('0.0.0-dev.0d80ef4e08e8db73ec2832911f42e75ae990a8d3'), 'dev-0d80ef4');
+    for (const rejected of ['^0.5.0', '0.5', '0.0.0-staging.0d80ef4e08e8db73ec2832911f42e75ae990a8d3', '0.0.0-dev.0d80ef4', 'latest']) {
+      assert.equal(isAcceptedContractVersion(rejected), false, rejected);
     }
   });
 
