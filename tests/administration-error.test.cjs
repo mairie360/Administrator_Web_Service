@@ -40,3 +40,27 @@ test('hides network and unexpected error details', () => {
     'L’opération n’a pas pu aboutir. Réessayez ou contactez votre administrateur.',
   );
 });
+
+test('MAIR-514: a 400 with field details names the refused fields in French', () => {
+  const refused = new BffRequestError(400, { error: { code: 'BAD_REQUEST', message: 'Validation failed', details: [
+    { path: 'body.first_name', message: 'Must not contain < or >' },
+    { path: 'body.phone_number', message: 'Expected a phone number: digits, spaces, `.`, `-`, `(`, `)` and a leading `+`' },
+    { path: 'body.name', message: 'String must contain at most 64 character(s)' },
+    { path: 'body.description', message: 'Too big: expected string to have <=2000 characters' },
+    { path: 'body.email', message: 'Invalid email' },
+    { path: 'body.last_name', message: 'String must contain at least 1 character(s)' },
+    { path: 'body.password', message: 'String must contain at least 8 character(s)' },
+    { path: 'body.user_ids.1', message: 'Required' },
+    { path: 'body.nickname', message: 'Unrecognized key' },
+    { message: 'Context only' },
+    { path: 'ignored' },
+    'junk',
+  ] } });
+  assert.deepEqual(refused.details.length, 10);
+  assert.equal(administrationErrorMessage(refused),
+    'La demande n’a pas pu être traitée. Vérifiez les champs signalés : Prénom : ne doit pas contenir les caractères < ou > ; Téléphone : chiffres, espaces, points, tirets, parenthèses et un + initial seulement ; Nom : 64 caractères maximum ; Description : 2000 caractères maximum ; Adresse e-mail : adresse e-mail invalide ; Nom : ne doit pas être vide ; Mot de passe : 8 caractères minimum ; Membres : requis ; nickname : Unrecognized key ; Context only.');
+  assert.equal(administrationErrorMessage(new BffRequestError(400, { error: { code: 'BAD_REQUEST', message: 'Validation failed', details: [] } })),
+    'La demande n’a pas pu être traitée. Vérifiez les informations saisies puis réessayez.');
+  assert.equal(administrationErrorMessage(new BffRequestError(400, 'not json')), 'La demande n’a pas pu être traitée. Vérifiez les informations saisies puis réessayez.');
+  assert.equal(administrationErrorMessage(new BffRequestError(403, { error: { details: [{ path: 'body.name', message: 'x' }] } })), 'Votre compte ne possède pas les droits d’administration nécessaires.');
+});
