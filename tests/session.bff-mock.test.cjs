@@ -93,7 +93,8 @@ describe('session adapters forward to BFF User contract operations', () => {
   }
 
   test('POST /api/auth/logout delegates to Login and distinguishes local expiry from confirmed revocation', async () => {
-    bff.on('post', '/auth/logout', { body: { message: 'Logged out successfully' }, headers: { 'Set-Cookie': 'accessToken=; Max-Age=0; Path=/; HttpOnly' } });
+    // LogoutResponse requires session_revoked: the BFF cleared the cookies but Core did not confirm the revocation.
+    bff.on('post', '/auth/logout', { body: { message: 'Logged out successfully', session_revoked: false }, headers: { 'Set-Cookie': 'accessToken=; Max-Age=0; Path=/; HttpOnly' } });
 
     const response = await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
 

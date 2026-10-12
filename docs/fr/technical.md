@@ -255,7 +255,6 @@ Ces chemins de données sont exposés à la même origine par le proxy; les page
 | DELETE | `/bff/admin/roles/{roleId}` | — | 2XX |
 | GET | `/bff/admin/sessions` | — | 2XX |
 | GET | `/bff/admin/sessions/history` | — | 2XX |
-| POST | `/bff/admin/sessions/refresh` | application/json | 2XX |
 | POST | `/bff/admin/sessions/revoke` | application/json | 2XX |
 | GET | `/bff/admin/users` | — | 2XX |
 | POST | `/bff/admin/users` | application/json | 2XX |
@@ -298,7 +297,7 @@ Toutes les réponses portent `X-Frame-Options: DENY`, `X-Content-Type-Options: n
 
 ## Synchronisation et vérifications
 
-Le seul contrat est celui de BFF User **publié** dans `@mairie360/bff-user-openapi`, épinglé à une version exacte `X.Y.Z` (jamais une pré-version `0.0.0-dev`/`staging`, jamais une copie d’un checkout du BFF, qui peut être en avance sur la release). Renovate monte la version; après une nouvelle version du paquet :
+Le seul contrat est celui de BFF User **publié** dans `@mairie360/bff-user-openapi`, épinglé à une version exacte : une release `X.Y.Z`, ou, tant qu’aucune release n’est coupée, le paquet `0.0.0-dev.<sha>` publié par la CICD pour le commit courant de son `main` (MAIR-509 ; jamais une pré-version `staging`, jamais une copie d’un checkout du BFF, qui peut être en avance sur ce qui est publié). `scripts/contract-version.mjs` porte cette règle et associe un paquet dev au tag d’image `dev-<sha7>` des stacks `docker-compose*.yml`. Après une nouvelle version du paquet :
 
 ```bash
 npm run contracts:sync

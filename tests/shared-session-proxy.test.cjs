@@ -105,7 +105,7 @@ test('a second business401 stops after one renewal and one replay', async () => 
 });
 
 test('a declared group mutation retries its unchanged JSON body once after rotation', async () => {
-  renewed(); const body = '{ "name": "Conseil municipal" }';
+  renewed(); const body = '{ "name": "Conseil municipal", "description": "Élus du conseil" }';
   bff.on('post', '/bff/admin/groups', req => req.headers.authorization === `Bearer ${access}`
     ? { status: 201, body: { group: { id: 3, name: 'Conseil municipal', description: null, owner_id: 1 } } } : bffError(401));
   await client.requestBff('/bff/admin/groups', { method: 'POST', body });
@@ -145,7 +145,8 @@ test('retired token refresh and revoke operations cannot leave the Administratio
 
 test('the older published User logout receipt expires local cookies without proving server revocation', async () => {
   front.cookie = access;
-  ownerBff.on('post', '/auth/logout', { body: { message: 'Logged out successfully' } });
+  // LogoutResponse of the current contract: session_revoked is required (false = Core refused the revocation).
+  ownerBff.on('post', '/auth/logout', { body: { message: 'Logged out successfully', session_revoked: false } });
   await assert.rejects(logout.logoutAndReload(), /déconnexion n’a pas été confirmée/);
   assert.equal(front.ownerCalls.length, 1); assert.equal(front.ownerCalls[0].url.pathname, '/api/auth/logout');
   assert.deepEqual(ownerBff.calls('/auth/logout')[0].body, { refresh_token: refresh });
