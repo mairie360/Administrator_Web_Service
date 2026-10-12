@@ -9,6 +9,16 @@ existantes. Seule une réponse vide valide affiche zéro et le message de liste
 vide. Un refus ultérieur conserve les dernières listes reçues et les brouillons.
 Ce contrôle d’affichage ne certifie ni droits ni persistance déployés.
 
+## Contraintes de texte du contrat BFF — MAIR-514
+
+Les formulaires utilisateur, rôle et groupe portent les règles du contrat publié : noms de
+64 caractères au plus sans `<` ni `>`, e-mail de 320 au plus, téléphone de 32 caractères au
+plus composé de chiffres, espaces, `.`, `-`, `(`, `)` et d’un `+` initial facultatif, mot de
+passe de 8 à 255 caractères, descriptions de 2 000 au plus. Le navigateur refuse une valeur
+invalide avec une aide en français avant toute requête. Un 400 qui arriverait malgré tout
+avec le détail des champs est expliqué champ par champ (« Prénom : ne doit pas contenir les
+caractères < ou > ») au lieu du message générique.
+
 ## Listes de sessions en lecture — MAIR-406
 
 Les sessions actives et leur historique restent disponibles avec leur actualisation GET, compteurs, états d’expiration/révocation et erreurs indépendantes existants. Le formulaire à jeton et ses actions Rafraîchir/Révoquer sont retirés selon la décision explicite du 10 octobre 2026 ; les vérifications du brouillon MAIR-460 sont historiques. Le contrat publié User 0.5.0 ne définit pas d’opération typée de révocation par identifiant : aucun payload ni commande de remplacement n’est inventé. Les droits et la persistance réels en Dev restent à vérifier avec un compte utilisable.

@@ -1,5 +1,6 @@
 "use client";
 
+import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH, NO_MARKUP_HINT, NO_MARKUP_PATTERN, reportMarkupValidity } from "@/lib/text-constraints";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Layers3, LoaderCircle, Plus, RefreshCw, Save, Search, Trash2 } from "lucide-react";
 import { administrationApi, type AdministrationGroup, type AdministrationGroupMember, type AdministrationUser } from "@/lib/administration-api";
@@ -305,6 +306,9 @@ export function GroupsPanel({
               <input
                 id="group-name"
                 required
+                maxLength={NAME_MAX_LENGTH}
+                pattern={NO_MARKUP_PATTERN}
+                title={NO_MARKUP_HINT}
                 className={inputClassName}
                 value={createForm.name}
                 onChange={(event) =>
@@ -316,6 +320,9 @@ export function GroupsPanel({
               <input
                 id="group-description"
                 required
+                maxLength={DESCRIPTION_MAX_LENGTH}
+                pattern={NO_MARKUP_PATTERN}
+                title={NO_MARKUP_HINT}
                 className={inputClassName}
                 value={createForm.description}
                 onChange={(event) =>
@@ -360,6 +367,9 @@ export function GroupsPanel({
                 <input
                   id="edit-group-name"
                   required
+                  maxLength={NAME_MAX_LENGTH}
+                  pattern={NO_MARKUP_PATTERN}
+                  title={NO_MARKUP_HINT}
                   className={inputClassName}
                   value={editForm.name}
                   onChange={(event) =>
@@ -370,14 +380,17 @@ export function GroupsPanel({
               <Field label="Description" htmlFor="edit-group-description">
                 <textarea
                   id="edit-group-description"
+                  maxLength={DESCRIPTION_MAX_LENGTH}
+                  title={NO_MARKUP_HINT}
                   className={textareaClassName}
                   value={editForm.description}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    reportMarkupValidity(event.target);
                     setEditForm((current) => ({
                       ...current,
                       description: event.target.value,
-                    }))
-                  }
+                    }));
+                  }}
                 />
               </Field>
               <div className="flex flex-col gap-2 text-xs text-[#667085] sm:flex-row sm:items-center sm:justify-between">

@@ -9,6 +9,16 @@ Only a valid empty response displays the empty-list message and zero count.
 Subsequent read failures preserve the last received collections and drafts.
 This frontend presentation does not certify deployed permissions or persistence.
 
+## Text constraints from the BFF contract — MAIR-514
+
+The user, role and group forms carry the rules of the published contract: names of
+at most 64 characters without `<` or `>`, e-mail up to 320, phone up to 32 characters
+made of digits, spaces, `.`, `-`, `(`, `)` and an optional leading `+`, password of 8 to
+255 characters, descriptions up to 2 000. The browser refuses an invalid value with a
+French hint before any request. A 400 that still arrives with field details is explained
+per field ("Prénom : ne doit pas contenir les caractères < ou >") instead of the generic
+message.
+
 ## Read-only session lists — MAIR-406
 
 Active sessions and history remain available with their existing GET-only refresh, counters, expiry/revocation labels and independent failure handling. The token-entry form and its refresh/revoke actions are removed following the explicit decision of 10 October 2026; MAIR-460 token-draft checks are historical. The published User 0.5.0 contract does not define a typed session-ID revocation operation, so no replacement payload or command is invented. Real Dev permissions and session persistence still require a usable account.

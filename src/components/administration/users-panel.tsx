@@ -1,5 +1,6 @@
 "use client";
 
+import { EMAIL_MAX_LENGTH, NAME_MAX_LENGTH, NO_MARKUP_HINT, NO_MARKUP_PATTERN, PASSWORD_MAX_LENGTH, PHONE_HINT, PHONE_MAX_LENGTH, PHONE_PATTERN } from "@/lib/text-constraints";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { ChevronLeft, ChevronRight, KeyRound, LoaderCircle, Pencil, Plus, Save, Search, Trash2 } from "lucide-react";
 import { administrationApi, type AdministrationRole, type AdministrationUser, type AdministrationUsersPage } from "@/lib/administration-api";
@@ -540,6 +541,9 @@ export function UsersPanel({
                 <input
                   id="create-first-name"
                   required
+                  maxLength={NAME_MAX_LENGTH}
+                  pattern={NO_MARKUP_PATTERN}
+                  title={NO_MARKUP_HINT}
                   className={inputClassName}
                   value={createForm.first_name}
                   onChange={(event) => changeCreate("first_name", event.target.value)}
@@ -549,6 +553,9 @@ export function UsersPanel({
                 <input
                   id="create-last-name"
                   required
+                  maxLength={NAME_MAX_LENGTH}
+                  pattern={NO_MARKUP_PATTERN}
+                  title={NO_MARKUP_HINT}
                   className={inputClassName}
                   value={createForm.last_name}
                   onChange={(event) => changeCreate("last_name", event.target.value)}
@@ -559,6 +566,7 @@ export function UsersPanel({
                   id="create-email"
                   type="email"
                   required
+                  maxLength={EMAIL_MAX_LENGTH}
                   className={inputClassName}
                   value={createForm.email}
                   onChange={(event) => changeCreate("email", event.target.value)}
@@ -568,6 +576,9 @@ export function UsersPanel({
                 <input
                   id="create-phone"
                   type="tel"
+                  maxLength={PHONE_MAX_LENGTH}
+                  pattern={PHONE_PATTERN}
+                  title={PHONE_HINT}
                   className={inputClassName}
                   value={createForm.phone_number}
                   onChange={(event) => changeCreate("phone_number", event.target.value)}
@@ -578,6 +589,7 @@ export function UsersPanel({
                   id="create-password"
                   type="password"
                   minLength={8}
+                  maxLength={PASSWORD_MAX_LENGTH}
                   required
                   autoComplete="new-password"
                   className={inputClassName}
@@ -609,6 +621,9 @@ export function UsersPanel({
                 <input
                   id="edit-first-name"
                   required
+                  maxLength={NAME_MAX_LENGTH}
+                  pattern={NO_MARKUP_PATTERN}
+                  title={NO_MARKUP_HINT}
                   className={inputClassName}
                   value={editForm.first_name}
                   onChange={(event) => changeEdit("first_name", event.target.value)}
@@ -618,6 +633,9 @@ export function UsersPanel({
                 <input
                   id="edit-last-name"
                   required
+                  maxLength={NAME_MAX_LENGTH}
+                  pattern={NO_MARKUP_PATTERN}
+                  title={NO_MARKUP_HINT}
                   className={inputClassName}
                   value={editForm.last_name}
                   onChange={(event) => changeEdit("last_name", event.target.value)}
@@ -628,6 +646,7 @@ export function UsersPanel({
                   id="edit-email"
                   type="email"
                   required
+                  maxLength={EMAIL_MAX_LENGTH}
                   className={inputClassName}
                   value={editForm.email}
                   onChange={(event) => changeEdit("email", event.target.value)}
@@ -637,6 +656,9 @@ export function UsersPanel({
                 <input
                   id="edit-phone"
                   type="tel"
+                  maxLength={PHONE_MAX_LENGTH}
+                  pattern={PHONE_PATTERN}
+                  title={PHONE_HINT}
                   className={inputClassName}
                   value={editForm.phone_number}
                   onChange={(event) => changeEdit("phone_number", event.target.value)}

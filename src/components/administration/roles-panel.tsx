@@ -1,5 +1,6 @@
 "use client";
 
+import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH, NO_MARKUP_HINT, NO_MARKUP_PATTERN, reportMarkupValidity } from "@/lib/text-constraints";
 import { useState, type FormEvent } from "react";
 import { Pencil, RefreshCw, Save, Trash2 } from "lucide-react";
 import { administrationApi, type AdministrationRole } from "@/lib/administration-api";
@@ -155,6 +156,9 @@ export function RolesPanel({
             <input
               id="role-name"
               required
+              maxLength={NAME_MAX_LENGTH}
+              pattern={NO_MARKUP_PATTERN}
+              title={NO_MARKUP_HINT}
               className={inputClassName}
               value={form.name}
               onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
@@ -164,11 +168,14 @@ export function RolesPanel({
             <textarea
               id="role-description"
               required
+              maxLength={DESCRIPTION_MAX_LENGTH}
+              title={NO_MARKUP_HINT}
               className={textareaClassName}
               value={form.description}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, description: event.target.value }))
-              }
+              onChange={(event) => {
+                reportMarkupValidity(event.target);
+                setForm((current) => ({ ...current, description: event.target.value }));
+              }}
             />
           </Field>
           <label className="flex items-center gap-3 text-sm font-medium text-[#344054]">

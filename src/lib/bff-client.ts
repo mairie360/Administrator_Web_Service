@@ -1,12 +1,25 @@
 import { navigateToLogin } from './logout';
 
+export type BffErrorDetail = { path?: string; message: string };
+
 export class BffRequestError extends Error {
   readonly status: number;
+  /** `error.details[]` of the shared ErrorResponse envelope, for field-level messages (MAIR-514). */
+  readonly details: readonly BffErrorDetail[];
 
-  constructor(status: number) {
+  constructor(status: number, body?: unknown) {
     super(`Erreur BFF (${status})`);
     this.name = "BffRequestError";
     this.status = status;
+    const details = (body as { error?: { details?: unknown } } | null | undefined)?.error?.details;
+    this.details = Array.isArray(details)
+      ? details.flatMap((detail: unknown) => {
+        const item = detail as { path?: unknown; message?: unknown } | null;
+        return typeof item?.message === "string"
+          ? [{ path: typeof item.path === "string" ? item.path : undefined, message: item.message }]
+          : [];
+      })
+      : [];
   }
 }
 
@@ -32,6 +45,16 @@ function createRequestHeaders(init: RequestInit) {
   return headers;
 }
 
+/** The ErrorResponse envelope of a refusal, when the body is JSON; never throws. */
+async function readErrorBody(response: Response): Promise<unknown> {
+  try {
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function requestBff<T>(path: string, init: RequestInit = {}) {
   const browserPath = path.startsWith('/api/') ? path : '/api/bff' + path;
   const response = await fetch(browserPath, {
@@ -53,7 +76,7 @@ export async function requestBff<T>(path: string, init: RequestInit = {}) {
 
   if (!response.ok) {
     if (response.status === 401) navigateToLogin();
-    throw new BffRequestError(response.status);
+    throw new BffRequestError(response.status, await readErrorBody(response));
   }
 
   if (response.status === 204) return undefined as T;

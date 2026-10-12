@@ -109,6 +109,24 @@ describe('requestBff', () => {
   });
 });
 
+describe('refusal details (MAIR-514)', () => {
+  test('a refusal carries the details of the ErrorResponse envelope, or none when the body is not JSON', async () => {
+    const details = [{ path: 'body.first_name', message: 'Must not contain < or >' }, { message: 'Context only' }, { path: 'ignored' }];
+    bff.on('post', '/bff/admin/users', { status: 400, body: { error: { code: 'BAD_REQUEST', message: 'Validation failed', details } }, outOfContract: true });
+    await assert.rejects(requestBff('/bff/admin/users', { method: 'POST', body: JSON.stringify({ first_name: 'Anne', last_name: 'Martin', email: 'anne.martin@mairie.test', password: 'motdepasse' }) }), (error) => {
+      assert.equal(error.name, 'BffRequestError');
+      assert.deepEqual([error.status, error.message], [400, 'Erreur BFF (400)']);
+      assert.deepEqual(error.details, [{ path: 'body.first_name', message: 'Must not contain < or >' }, { path: undefined, message: 'Context only' }]);
+      return true;
+    });
+    bff.on('get', '/bff/admin/roles', { status: 503, raw: 'down', contentType: 'text/plain', outOfContract: true });
+    await assert.rejects(requestBff('/bff/admin/roles'), (error) => {
+      assert.deepEqual([error.status, error.details], [503, []]);
+      return true;
+    });
+  });
+});
+
 describe('protected document navigation', () => {
   test('concurrent opaque redirects return to validated Login once without inspecting their destination or body', async (t) => {
     const location = { origin: FRONT_ORIGIN, pathname: '/', search: '?panel=groups', href: FRONT_ORIGIN + '/?panel=groups', assigned: [], assign(url) { this.assigned.push(url); }, reloads: 0, reload() { this.reloads += 1; } };

@@ -1320,3 +1320,41 @@ test('session lists are read-only and preserve both views without a token form',
   assert.equal(bff.calls('/bff/admin/sessions', 'GET').length, 1);
   assert.equal(bff.calls('/bff/admin/sessions/history', 'GET').length, 1);
 });
+
+// MAIR-514: the inputs carry the text rules of the published contract (names ≤ 64 without `<` / `>`, e-mail ≤ 320,
+// phone ≤ 32 with the contract pattern, password ≤ 255, role/group names ≤ 64, descriptions ≤ 2 000).
+test('user, role and group inputs carry the contract constraints with French hints', async () => {
+  const constraints = loadTs(['src/lib/text-constraints.ts'])[0];
+  const contract = bffUserContract().document.components.schemas;
+  const anchored = (pattern) => new RegExp(`^(?:${pattern})$`, 'v');
+  for (const sample of ['', 'Anne', 'a<b', '>']) assert.equal(anchored(constraints.NO_MARKUP_PATTERN).test(sample), new RegExp(contract.AdminUserCreateBody.properties.first_name.pattern).test(sample), sample);
+  for (const sample of ['', '+33 1 23 45 67 89', '06.12.34.56.78', '(01) 23-45', 'abc', '12+3']) assert.equal(anchored(constraints.PHONE_PATTERN).test(sample), new RegExp(contract.AdminUserCreateBody.properties.phone_number.pattern).test(sample), sample);
+  assert.deepEqual([constraints.NAME_MAX_LENGTH, constraints.EMAIL_MAX_LENGTH, constraints.PHONE_MAX_LENGTH, constraints.PASSWORD_MAX_LENGTH, constraints.DESCRIPTION_MAX_LENGTH], [
+    contract.AdminUserCreateBody.properties.first_name.maxLength, contract.AdminUserCreateBody.properties.email.maxLength, contract.AdminUserCreateBody.properties.phone_number.maxLength,
+    contract.AdminUserCreateBody.properties.password.maxLength, contract.AdminGroupCreateBody.properties.description.maxLength,
+  ]);
+
+  await renderLoadedConsole();
+  const field = (id) => view.hostElements(props => props.id === id)[0].props;
+  await view.click('Nouvel utilisateur');
+  for (const id of ['create-first-name', 'create-last-name']) {
+    assert.equal(field(id).maxLength, 64, id); assert.equal(field(id).pattern, constraints.NO_MARKUP_PATTERN, id); assert.equal(field(id).title, constraints.NO_MARKUP_HINT, id);
+  }
+  assert.equal(field('create-email').maxLength, 320);
+  assert.deepEqual([field('create-phone').maxLength, field('create-phone').pattern, field('create-phone').title], [32, constraints.PHONE_PATTERN, constraints.PHONE_HINT]);
+  assert.deepEqual([field('create-password').minLength, field('create-password').maxLength], [8, 255]);
+  assert.match(view.html, /<input id="create-first-name"[^>]*maxLength="64"[^>]*pattern="\[\^&lt;&gt;\]\*"[^>]*title="Les caractères &lt; et &gt; ne sont pas autorisés\."/);
+
+  await view.click((props, text) => props.role === 'tab' && text === 'Rôles');
+  assert.deepEqual([field('role-name').maxLength, field('role-name').pattern], [64, constraints.NO_MARKUP_PATTERN]);
+  assert.deepEqual([field('role-description').maxLength, field('role-description').pattern, field('role-description').title], [2000, undefined, constraints.NO_MARKUP_HINT]);
+  const validity = [];
+  await changeField('role-description', 'Accès <complet>');
+  await view.fire(props => props.id === 'role-description', 'onChange', { target: { value: 'Accès <complet>', setCustomValidity: (message) => validity.push(message) } });
+  await view.fire(props => props.id === 'role-description', 'onChange', { target: { value: 'Accès complet', setCustomValidity: (message) => validity.push(message) } });
+  assert.deepEqual(validity, [constraints.NO_MARKUP_HINT, '']);
+  assert.equal(field('role-description').value, 'Accès complet');
+
+  await openGroups();
+  assert.deepEqual([field('group-name').maxLength, field('group-name').pattern, field('group-description').maxLength, field('group-description').pattern], [64, constraints.NO_MARKUP_PATTERN, 2000, constraints.NO_MARKUP_PATTERN]);
+});
