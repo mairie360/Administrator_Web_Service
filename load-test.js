@@ -10,7 +10,7 @@ import encoding from 'k6/encoding';
 //     /api/user/me (-> BFF User), /health, then the session reads /me and /session/me relayed by
 //     the same-origin proxy to BFF User;
 //   * `writes` (MAIR-516): the group creation and deletion an administrator performs from the
-//     console, through the browser path /api/bff/bff/admin/groups (-> BFF User -> Core API).
+//     console, through the browser path /admin/groups (-> BFF User -> Core API).
 // Authentication goes through the accessToken cookie, like in the browser: the proxy turns it
 // into Authorization: Bearer for the BFF. init-test.sql gives the user the Admin role.
 // ---------------------------------------------------------------------------
@@ -113,23 +113,23 @@ export function writes(data) {
     // Unique name per iteration: Core API refuses duplicates and the cleanup below removes it.
     const name = `k6 ${__VU}-${__ITER}-${Date.now()}`;
     const created = http.post(
-      `${BASE_URL}/api/bff/bff/admin/groups`,
+      `${BASE_URL}/admin/groups`,
       JSON.stringify({ name, description: 'Temporary group of the k6 load test' }),
       { headers, redirects: 0, tags: { endpoint: 'group-create' } },
     );
     const id = createdId(created);
     const ok = check(created, {
-      'POST /api/bff/bff/admin/groups 200': (r) => r.status === 200,
-      'POST /api/bff/bff/admin/groups returns the group id': () => id !== null,
+      'POST /admin/groups 200': (r) => r.status === 200,
+      'POST /admin/groups returns the group id': () => id !== null,
     });
     if (!ok) return;
 
-    const deleted = http.del(`${BASE_URL}/api/bff/bff/admin/groups/${id}`, null, {
+    const deleted = http.del(`${BASE_URL}/admin/groups/${id}`, null, {
       headers: { Cookie: headers.Cookie, Accept: 'application/json' },
       redirects: 0,
       tags: { endpoint: 'group-delete' },
     });
-    check(deleted, { 'DELETE /api/bff/bff/admin/groups/{id} 200 or 204': (r) => r.status === 200 || r.status === 204 });
+    check(deleted, { 'DELETE /admin/groups/{id} 200 or 204': (r) => r.status === 200 || r.status === 204 });
   });
 
   sleep(1);

@@ -6,7 +6,8 @@ import type {
   AdministrationUser,
   AdministrationUsersPage,
 } from "@mairie360/bff-user-openapi/model";
-import { requestBff } from "./bff-client";
+import type { GetAdminUsersParams } from "@mairie360/bff-user-openapi/model";
+import { bffUser } from "./bff-client";
 
 // Modèles du contrat publié de BFF User (@mairie360/bff-user-openapi, version exacte de package.json).
 export type {
@@ -45,8 +46,6 @@ export type GroupInput = {
   description: string;
 };
 
-const ADMIN_BASE_PATH = "/bff/admin";
-
 // Bornes imposées par le contrat BFF User (AdminUserListQuery, AdminUserPasswordResetBody,
 // AdminGroupPatchBody) : vérifiées avant l'appel pour éviter un 400 sans message exploitable.
 const SEARCH_MAX_LENGTH = 100;
@@ -55,15 +54,9 @@ const PASSWORD_MAX_LENGTH = 255;
 const GROUP_NAME_MAX_LENGTH = 64;
 const GROUP_DESCRIPTION_MAX_LENGTH = 2000;
 
-function requestAdmin<T>(path: string, init: RequestInit = {}) {
-  return requestBff<T>(`${ADMIN_BASE_PATH}${path}`, init);
-}
-
-function jsonRequest(method: string, body: unknown): RequestInit {
-  return {
-    method,
-    body: JSON.stringify(body),
-  };
+/** Awaits a generated operation whose response carries no body. */
+async function done(call: Promise<unknown>): Promise<void> {
+  await call;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -185,16 +178,16 @@ function boundedText(value: string, label: string, { min = 0, max }: { min?: num
 
 export const administrationApi = {
   async listUsers({ page = 1, search = "" }: { page?: number; search?: string } = {}) {
-    const params = new URLSearchParams({
-      page: String(positiveInteger(page, "La page")),
-      page_size: "20",
-    });
+    const query: GetAdminUsersParams = {
+      page: positiveInteger(page, "La page"),
+      page_size: 20,
+    };
     const trimmedSearch = search.trim();
     if (trimmedSearch) {
-      params.set("search", boundedText(trimmedSearch, "La recherche", { max: SEARCH_MAX_LENGTH }));
+      query.search = boundedText(trimmedSearch, "La recherche", { max: SEARCH_MAX_LENGTH });
     }
 
-    const response = await requestAdmin<unknown>(`/users?${params.toString()}`);
+    const { data: response } = await bffUser.getAdminUsers(query);
     const record = asRecord(response);
     const users = extractArray(response, ["users", "items"]).filter(isAdministrationUser);
 
@@ -213,152 +206,118 @@ export const administrationApi = {
   },
 
   async listRoles() {
-    const response = await requestAdmin<unknown>("/roles");
+    const { data: response } = await bffUser.getAdminRoles();
     return extractArray(response, ["roles"]).filter(isRole);
   },
 
   createRole(input: RoleInput) {
-    return requestAdmin<void>("/roles", jsonRequest("POST", input));
+    return done(bffUser.postAdminRoles(input));
   },
 
   replaceRole(roleId: number, input: RoleInput) {
-    return requestAdmin<void>(
-      `/roles/${positiveInteger(roleId, "L’identifiant du rôle")}`,
-      jsonRequest("PUT", input),
-    );
+    return done(bffUser.putAdminRolesRoleId(positiveInteger(roleId, "L’identifiant du rôle"), input));
   },
 
   updateRole(roleId: number, input: RolePatchInput) {
-    return requestAdmin<void>(
-      `/roles/${positiveInteger(roleId, "L’identifiant du rôle")}`,
-      jsonRequest("PATCH", input),
-    );
+    return done(bffUser.patchAdminRolesRoleId(positiveInteger(roleId, "L’identifiant du rôle"), input));
   },
 
   deleteRole(roleId: number) {
-    return requestAdmin<void>(
-      `/roles/${positiveInteger(roleId, "L’identifiant du rôle")}`,
-      { method: "DELETE" },
-    );
+    return done(bffUser.deleteAdminRolesRoleId(positiveInteger(roleId, "L’identifiant du rôle")));
   },
 
   async listGroups() {
-    const response = await requestAdmin<unknown>("/groups");
+    const { data: response } = await bffUser.getAdminGroups();
     return extractArray(response, ["groups"]).filter(isGroup);
   },
 
   async getGroup(groupId: number) {
-    const response = await requestAdmin<unknown>(
-      `/groups/${positiveInteger(groupId, "L’identifiant du groupe")}`,
-    );
+    const { data: response } = await bffUser.getAdminGroupsGroupId(positiveInteger(groupId, "L’identifiant du groupe"));
     const record = asRecord(response);
     const group = record?.group ?? response;
     return isGroup(group) ? group : null;
   },
 
   createGroup(input: GroupInput) {
-    return requestAdmin<void>("/groups", jsonRequest("POST", input));
+    return done(bffUser.postAdminGroups(input));
   },
 
   async updateGroup(groupId: number, input: GroupInput) {
     const resolvedGroupId = positiveInteger(groupId, "L’identifiant du groupe");
     boundedText(input.name, "Le nom du groupe", { min: 1, max: GROUP_NAME_MAX_LENGTH });
     boundedText(input.description, "La description du groupe", { max: GROUP_DESCRIPTION_MAX_LENGTH });
-    const response = await requestAdmin<unknown>(
-      `/groups/${resolvedGroupId}`,
-      jsonRequest("PATCH", input),
-    );
+    const { data: response } = await bffUser.patchAdminGroupsGroupId(resolvedGroupId, input);
     const record = asRecord(response);
     const group = record?.group ?? response;
     return isGroup(group) ? group : null;
   },
 
   deleteGroup(groupId: number) {
-    return requestAdmin<void>(
-      `/groups/${positiveInteger(groupId, "L’identifiant du groupe")}`,
-      { method: "DELETE" },
-    );
+    return done(bffUser.deleteAdminGroupsGroupId(positiveInteger(groupId, "L’identifiant du groupe")));
   },
 
   async listGroupUsers(groupId: number) {
-    const response = await requestAdmin<unknown>(
-      `/groups/${positiveInteger(groupId, "L’identifiant du groupe")}/users`,
-    );
+    const { data: response } = await bffUser.getAdminGroupsGroupIdUsers(positiveInteger(groupId, "L’identifiant du groupe"));
     return extractArray(response, ["users"]).filter(isGroupMember);
   },
 
   addUserToGroup(groupId: number, userId: number) {
     const resolvedGroupId = positiveInteger(groupId, "L’identifiant du groupe");
     const resolvedUserId = positiveInteger(userId, "L’identifiant utilisateur");
-    return requestAdmin<void>(
-      `/groups/${resolvedGroupId}/users`,
-      jsonRequest("POST", {
-        group_id: resolvedGroupId,
-        user_id: resolvedUserId,
-      }),
-    );
+    return done(bffUser.postAdminGroupsGroupIdUsers(resolvedGroupId, {
+      group_id: resolvedGroupId,
+      user_id: resolvedUserId,
+    }));
   },
 
   removeUserFromGroup(groupId: number, userId: number) {
-    return requestAdmin<void>(
-      `/groups/${positiveInteger(groupId, "L’identifiant du groupe")}/users/${positiveInteger(userId, "L’identifiant utilisateur")}`,
-      { method: "DELETE" },
-    );
+    return done(bffUser.deleteAdminGroupsGroupIdUsersUserId(
+      positiveInteger(groupId, "L’identifiant du groupe"),
+      positiveInteger(userId, "L’identifiant utilisateur"),
+    ));
   },
 
   createUser(input: CreateUserInput) {
-    return requestAdmin<void>("/users", jsonRequest("POST", input));
+    return done(bffUser.postAdminUsers(input));
   },
 
   updateUser(userId: number, input: UpdateUserInput) {
-    return requestAdmin<void>(
-      `/users/${positiveInteger(userId, "L’identifiant utilisateur")}`,
-      jsonRequest("PATCH", input),
-    );
+    return done(bffUser.patchAdminUsersUserId(positiveInteger(userId, "L’identifiant utilisateur"), input));
   },
 
   resetUserPassword(userId: number, newPassword: string) {
     const resolvedUserId = positiveInteger(userId, "L’identifiant utilisateur");
     boundedText(newPassword, "Le mot de passe", { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH });
-    return requestAdmin<void>(
-      `/users/${resolvedUserId}/password`,
-      jsonRequest("PATCH", { new_password: newPassword }),
-    );
+    return done(bffUser.patchAdminUsersUserIdPassword(resolvedUserId, { new_password: newPassword }));
   },
 
   deleteUser(userId: number) {
-    return requestAdmin<void>(
-      `/users/${positiveInteger(userId, "L’identifiant utilisateur")}`,
-      { method: "DELETE" },
-    );
+    return done(bffUser.deleteAdminUsersUserId(positiveInteger(userId, "L’identifiant utilisateur")));
   },
 
   addRoleToUser(userId: number, roleId: number) {
     const resolvedUserId = positiveInteger(userId, "L’identifiant utilisateur");
     const resolvedRoleId = positiveInteger(roleId, "L’identifiant du rôle");
-    return requestAdmin<void>(
-      `/users/${resolvedUserId}/roles`,
-      jsonRequest("POST", {
-        user_id: resolvedUserId,
-        role_id: resolvedRoleId,
-      }),
-    );
+    return done(bffUser.postAdminUsersUserIdRoles(resolvedUserId, {
+      user_id: resolvedUserId,
+      role_id: resolvedRoleId,
+    }));
   },
 
   removeRoleFromUser(userId: number, roleId: number) {
-    return requestAdmin<void>(
-      `/users/${positiveInteger(userId, "L’identifiant utilisateur")}/roles/${positiveInteger(roleId, "L’identifiant du rôle")}`,
-      { method: "DELETE" },
-    );
+    return done(bffUser.deleteAdminUsersUserIdRolesRoleId(
+      positiveInteger(userId, "L’identifiant utilisateur"),
+      positiveInteger(roleId, "L’identifiant du rôle"),
+    ));
   },
 
   async listActiveSessions() {
-    const response = await requestAdmin<unknown>("/sessions");
+    const { data: response } = await bffUser.getAdminSessions();
     return extractArray(response, ["sessions"]).filter(isSession);
   },
 
   async listSessionHistory() {
-    const response = await requestAdmin<unknown>("/sessions/history");
+    const { data: response } = await bffUser.getAdminSessionsHistory();
     return extractArray(response, ["sessions"]).filter(isSession);
   },
 

@@ -33,7 +33,7 @@ test('proxy preserves the declared user creation body bytes and upstream respons
   let init;
   global.fetch = async (_url, options) => { init = options; return Response.json({ id: 'fixture-user' }, { status: 201 }); };
   const request = new NextRequest('http://localhost/users', { method: 'POST', headers: { 'Content-Type': 'application/json', cookie: 'accessToken=test-session' }, body: bytes });
-  const response = await forwardToBff(request, 'http://bff.example', '/bff/admin/users');
+  const response = await forwardToBff(request, 'http://bff.example', '/admin/users');
   assert.equal(response.status, 201); assert.deepEqual(await response.json(), { id: 'fixture-user' });
   assert.deepEqual(new Uint8Array(init.body), new Uint8Array(bytes)); assert.equal(init.headers.get('Authorization'), 'Bearer test-session');
   assert.equal(init.headers.get('Content-Type'), 'application/json');

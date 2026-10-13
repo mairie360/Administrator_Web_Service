@@ -110,17 +110,17 @@ describe('published BFF User contract', () => {
   });
 
   test('the mock reports requests that break the contract', async () => {
-    const response = await fetch(`${bff.url}/bff/admin/users/abc/password?debug=1`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ new_password: 'court' }) });
-    const unknown = await fetch(`${bff.url}/bff/admin/logs`);
+    const response = await fetch(`${bff.url}/admin/users/abc/password?debug=1`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ new_password: 'court' }) });
+    const unknown = await fetch(`${bff.url}/admin/logs`);
 
     assert.equal(response.status, 500);
     assert.equal(unknown.status, 404);
     assert.deepEqual(bff.violations.splice(0), [
-      '[BFF_USER] requête PATCH /bff/admin/users/abc/password?debug=1 : path.userId: type number attendu, reçu string',
-      '[BFF_USER] requête PATCH /bff/admin/users/{userId}/password : paramètre query "debug" non déclaré',
-      '[BFF_USER] requête PATCH /bff/admin/users/{userId}/password $body.new_password: longueur < 8',
-      '[BFF_USER] appel non mocké : PATCH /bff/admin/users/{userId}/password',
-      '[BFF_USER] requête GET /bff/admin/logs : GET /bff/admin/logs n\'existe pas dans le contrat bff_user',
+      '[BFF_USER] requête PATCH /admin/users/abc/password?debug=1 : path.userId: type number attendu, reçu string',
+      '[BFF_USER] requête PATCH /admin/users/{userId}/password : paramètre query "debug" non déclaré',
+      '[BFF_USER] requête PATCH /admin/users/{userId}/password $body.new_password: longueur < 8',
+      '[BFF_USER] appel non mocké : PATCH /admin/users/{userId}/password',
+      '[BFF_USER] requête GET /admin/logs : GET /admin/logs n\'existe pas dans le contrat bff_user',
     ]);
   });
 });
@@ -133,7 +133,7 @@ describe('a single BFF', () => {
       front.useBffUrl(bff.url, variable);
       await front.browserFetch('/api/user/me');
       await front.browserFetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-      await front.browserFetch('/api/bff/bff/admin/roles');
+      await front.browserFetch('/admin/roles');
     }
 
     assert.equal(bff.requests.length, BFF_URL_VARIABLES.length * 3);
@@ -147,10 +147,10 @@ describe('a single BFF', () => {
     process.env.BFF_ADMIN_BASE_URL = other;
 
     await front.browserFetch('/api/user/me');
-    await front.browserFetch('/bff/admin/roles');
+    await front.browserFetch('/admin/roles');
 
     assert.deepEqual(bff.requests, []);
-    assert.deepEqual(front.serverCalls.map(({ url }) => `${url.origin}${url.pathname}`), [`${other}/me`, `${other}/bff/admin/roles`]);
+    assert.deepEqual(front.serverCalls.map(({ url }) => `${url.origin}${url.pathname}`), [`${other}/me`, `${other}/admin/roles`]);
   });
 
   test('only src/lib/bff-proxy.ts reads the BFF URL from the environment', () => {
@@ -171,11 +171,11 @@ describe('catch-all proxy src/app/[...path]', () => {
   test('forwards every contract operation to the same BFF operation', async () => {
     answerEveryOperation();
 
-    const retired = new Set(['/bff/admin/sessions/refresh', '/bff/admin/sessions/revoke']);
+    const retired = new Set(['/admin/sessions/refresh', '/admin/sessions/revoke']);
     const operations = contract.operations().filter(({ template }) => !template.startsWith('/auth/') && !retired.has(template));
     for (const operation of operations) {
       const { pathname, body } = concreteRequest(operation);
-      const response = await front.browserFetch('/api/bff' + pathname, {
+      const response = await front.browserFetch(''  + pathname, {
         method: operation.method,
         ...(body || pathname === '/auth/logout' ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) } : {}),
       });
@@ -189,9 +189,9 @@ describe('catch-all proxy src/app/[...path]', () => {
   });
 
   test('keeps declared query parameters and strips cookies and middleware headers', async () => {
-    bff.on('get', '/bff/admin/users', { body: { users: [], page: 1, page_size: 5, total: 0, total_pages: 0 } });
+    bff.on('get', '/admin/users', { body: { users: [], page: 1, page_size: 5, total: 0, total_pages: 0 } });
 
-    await front.browserFetch('/bff/admin/users?page=1&page_size=5&search=a%26b');
+    await front.browserFetch('/admin/users?page=1&page_size=5&search=a%26b');
 
     const [request] = bff.requests;
     assert.equal(request.url.search, '?page=1&page_size=5&search=a%26b');
@@ -212,13 +212,13 @@ describe('catch-all proxy src/app/[...path]', () => {
   });
 
   for (const [label, target, method, status] of [
-    ['an undeclared path', '/bff/admin/logs', 'GET', 404],
-    ['an undeclared nested path', '/bff/admin/users/7/archive', 'POST', 404],
+    ['an undeclared path', '/admin/logs', 'GET', 404],
+    ['an undeclared nested path', '/admin/users/7/archive', 'POST', 404],
     ['the Swagger UI', '/docs', 'GET', 404],
-    ['an undeclared method', '/bff/admin/sessions/history', 'DELETE', 405],
-    ['a PUT on a PATCH-only operation', '/bff/admin/users/7', 'PUT', 405],
-    ['a traversal resolved by the URL parser', '/bff/admin/%2E%2E/%2E%2E/me/x', 'GET', 404],
-    ['an encoded slash', '/bff/admin/users/7%2Fpassword', 'PATCH', 400],
+    ['an undeclared method', '/admin/sessions/history', 'DELETE', 405],
+    ['a PUT on a PATCH-only operation', '/admin/users/7', 'PUT', 405],
+    ['a traversal resolved by the URL parser', '/admin/%2E%2E/%2E%2E/me/x', 'GET', 404],
+    ['an encoded slash', '/admin/users/7%2Fpassword', 'PATCH', 400],
     ['an /api path without adapter', '/api/unknown', 'GET', 404],
   ]) {
     test(`rejects ${label} (${method} ${target}) with ${status} before any network call`, async () => {
@@ -279,7 +279,8 @@ describe('no network access outside the BFF contract', () => {
     for (const file of sources(SRC)) {
       const ast = policy.parse(path.relative(ROOT, file));
       if (policy.calls(ast, 'fetch').length) fetchers.push(relative(file));
-      for (const api of policy.networkReferences(ast)) offenders.push(`${relative(file)} : ${api}`);
+      // axios only carries the generated operations through the fetch of the BFF client.
+      for (const api of policy.networkReferences(ast)) if (relative(file) !== 'src/lib/bff-client.ts' || !/axios/.test(api)) offenders.push(`${relative(file)} : ${api}`);
       for (const node of policy.nodes(ast, node => (policy.ts.isNewExpression(node) && policy.callName(node.expression) === 'Worker') || (policy.ts.isPropertyAccessExpression(node) && policy.ts.isIdentifier(node.expression) && node.expression.text === 'navigator' && node.name.text === 'serviceWorker'))) offenders.push(`${relative(file)} : worker`);
       if (policy.absoluteUrls(ast).some(url => !/^https?:\/\/localhost[:/]/.test(url))) offenders.push(`${relative(file)} : URL absolue`);
     }
@@ -287,17 +288,21 @@ describe('no network access outside the BFF contract', () => {
     assert.deepEqual(fetchers.sort(), ['src/lib/auth-session.ts', 'src/lib/bff-client.ts', 'src/lib/logout.ts']);
   });
 
-  test('browser-side fetch targets are same-origin adapters and admin calls use the declared /bff/admin prefix', () => {
+  test('browser-side fetch targets are same-origin adapters and admin calls use the declared /admin prefix', () => {
     const targets = ['src/lib/auth-session.ts', 'src/lib/logout.ts'].flatMap(file => policy.calls(policy.parse(file), 'fetch')).map(node => { assert.ok(policy.ts.isStringLiteralLike(node.arguments[0])); return node.arguments[0].text; });
     const adapters = front.routes.filter(({ catchAll }) => !catchAll).map(({ prefix }) => prefix);
     assert.deepEqual(targets, ['/api/user/me', '/api/auth/logout']);
     targets.forEach((target) => assert.ok(adapters.includes(target), `${target} n'a pas de route handler`));
 
-    const admin = policy.parse('src/lib/administration-api.ts');
-    const base = policy.nodes(admin, node => policy.ts.isVariableDeclaration(node) && policy.ts.isIdentifier(node.name) && node.name.text === 'ADMIN_BASE_PATH');
-    assert.equal(base.length, 1); assert.ok(policy.ts.isStringLiteralLike(base[0].initializer)); assert.equal(base[0].initializer.text, '/bff/admin');
+    // Only the generated operations are called: no path string, no base path, no hand-written request.
+    const adminSource = fs.readFileSync(path.join(ROOT, 'src/lib/administration-api.ts'), 'utf8');
+    assert.doesNotMatch(adminSource, /ADMIN_BASE_PATH|requestAdmin|requestBff|["`]\/(?:admin|api|bff)\b/);
+    const operations = [...adminSource.matchAll(/bffUser\.(\w+)\(/g)].map(([, name]) => name);
+    assert.ok(operations.length > 0);
+    const generated = fs.readFileSync(require.resolve('@mairie360/bff-user-openapi/endpoints/bffUser'), 'utf8');
+    operations.forEach((name) => assert.match(generated, new RegExp(`const ${name} = \\(`), `${name} n'est pas une opération générée`));
     const callers = sources(SRC).filter(file => policy.requestOwners(policy.parse(path.relative(ROOT, file)))).map(relative);
-    assert.deepEqual(callers.sort(), ['src/lib/administration-api.ts', 'src/lib/bff-client.ts']);
+    assert.deepEqual(callers.sort(), ['src/lib/bff-client.ts']);
   });
 
   test('the browser may only connect to its own origin and Next.js rewrites nothing elsewhere', () => {

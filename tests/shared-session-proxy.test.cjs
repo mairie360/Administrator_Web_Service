@@ -38,22 +38,22 @@ afterEach(() => {
   bff.reset(); ownerBff.reset(); front.reset();
   assert.deepEqual(violations, []);
 });
-const read = () => client.requestBff('/bff/admin/roles');
+const read = () => client.requestBff('/admin/roles');
 const renewed = () => ownerBff.on('post', '/auth/refresh', { body: { message: 'JWT refreshed successfully' }, headers: { 'Set-Cookie': [
   `accessToken=${access}; Path=/auth; Max-Age=3600; HttpOnly; SameSite=Strict`,
   `refreshToken=renewed-${refresh}; Path=/auth; HttpOnly; SameSite=Strict`,
 ] } });
-const business = () => bff.on('get', '/bff/admin/roles', req => req.headers.authorization === `Bearer ${access}` ? { body: roles } : bffError(401));
+const business = () => bff.on('get', '/admin/roles', req => req.headers.authorization === `Bearer ${access}` ? { body: roles } : bffError(401));
 
 test('expired access rotates at Login and retries the actual administration read once', async () => {
   renewed(); business();
   assert.deepEqual(await read(), roles);
-  assert.deepEqual(front.browserCalls, [{ method: 'GET', target: '/api/bff/bff/admin/roles' }]);
+  assert.deepEqual(front.browserCalls, [{ method: 'GET', target: '/admin/roles' }]);
   assert.equal(front.ownerCalls.length, 1);
   assert.equal(front.ownerCalls[0].url.pathname, '/api/auth/refresh');
   assert.deepEqual(ownerBff.calls('/auth/refresh')[0].body, { refresh_token: refresh });
   assert.equal(ownerBff.calls('/auth/refresh')[0].headers.authorization, undefined);
-  assert.deepEqual(bff.calls('/bff/admin/roles').map(req => req.headers.authorization), [`Bearer ${jwt({ exp: 1 })}`, `Bearer ${access}`]);
+  assert.deepEqual(bff.calls('/admin/roles').map(req => req.headers.authorization), [`Bearer ${jwt({ exp: 1 })}`, `Bearer ${access}`]);
   assert.ok(bff.requests.every(req => req.headers.cookie === undefined));
   assert.equal(front.cookie, access); assert.equal(front.refreshCookie, 'renewed-' + refresh);
   assert.deepEqual(window.location.assigned, []);
@@ -65,20 +65,20 @@ test('concurrent profile and administration reads share one real User rotation',
   const [a, b, profile] = await Promise.all([read(), read(), fetch('/api/user/me')]);
   assert.deepEqual(a, roles); assert.deepEqual(b, roles); assert.equal(profile.status, 200);
   assert.equal(ownerBff.calls('/auth/refresh').length, 1);
-  assert.equal(bff.calls('/me').length, 2); assert.equal(bff.calls('/bff/admin/roles').length, 4);
+  assert.equal(bff.calls('/me').length, 2); assert.equal(bff.calls('/admin/roles').length, 4);
   assert.equal(front.refreshCookie, 'renewed-' + refresh);
 });
 
 test('an absent access cookie and forged browser bearer still use only owner-issued access', async () => {
   front.cookie = undefined; renewed(); business();
-  await client.requestBff('/bff/admin/roles', { headers: { Authorization: 'Bearer forged' } });
-  assert.deepEqual(bff.calls('/bff/admin/roles').map(req => req.headers.authorization), [undefined, `Bearer ${access}`]);
+  await client.requestBff('/admin/roles', { headers: { Authorization: 'Bearer forged' } });
+  assert.deepEqual(bff.calls('/admin/roles').map(req => req.headers.authorization), [undefined, `Bearer ${access}`]);
 });
 
 for (const status of [401, 503]) test(`renewal${status} stops replay without logout, unrelated storage loss or cookie mutation`, async () => {
   business(); front.ownerOverride = () => Response.json({ message: 'Disposable refusal' }, { status });
   await assert.rejects(read(), { status });
-  assert.equal(bff.calls('/bff/admin/roles').length, 1);
+  assert.equal(bff.calls('/admin/roles').length, 1);
   assert.equal(ownerBff.calls('/auth/logout').length, 0); assert.equal(front.refreshCookie, refresh);
   assert.equal(window.store.get('mairie360.auth.jwt'), status === 401 ? undefined : 'legacy');
   assert.equal(window.store.get('admin.draft'), 'keep');
@@ -93,29 +93,29 @@ for (const status of [401, 503]) test(`renewal${status} stops replay without log
 test('a malformed successful renewal never replays a business operation', async () => {
   business(); front.ownerOverride = () => Response.json({ message: 'No rotated cookies' });
   await assert.rejects(read(), { status: 502 });
-  assert.equal(bff.calls('/bff/admin/roles').length, 1); assert.equal(front.refreshCookie, refresh);
+  assert.equal(bff.calls('/admin/roles').length, 1); assert.equal(front.refreshCookie, refresh);
   assert.deepEqual(window.location.assigned, []);
 });
 
 test('a second business401 stops after one renewal and one replay', async () => {
-  renewed(); bff.on('get', '/bff/admin/roles', bffError(401));
+  renewed(); bff.on('get', '/admin/roles', bffError(401));
   await assert.rejects(read(), { status: 401 });
-  assert.equal(bff.calls('/bff/admin/roles').length, 2); assert.equal(ownerBff.calls('/auth/refresh').length, 1);
+  assert.equal(bff.calls('/admin/roles').length, 2); assert.equal(ownerBff.calls('/auth/refresh').length, 1);
   assert.equal(ownerBff.calls('/auth/logout').length, 0); assert.equal(window.location.assigned.length, 1);
 });
 
 test('a declared group mutation retries its unchanged JSON body once after rotation', async () => {
   renewed(); const body = '{ "name": "Conseil municipal", "description": "Élus du conseil" }';
-  bff.on('post', '/bff/admin/groups', req => req.headers.authorization === `Bearer ${access}`
+  bff.on('post', '/admin/groups', req => req.headers.authorization === `Bearer ${access}`
     ? { status: 201, body: { group: { id: 3, name: 'Conseil municipal', description: null, owner_id: 1 } } } : bffError(401));
-  await client.requestBff('/bff/admin/groups', { method: 'POST', body });
-  assert.deepEqual(bff.calls('/bff/admin/groups').map(req => req.rawBody), [body, body]);
+  await client.requestBff('/admin/groups', { method: 'POST', body });
+  assert.deepEqual(bff.calls('/admin/groups').map(req => req.rawBody), [body, body]);
   assert.equal(ownerBff.calls('/auth/refresh').length, 1);
 });
 
 test('foreign-origin API reads and logout never reach Login or User and leave cookies intact', async () => {
   for (const [path, init] of [
-    ['/api/bff/health', { headers: { Origin: 'https://foreign.test' } }],
+    ['/health', { headers: { Origin: 'https://foreign.test' } }],
     ['/api/auth/logout', { method: 'POST', headers: { Origin: 'https://foreign.test', 'Content-Type': 'application/json' }, body: '{}' }],
   ]) {
     const response = await fetch(path, init);
@@ -127,7 +127,7 @@ test('foreign-origin API reads and logout never reach Login or User and leave co
 
 test('Login authentication operations cannot be started through the administration proxy', async () => {
   for (const operation of ['/auth/login', '/auth/register', '/auth/force_change_password', '/auth/refresh']) {
-    const response = await fetch('/api/bff' + operation, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const response = await fetch(''  + operation, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     assert.equal(response.status, 404); assert.equal(response.headers.get('set-cookie'), null);
   }
   assert.deepEqual(bff.requests, []); assert.deepEqual(ownerBff.requests, []); assert.deepEqual(front.ownerCalls, []);
@@ -135,8 +135,8 @@ test('Login authentication operations cannot be started through the administrati
 
 test('retired token refresh and revoke operations cannot leave the Administration frontend', async () => {
   front.cookie = access;
-  for (const path of ['/bff/admin/sessions/refresh', '/bff/admin/sessions/revoke']) {
-    const response = await fetch('/api/bff' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"refresh_token":"disposable-forbidden-token"}' });
+  for (const path of ['/admin/sessions/refresh', '/admin/sessions/revoke']) {
+    const response = await fetch(''  + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"refresh_token":"disposable-forbidden-token"}' });
     assert.equal(response.status, 404); assert.equal(response.headers.get('set-cookie'), null);
   }
   assert.deepEqual(bff.requests, []); assert.deepEqual(ownerBff.requests, []); assert.deepEqual(front.ownerCalls, []);
