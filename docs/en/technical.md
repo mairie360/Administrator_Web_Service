@@ -224,29 +224,29 @@ These data paths are exposed at the same origin through the proxy; Next.js pages
 | POST | `/auth/login` | application/json | 2XX, 412 |
 | POST | `/auth/logout` | — | 2XX |
 | POST | `/auth/register` | application/json | 2XX |
-| GET | `/bff/admin/groups` | — | 2XX |
-| POST | `/bff/admin/groups` | application/json | 2XX |
-| GET | `/bff/admin/groups/{groupId}` | — | 2XX |
-| PATCH | `/bff/admin/groups/{groupId}` | application/json | 2XX |
-| DELETE | `/bff/admin/groups/{groupId}` | — | 2XX |
-| GET | `/bff/admin/groups/{groupId}/users` | — | 2XX |
-| POST | `/bff/admin/groups/{groupId}/users` | application/json | 2XX |
-| DELETE | `/bff/admin/groups/{groupId}/users/{userId}` | — | 2XX |
-| GET | `/bff/admin/roles` | — | 2XX |
-| POST | `/bff/admin/roles` | application/json | 2XX |
-| PUT | `/bff/admin/roles/{roleId}` | application/json | 2XX |
-| PATCH | `/bff/admin/roles/{roleId}` | application/json | 2XX |
-| DELETE | `/bff/admin/roles/{roleId}` | — | 2XX |
-| GET | `/bff/admin/sessions` | — | 2XX |
-| GET | `/bff/admin/sessions/history` | — | 2XX |
-| POST | `/bff/admin/sessions/revoke` | application/json | 2XX |
-| GET | `/bff/admin/users` | — | 2XX |
-| POST | `/bff/admin/users` | application/json | 2XX |
-| PATCH | `/bff/admin/users/{userId}` | application/json | 2XX |
-| DELETE | `/bff/admin/users/{userId}` | — | 2XX |
-| PATCH | `/bff/admin/users/{userId}/password` | application/json | 2XX |
-| POST | `/bff/admin/users/{userId}/roles` | application/json | 2XX |
-| DELETE | `/bff/admin/users/{userId}/roles/{roleId}` | — | 2XX |
+| GET | `/admin/groups` | — | 2XX |
+| POST | `/admin/groups` | application/json | 2XX |
+| GET | `/admin/groups/{groupId}` | — | 2XX |
+| PATCH | `/admin/groups/{groupId}` | application/json | 2XX |
+| DELETE | `/admin/groups/{groupId}` | — | 2XX |
+| GET | `/admin/groups/{groupId}/users` | — | 2XX |
+| POST | `/admin/groups/{groupId}/users` | application/json | 2XX |
+| DELETE | `/admin/groups/{groupId}/users/{userId}` | — | 2XX |
+| GET | `/admin/roles` | — | 2XX |
+| POST | `/admin/roles` | application/json | 2XX |
+| PUT | `/admin/roles/{roleId}` | application/json | 2XX |
+| PATCH | `/admin/roles/{roleId}` | application/json | 2XX |
+| DELETE | `/admin/roles/{roleId}` | — | 2XX |
+| GET | `/admin/sessions` | — | 2XX |
+| GET | `/admin/sessions/history` | — | 2XX |
+| POST | `/admin/sessions/revoke` | application/json | 2XX |
+| GET | `/admin/users` | — | 2XX |
+| POST | `/admin/users` | application/json | 2XX |
+| PATCH | `/admin/users/{userId}` | application/json | 2XX |
+| DELETE | `/admin/users/{userId}` | — | 2XX |
+| PATCH | `/admin/users/{userId}/password` | application/json | 2XX |
+| POST | `/admin/users/{userId}/roles` | application/json | 2XX |
+| DELETE | `/admin/users/{userId}/roles/{roleId}` | — | 2XX |
 | GET | `/check_apis` | — | 2XX |
 | GET | `/health` | — | 2XX |
 | GET | `/me` | — | 2XX |
@@ -293,7 +293,7 @@ npm run build
 
 The package contains orval TypeScript, not `openapi.json`: [scripts/orval-contract.mjs](../../scripts/orval-contract.mjs) rebuilds the OpenAPI document from it and `contracts:sync` writes it to `contracts/openapi.json` (read by the proxy and the tests). `contracts:check` fails if the version is not exact, if the installed package differs from `package.json`, if a second `@mairie360/bff-*-openapi` package appears or if the snapshot is stale. `src/lib/administration-api.ts` imports its types from `@mairie360/bff-user-openapi/model`. `npm test` runs the Node tests and fails below 60% line, branch or function coverage of the `src/` modules loaded by the tests (`test:contracts` runs the same tests without coverage); React components (`.tsx`) are not measured.
 
-The `tests/*.bff-mock.test.cjs` and `tests/network-contract.test.cjs` tests run the real front code against a fake BFF User served over local HTTP and driven by `contracts/openapi.json` ([tests/support/contract-mock-server.cjs](../../tests/support/contract-mock-server.cjs), same validator as the BFF tests). The `tests/support/front-harness.cjs` harness simulates the browser: a relative `fetch` goes through `src/middleware.ts` and then the matching `src/app` route handler, and a server-side `fetch` is only allowed towards the fake BFF. Every received request (path, method, parameters, query, JSON body) and every mocked success response is validated against the contract; error responses, which the package does not type, are declared out of contract. Any mismatch, unmocked call or network call to another host fails the test. `tests/network-contract.test.cjs` also checks the exact package version, that BFF User is the only BFF (only `bff-*-openapi` package, only BFF image of the Docker stacks, same URL for the proxy and the adapters), that `contracts/openapi.json` is the exact rebuild of the package, that every contract operation is relayed by the proxy, that paths and methods outside the contract never reach the BFF and that only `bff-client.ts`, `auth-session.ts` and `bff-proxy.ts` call `fetch`. Only `/openapi.json` and `/swagger.json` are relayed outside the contract. `tests/administration-api.bff-mock.test.cjs` fails if a `/bff/admin/*` contract operation is not exercised.
+The `tests/*.bff-mock.test.cjs` and `tests/network-contract.test.cjs` tests run the real front code against a fake BFF User served over local HTTP and driven by `contracts/openapi.json` ([tests/support/contract-mock-server.cjs](../../tests/support/contract-mock-server.cjs), same validator as the BFF tests). The `tests/support/front-harness.cjs` harness simulates the browser: a relative `fetch` goes through `src/middleware.ts` and then the matching `src/app` route handler, and a server-side `fetch` is only allowed towards the fake BFF. Every received request (path, method, parameters, query, JSON body) and every mocked success response is validated against the contract; error responses, which the package does not type, are declared out of contract. Any mismatch, unmocked call or network call to another host fails the test. `tests/network-contract.test.cjs` also checks the exact package version, that BFF User is the only BFF (only `bff-*-openapi` package, only BFF image of the Docker stacks, same URL for the proxy and the adapters), that `contracts/openapi.json` is the exact rebuild of the package, that every contract operation is relayed by the proxy, that paths and methods outside the contract never reach the BFF and that only `bff-client.ts`, `auth-session.ts` and `bff-proxy.ts` call `fetch`. Only `/openapi.json` and `/swagger.json` are relayed outside the contract. `tests/administration-api.bff-mock.test.cjs` fails if a `/admin/*` contract operation is not exercised.
 
 For documentation-only changes, check links, accuracy in both languages and `git diff --check`; do not regenerate contracts without changing the package version.
 

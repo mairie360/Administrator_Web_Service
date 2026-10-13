@@ -70,11 +70,11 @@ const session = (id, extra = {}) => ({ id, device_info: `Firefox ${id}`, ip_addr
 const consoleLoaded = () => view.hostElements('Actualiser')[0]?.props.disabled === false;
 
 function mockConsoleData({ roles = [role(1), role(2)], groups = [group(1)], active = [session('s-1')], history = [session('s-0', { revoked_at: '2026-09-14T08:00:00Z' })], users = [user(7), user(8, ['Bob', 'Martin'])] } = {}) {
-  bff.on('get', '/bff/admin/roles', { body: { roles } });
-  bff.on('get', '/bff/admin/groups', { body: { groups } });
-  bff.on('get', '/bff/admin/sessions', { body: { sessions: active } });
-  bff.on('get', '/bff/admin/sessions/history', { body: { sessions: history } });
-  bff.on('get', '/bff/admin/users', { body: { users, page: 1, page_size: 20, total: users.length, total_pages: 1 } });
+  bff.on('get', '/admin/roles', { body: { roles } });
+  bff.on('get', '/admin/groups', { body: { groups } });
+  bff.on('get', '/admin/sessions', { body: { sessions: active } });
+  bff.on('get', '/admin/sessions/history', { body: { sessions: history } });
+  bff.on('get', '/admin/users', { body: { users, page: 1, page_size: 20, total: users.length, total_pages: 1 } });
 }
 
 async function renderLoadedConsole(options) {
@@ -105,8 +105,8 @@ async function openMemberGroup(options = {}) {
   };
   window.clearTimeout = timer => { clearTimeout(timer); memberTimers.delete(timer); };
   await renderLoadedConsole({ groups: [group(1), group(2)], users: [user(7), user(8, ['Bob', 'Martin']), user(9, ['Carol', 'Morel'])], ...options });
-  bff.on('get', '/bff/admin/groups/{groupId}', ({ pathParams }) => ({ body: { group: group(Number(pathParams.groupId)) } }));
-  bff.on('get', '/bff/admin/groups/{groupId}/users', { body: { users: [member(7), member(8, ['Bob', 'Martin'])] } });
+  bff.on('get', '/admin/groups/{groupId}', ({ pathParams }) => ({ body: { group: group(Number(pathParams.groupId)) } }));
+  bff.on('get', '/admin/groups/{groupId}/users', { body: { users: [member(7), member(8, ['Bob', 'Martin'])] } });
   await openGroups();
   await view.click((_props, text, tag) => tag === 'button' && text.includes('Groupe 1') && text.includes('Ouvrir le groupe'));
   await view.waitFor(() => memberRows().includes('Bob Martin') && view.hostElements('Ajouter').some(({ type }) => type === 'button'));
@@ -116,9 +116,9 @@ for (const operation of ['add', 'remove']) {
   test(`a confirmed group member ${operation} remains visible after a refused read, and retry only reads`, async () => {
     await openMemberGroup();
     const method = operation === 'add' ? 'post' : 'delete';
-    const route = operation === 'add' ? '/bff/admin/groups/{groupId}/users' : '/bff/admin/groups/{groupId}/users/{userId}';
+    const route = operation === 'add' ? '/admin/groups/{groupId}/users' : '/admin/groups/{groupId}/users/{userId}';
     bff.on(method, route, { status: 204 });
-    bff.on('get', '/bff/admin/groups/{groupId}/users', bffError(503));
+    bff.on('get', '/admin/groups/{groupId}/users', bffError(503));
     if (operation === 'add') await view.click('Ajouter');
     else {
       await view.click('Retirer');
@@ -139,17 +139,17 @@ for (const operation of ['add', 'remove']) {
     assert.match(view.text(), new RegExp(`Membres \\(${expected.length}\\)`));
     const writes = membershipWrites();
     assert.equal(writes.length, 1);
-    bff.on('get', '/bff/admin/groups/{groupId}/users', { body: { users: expected } });
+    bff.on('get', '/admin/groups/{groupId}/users', { body: { users: expected } });
     await view.click('Réessayer l’actualisation');
     await view.waitFor(() => view.props('GroupsPanel').busyAction === null && !view.text().includes('Ne répétez pas l’action'));
     assert.deepEqual(membershipWrites(), writes);
-    assert.equal(bff.calls('/bff/admin/groups/{groupId}/users', 'GET').length, 3);
+    assert.equal(bff.calls('/admin/groups/{groupId}/users', 'GET').length, 3);
   });
 
   test(`a pending or refused group member ${operation} does not fabricate confirmation or duplicate writes`, async () => {
     await openMemberGroup();
     const method = operation === 'add' ? 'post' : 'delete';
-    const route = operation === 'add' ? '/bff/admin/groups/{groupId}/users' : '/bff/admin/groups/{groupId}/users/{userId}';
+    const route = operation === 'add' ? '/admin/groups/{groupId}/users' : '/admin/groups/{groupId}/users/{userId}';
     const pending = deferred();
     bff.on(method, route, () => pending.promise);
     let submit;
@@ -169,11 +169,11 @@ for (const operation of ['add', 'remove']) {
     assert.match(memberRows(), /Alice Dupont/);
     assert.doesNotMatch(memberRows(), /Carol Morel/);
     assert.equal(view.props('ConfirmModal').open, operation === 'remove');
-    assert.equal(bff.calls('/bff/admin/groups/{groupId}/users', 'GET').length, 1);
+    assert.equal(bff.calls('/admin/groups/{groupId}/users', 'GET').length, 1);
     assert.equal(membershipWrites().length, 1);
     assert.doesNotMatch(view.text(), /Ne répétez pas l’action/);
     bff.on(method, route, { status: 204 });
-    bff.on('get', '/bff/admin/groups/{groupId}/users', { body: { users: operation === 'add'
+    bff.on('get', '/admin/groups/{groupId}/users', { body: { users: operation === 'add'
       ? [member(7), member(8, ['Bob', 'Martin']), member(9, ['Carol', 'Morel'])]
       : [member(8, ['Bob', 'Martin'])] } });
     await view.act(() => submit());
@@ -187,16 +187,16 @@ for (const operation of ['add', 'remove']) {
 
   test(`a confirmed group member ${operation} is applied before its delayed readback, with the console still locked`, async () => {
     await openMemberGroup();
-    const route = operation === 'add' ? '/bff/admin/groups/{groupId}/users' : '/bff/admin/groups/{groupId}/users/{userId}';
+    const route = operation === 'add' ? '/admin/groups/{groupId}/users' : '/admin/groups/{groupId}/users/{userId}';
     bff.on(operation === 'add' ? 'post' : 'delete', route, { status: 204 });
     const readback = deferred();
-    bff.on('get', '/bff/admin/groups/{groupId}/users', () => readback.promise);
+    bff.on('get', '/admin/groups/{groupId}/users', () => readback.promise);
     if (operation === 'add') await view.click('Ajouter');
     else {
       await view.click('Retirer');
       await view.act(() => view.props('ConfirmModal').onConfirm());
     }
-    await view.waitFor(() => bff.calls('/bff/admin/groups/{groupId}/users', 'GET').length === 2);
+    await view.waitFor(() => bff.calls('/admin/groups/{groupId}/users', 'GET').length === 2);
     if (operation === 'add') assert.match(memberRows(), /Carol Morel/);
     else assert.doesNotMatch(memberRows(), /Alice Dupont/);
     assert.match(view.html, /<fieldset disabled="" aria-busy="true"/);
@@ -208,48 +208,48 @@ for (const operation of ['add', 'remove']) {
 
 test('retrying a failed member refresh cannot put the previous group into a newly selected group or overwrite its draft', async () => {
   await openMemberGroup();
-  bff.on('post', '/bff/admin/groups/{groupId}/users', { status: 204 });
-  bff.on('get', '/bff/admin/groups/{groupId}/users', bffError(503));
+  bff.on('post', '/admin/groups/{groupId}/users', { status: 204 });
+  bff.on('get', '/admin/groups/{groupId}/users', bffError(503));
   await view.click('Ajouter');
   await view.waitFor(() => view.props('GroupsPanel').busyAction === null && view.text().includes('Ne répétez pas l’action'));
-  bff.on('get', '/bff/admin/groups/{groupId}/users', { body: { users: [member(10, ['David', 'Leroy'])] } });
+  bff.on('get', '/admin/groups/{groupId}/users', { body: { users: [member(10, ['David', 'Leroy'])] } });
   await view.click((_props, text, tag) => tag === 'button' && text.includes('Groupe 2') && text.includes('Ouvrir le groupe'));
   await view.waitFor(() => memberRows().includes('David Leroy'));
   await changeField('edit-group-name', 'Brouillon du groupe 2');
-  bff.on('get', '/bff/admin/groups/{groupId}/users', { body: { users: [member(7), member(9, ['Carol', 'Morel'])] } });
-  const reads = bff.calls('/bff/admin/groups/{groupId}/users', 'GET').length;
+  bff.on('get', '/admin/groups/{groupId}/users', { body: { users: [member(7), member(9, ['Carol', 'Morel'])] } });
+  const reads = bff.calls('/admin/groups/{groupId}/users', 'GET').length;
   await view.click('Réessayer l’actualisation');
   await view.waitFor(() => view.props('GroupsPanel').busyAction === null && !view.text().includes('Ne répétez pas l’action'));
   assert.match(memberRows(), /David Leroy/);
   assert.doesNotMatch(memberRows(), /Alice Dupont|Carol Morel/);
-  assert.equal(bff.calls('/bff/admin/groups/{groupId}/users', 'GET').length, reads);
+  assert.equal(bff.calls('/admin/groups/{groupId}/users', 'GET').length, reads);
   assert.match(view.html, /id="edit-group-name"[^>]*value="Brouillon du groupe 2"/);
   assert.equal(membershipWrites().length, 1);
 });
 
 test('confirmed membership followed by confirmed group deletion recovers only the group list and keeps the next selection independent', async () => {
   await openMemberGroup();
-  bff.on('post', '/bff/admin/groups/{groupId}/users', { status: 204 });
-  bff.on('get', '/bff/admin/groups/{groupId}/users', bffError(503));
+  bff.on('post', '/admin/groups/{groupId}/users', { status: 204 });
+  bff.on('get', '/admin/groups/{groupId}/users', bffError(503));
   await view.click('Ajouter');
   await view.waitFor(() => view.props('GroupsPanel').busyAction === null && view.text().includes('Ne répétez pas l’action'));
   assert.match(memberRows(), /Carol Morel/);
-  bff.on('delete', '/bff/admin/groups/{groupId}', { status: 204 });
-  bff.on('get', '/bff/admin/groups', bffError(503));
+  bff.on('delete', '/admin/groups/{groupId}', { status: 204 });
+  bff.on('get', '/admin/groups', bffError(503));
   await view.click('Supprimer ce groupe');
   await view.act(() => view.props('ConfirmModal').onConfirm());
   await view.waitFor(() => view.props('GroupsPanel').busyAction === null && view.props('ConfirmModal').open === false);
   assert.deepEqual(view.props('GroupsPanel').groups.map(value => value.id), [2]);
   assert.equal(view.hostElements(props => props.id === 'edit-group-name').length, 0);
   assert.doesNotMatch(view.text(), /Alice Dupont|Bob Martin|Carol Morel/);
-  const memberReads = bff.calls('/bff/admin/groups/{groupId}/users', 'GET').length;
-  bff.on('get', '/bff/admin/groups', { body: { groups: [group(2)] } });
+  const memberReads = bff.calls('/admin/groups/{groupId}/users', 'GET').length;
+  bff.on('get', '/admin/groups', { body: { groups: [group(2)] } });
   await view.click('Réessayer l’actualisation');
   await view.waitFor(() => !view.text().includes('Ne répétez pas l’action'));
-  assert.equal(bff.calls('/bff/admin/groups/{groupId}/users', 'GET').length, memberReads);
+  assert.equal(bff.calls('/admin/groups/{groupId}/users', 'GET').length, memberReads);
   assert.equal(membershipWrites().length, 1);
-  assert.equal(bff.calls('/bff/admin/groups/{groupId}', 'DELETE').length, 1);
-  bff.on('get', '/bff/admin/groups/{groupId}/users', { body: { users: [member(10, ['David', 'Leroy'])] } });
+  assert.equal(bff.calls('/admin/groups/{groupId}', 'DELETE').length, 1);
+  bff.on('get', '/admin/groups/{groupId}/users', { body: { users: [member(10, ['David', 'Leroy'])] } });
   await view.click((_props, text, tag) => tag === 'button' && text.includes('Groupe 2') && text.includes('Ouvrir le groupe'));
   await view.waitFor(() => memberRows().includes('David Leroy'));
   assert.doesNotMatch(memberRows(), /Alice Dupont|Bob Martin|Carol Morel/);

@@ -56,7 +56,7 @@ async function administrationDom(t) {
   for (const [route, body] of [
     ['roles', { roles: [] }], ['groups', { groups: [] }], ['sessions', { sessions: [] }],
     ['sessions/history', { sessions: [] }], ['users', { users: [], page: 1, page_size: 20, total: 0, total_pages: 0 }],
-  ]) bff.on('get', '/bff/admin/' + route, { body });
+  ]) bff.on('get', '/admin/' + route, { body });
   [{ setBrowserFrontUrls }] = loadTs(['src/lib/front-urls.ts']);
   setBrowserFrontUrls({ ADMINISTRATION_FRONT_URL: 'http://administration.mairie360.test/', LOGIN_FRONT_URL: 'https://login.example/',
     DASHBOARD_FRONT_URL: 'https://dashboard.example/', PROJECT_FRONT_URL: 'https://projects.example/',

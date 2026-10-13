@@ -49,25 +49,25 @@ describe('administration API client against a contract-driven BFF User mock', ()
   describe('users', () => {
     test('listUsers sends the declared pagination and trimmed search query and returns the page', async () => {
       const page = { users: [user(7), user(8)], page: 2, page_size: 20, total: 22, total_pages: 2 };
-      bff.on('get', '/bff/admin/users', { body: page });
+      bff.on('get', '/admin/users', { body: page });
 
       assert.deepEqual(await administrationApi.listUsers({ page: 2, search: '  alice  ' }), page);
 
-      assert.deepEqual(sequence(), ['GET /bff/admin/users?page=2&page_size=20&search=alice']);
+      assert.deepEqual(sequence(), ['GET /admin/users?page=2&page_size=20&search=alice']);
       assert.equal(bff.requests[0].headers.authorization, `Bearer ${front.cookie}`);
       assert.equal(bff.requests[0].headers.cookie, undefined);
-      assert.deepEqual(front.browserCalls, [{ method: 'GET', target: '/api/bff/bff/admin/users?page=2&page_size=20&search=alice' }]);
+      assert.deepEqual(front.browserCalls, [{ method: 'GET', target: '/admin/users?page=2&page_size=20&search=alice' }]);
     });
 
     test('listUsers omits an empty search and defaults to the first page', async () => {
-      bff.on('get', '/bff/admin/users', { body: { users: [], page: 1, page_size: 20, total: 0, total_pages: 0 } });
+      bff.on('get', '/admin/users', { body: { users: [], page: 1, page_size: 20, total: 0, total_pages: 0 } });
 
       assert.deepEqual(await administrationApi.listUsers(), { users: [], page: 1, page_size: 20, total: 0, total_pages: 0 });
-      assert.deepEqual(sequence(), ['GET /bff/admin/users?page=1&page_size=20']);
+      assert.deepEqual(sequence(), ['GET /admin/users?page=1&page_size=20']);
     });
 
     test('listUsers keeps only well-formed users when the BFF answers outside its contract', async () => {
-      bff.on('get', '/bff/admin/users', { outOfContract: true, body: { items: [user(1), { id: 'x' }] } });
+      bff.on('get', '/admin/users', { outOfContract: true, body: { items: [user(1), { id: 'x' }] } });
 
       assert.deepEqual(await administrationApi.listUsers({ page: 3 }), { users: [user(1)], page: 3, page_size: 20, total: 1, total_pages: 1 });
     });
@@ -95,31 +95,31 @@ describe('administration API client against a contract-driven BFF User mock', ()
 
   describe('reads', () => {
     test('listRoles, listGroups and the session lists unwrap their contract envelopes', async () => {
-      bff.on('get', '/bff/admin/roles', { body: { roles: [role(1), role(2, { can_be_deleted: null })] } })
-        .on('get', '/bff/admin/groups', { body: { groups: [group(1), group(2, { description: 'Élus' })] } })
-        .on('get', '/bff/admin/sessions', { body: { sessions: [session('s-1')] } })
-        .on('get', '/bff/admin/sessions/history', { body: { sessions: [session('s-1'), session('s-2', { revoked_at: '2026-09-15T09:00:00Z' })] } });
+      bff.on('get', '/admin/roles', { body: { roles: [role(1), role(2, { can_be_deleted: null })] } })
+        .on('get', '/admin/groups', { body: { groups: [group(1), group(2, { description: 'Élus' })] } })
+        .on('get', '/admin/sessions', { body: { sessions: [session('s-1')] } })
+        .on('get', '/admin/sessions/history', { body: { sessions: [session('s-1'), session('s-2', { revoked_at: '2026-09-15T09:00:00Z' })] } });
 
       assert.deepEqual(await administrationApi.listRoles(), [role(1), role(2, { can_be_deleted: null })]);
       assert.deepEqual(await administrationApi.listGroups(), [group(1), group(2, { description: 'Élus' })]);
       assert.deepEqual(await administrationApi.listActiveSessions(), [session('s-1')]);
       assert.equal((await administrationApi.listSessionHistory()).length, 2);
-      assert.deepEqual(sequence(), ['GET /bff/admin/roles', 'GET /bff/admin/groups', 'GET /bff/admin/sessions', 'GET /bff/admin/sessions/history']);
+      assert.deepEqual(sequence(), ['GET /admin/roles', 'GET /admin/groups', 'GET /admin/sessions', 'GET /admin/sessions/history']);
     });
 
     test('getGroup and listGroupUsers target the group path parameter', async () => {
-      bff.on('get', '/bff/admin/groups/{groupId}', ({ pathParams }) => ({ body: { group: group(Number(pathParams.groupId)) } }))
-        .on('get', '/bff/admin/groups/{groupId}/users', { body: { users: [member(3), member(4)] } });
+      bff.on('get', '/admin/groups/{groupId}', ({ pathParams }) => ({ body: { group: group(Number(pathParams.groupId)) } }))
+        .on('get', '/admin/groups/{groupId}/users', { body: { users: [member(3), member(4)] } });
 
       assert.deepEqual(await administrationApi.getGroup(5), group(5));
       assert.deepEqual(await administrationApi.listGroupUsers(5), [member(3), member(4)]);
-      assert.deepEqual(sequence(), ['GET /bff/admin/groups/5', 'GET /bff/admin/groups/5/users']);
+      assert.deepEqual(sequence(), ['GET /admin/groups/5', 'GET /admin/groups/5/users']);
     });
 
     test('tolerates bare arrays and malformed entries returned outside the contract', async () => {
-      bff.on('get', '/bff/admin/roles', { outOfContract: true, body: [role(1), { id: 2 }] })
-        .on('get', '/bff/admin/groups', { outOfContract: true, body: 'pas un objet' })
-        .on('get', '/bff/admin/groups/{groupId}', { outOfContract: true, body: { id: 5 } });
+      bff.on('get', '/admin/roles', { outOfContract: true, body: [role(1), { id: 2 }] })
+        .on('get', '/admin/groups', { outOfContract: true, body: 'pas un objet' })
+        .on('get', '/admin/groups/{groupId}', { outOfContract: true, body: { id: 5 } });
 
       assert.deepEqual(await administrationApi.listRoles(), [role(1)]);
       assert.deepEqual(await administrationApi.listGroups(), []);
@@ -130,20 +130,20 @@ describe('administration API client against a contract-driven BFF User mock', ()
   describe('writes', () => {
     const cases = [
       ['createUser', () => administrationApi.createUser({ email: 'bob@mairie.test', first_name: 'Bob', last_name: 'Martin', password: 'MotDePasse123', phone_number: null }),
-        'POST', '/bff/admin/users', { email: 'bob@mairie.test', first_name: 'Bob', last_name: 'Martin', password: 'MotDePasse123', phone_number: null }],
-      ['updateUser', () => administrationApi.updateUser(7, { first_name: 'Robert' }), 'PATCH', '/bff/admin/users/7', { first_name: 'Robert' }],
-      ['resetUserPassword', () => administrationApi.resetUserPassword(7, 'NouveauMotDePasse1'), 'PATCH', '/bff/admin/users/7/password', { new_password: 'NouveauMotDePasse1' }],
-      ['deleteUser', () => administrationApi.deleteUser(7), 'DELETE', '/bff/admin/users/7', undefined],
-      ['addRoleToUser', () => administrationApi.addRoleToUser(7, 3), 'POST', '/bff/admin/users/7/roles', { user_id: 7, role_id: 3 }],
-      ['removeRoleFromUser', () => administrationApi.removeRoleFromUser(7, 3), 'DELETE', '/bff/admin/users/7/roles/3', undefined],
-      ['createRole', () => administrationApi.createRole({ name: 'Agent', description: 'Agent municipal' }), 'POST', '/bff/admin/roles', { name: 'Agent', description: 'Agent municipal' }],
-      ['replaceRole', () => administrationApi.replaceRole(4, { name: 'Agent', description: 'Agent', can_be_deleted: false }), 'PUT', '/bff/admin/roles/4', { name: 'Agent', description: 'Agent', can_be_deleted: false }],
-      ['updateRole', () => administrationApi.updateRole(4, { description: 'Nouveau' }), 'PATCH', '/bff/admin/roles/4', { description: 'Nouveau' }],
-      ['deleteRole', () => administrationApi.deleteRole(4), 'DELETE', '/bff/admin/roles/4', undefined],
-      ['createGroup', () => administrationApi.createGroup({ name: 'Élus', description: '' }), 'POST', '/bff/admin/groups', { name: 'Élus', description: '' }],
-      ['deleteGroup', () => administrationApi.deleteGroup(5), 'DELETE', '/bff/admin/groups/5', undefined],
-      ['addUserToGroup', () => administrationApi.addUserToGroup(5, 7), 'POST', '/bff/admin/groups/5/users', { group_id: 5, user_id: 7 }],
-      ['removeUserFromGroup', () => administrationApi.removeUserFromGroup(5, 7), 'DELETE', '/bff/admin/groups/5/users/7', undefined],
+        'POST', '/admin/users', { email: 'bob@mairie.test', first_name: 'Bob', last_name: 'Martin', password: 'MotDePasse123', phone_number: null }],
+      ['updateUser', () => administrationApi.updateUser(7, { first_name: 'Robert' }), 'PATCH', '/admin/users/7', { first_name: 'Robert' }],
+      ['resetUserPassword', () => administrationApi.resetUserPassword(7, 'NouveauMotDePasse1'), 'PATCH', '/admin/users/7/password', { new_password: 'NouveauMotDePasse1' }],
+      ['deleteUser', () => administrationApi.deleteUser(7), 'DELETE', '/admin/users/7', undefined],
+      ['addRoleToUser', () => administrationApi.addRoleToUser(7, 3), 'POST', '/admin/users/7/roles', { user_id: 7, role_id: 3 }],
+      ['removeRoleFromUser', () => administrationApi.removeRoleFromUser(7, 3), 'DELETE', '/admin/users/7/roles/3', undefined],
+      ['createRole', () => administrationApi.createRole({ name: 'Agent', description: 'Agent municipal' }), 'POST', '/admin/roles', { name: 'Agent', description: 'Agent municipal' }],
+      ['replaceRole', () => administrationApi.replaceRole(4, { name: 'Agent', description: 'Agent', can_be_deleted: false }), 'PUT', '/admin/roles/4', { name: 'Agent', description: 'Agent', can_be_deleted: false }],
+      ['updateRole', () => administrationApi.updateRole(4, { description: 'Nouveau' }), 'PATCH', '/admin/roles/4', { description: 'Nouveau' }],
+      ['deleteRole', () => administrationApi.deleteRole(4), 'DELETE', '/admin/roles/4', undefined],
+      ['createGroup', () => administrationApi.createGroup({ name: 'Élus', description: '' }), 'POST', '/admin/groups', { name: 'Élus', description: '' }],
+      ['deleteGroup', () => administrationApi.deleteGroup(5), 'DELETE', '/admin/groups/5', undefined],
+      ['addUserToGroup', () => administrationApi.addUserToGroup(5, 7), 'POST', '/admin/groups/5/users', { group_id: 5, user_id: 7 }],
+      ['removeUserFromGroup', () => administrationApi.removeUserFromGroup(5, 7), 'DELETE', '/admin/groups/5/users/7', undefined],
     ];
 
     for (const [name, call, method, pathname, body] of cases) {
@@ -162,11 +162,11 @@ describe('administration API client against a contract-driven BFF User mock', ()
     }
 
     test('updateGroup returns the group sent back by the BFF, or null on an empty reply', async () => {
-      bff.on('patch', '/bff/admin/groups/{groupId}', { body: { group: group(5, { name: 'Conseil' }) } });
+      bff.on('patch', '/admin/groups/{groupId}', { body: { group: group(5, { name: 'Conseil' }) } });
       assert.deepEqual(await administrationApi.updateGroup(5, { name: 'Conseil', description: '' }), group(5, { name: 'Conseil' }));
       assert.deepEqual(bff.requests[0].body, { name: 'Conseil', description: '' });
 
-      bff.on('patch', '/bff/admin/groups/{groupId}', { status: 204 });
+      bff.on('patch', '/admin/groups/{groupId}', { status: 204 });
       assert.equal(await administrationApi.updateGroup(5, { name: 'Conseil', description: '' }), null);
     });
 
@@ -176,7 +176,7 @@ describe('administration API client against a contract-driven BFF User mock', ()
   describe('errors', () => {
     for (const status of [400, 401, 403, 404, 502]) {
       test(`a ${status} from the BFF becomes a BffRequestError(${status})`, async () => {
-        bff.on('delete', '/bff/admin/roles/{roleId}', bffError(status, 'Refusé'));
+        bff.on('delete', '/admin/roles/{roleId}', bffError(status, 'Refusé'));
 
         await assert.rejects(administrationApi.deleteRole(9), (error) => error instanceof BffRequestError && error.status === status && error.message === `Erreur BFF (${status})`);
       });
@@ -188,12 +188,12 @@ describe('administration API client against a contract-driven BFF User mock', ()
       front.allowedOrigins.add(url);
 
       await assert.rejects(administrationApi.listRoles(), (error) => error instanceof BffRequestError && error.status === 502);
-      assert.deepEqual(front.serverCalls.map(({ url: target }) => target.pathname), ['/bff/admin/roles']);
+      assert.deepEqual(front.serverCalls.map(({ url: target }) => target.pathname), ['/admin/roles']);
     });
 
     test('without a session cookie the API reports the actual BFF401 without page middleware', async () => {
       front.cookie = undefined;
-      bff.on('get', '/bff/admin/groups', bffError(401));
+      bff.on('get', '/admin/groups', bffError(401));
       await assert.rejects(administrationApi.listGroups(), (error) => error instanceof BffRequestError && error.status === 401);
       assert.equal(bff.requests.length, 1);
       assert.equal(bff.requests[0].headers.authorization, undefined);
@@ -203,8 +203,8 @@ describe('administration API client against a contract-driven BFF User mock', ()
   test('every retained administration client operation is exercised; retired token session writes stay unavailable', () => {
     // MAIR-406 keeps read-only lists and retires token consumers. Neither the
     // browser client nor the frontend proxy exposes those retired operations.
-    const retired = new Set(['/bff/admin/sessions/refresh', '/bff/admin/sessions/revoke']);
-    const declared = contract.operations().filter(({ template }) => template.startsWith('/bff/admin/') && !retired.has(template)).map(({ method, template }) => `${method} ${template}`);
+    const retired = new Set(['/admin/sessions/refresh', '/admin/sessions/revoke']);
+    const declared = contract.operations().filter(({ template }) => template.startsWith('/admin/') && !retired.has(template)).map(({ method, template }) => `${method} ${template}`);
     assert.deepEqual([...exercised].sort(), declared.sort());
   });
 });

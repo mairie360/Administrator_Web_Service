@@ -32,11 +32,11 @@ afterEach(() => {
 });
 
 async function openRoles() {
-  bff.on('get', '/bff/admin/roles', { body: { roles: [role(1), role(2)] } });
-  bff.on('get', '/bff/admin/groups', { body: { groups: [] } });
-  bff.on('get', '/bff/admin/sessions', { body: { sessions: [] } });
-  bff.on('get', '/bff/admin/sessions/history', { body: { sessions: [] } });
-  bff.on('get', '/bff/admin/users', { body: { users: [], page: 1, page_size: 20, total: 0, total_pages: 0 } });
+  bff.on('get', '/admin/roles', { body: { roles: [role(1), role(2)] } });
+  bff.on('get', '/admin/groups', { body: { groups: [] } });
+  bff.on('get', '/admin/sessions', { body: { sessions: [] } });
+  bff.on('get', '/admin/sessions/history', { body: { sessions: [] } });
+  bff.on('get', '/admin/users', { body: { users: [], page: 1, page_size: 20, total: 0, total_pages: 0 } });
   view = mount(React.createElement(AdministrationConsole));
   await view.waitFor(() => bff.requests.length === 5 && view.hostElements('Actualiser')[0]?.props.disabled === false);
   await view.click((props, text) => props.role === 'tab' && text === 'Rôles');
@@ -51,18 +51,18 @@ const confirmDeletion = async () => {
 
 test('a confirmed role deletion remains reflected after a refused follow-up read; retry is GET only', async () => {
   await openRoles();
-  bff.on('delete', '/bff/admin/roles/{roleId}', { status: 204 });
-  bff.on('get', '/bff/admin/roles', bffError(503));
+  bff.on('delete', '/admin/roles/{roleId}', { status: 204 });
+  bff.on('get', '/admin/roles', bffError(503));
   await startDeletion(); await confirmDeletion();
   assert.match(view.text(), /Rôle supprimé/);
   assert.deepEqual(view.props('RolesPanel').roles.map((item) => item.id), [2]);
   assert.doesNotMatch(view.text(), /Rôle 1/);
-  assert.equal(bff.calls('/bff/admin/roles/{roleId}', 'DELETE').length, 1);
-  bff.on('get', '/bff/admin/roles', { body: { roles: [role(2)] } });
+  assert.equal(bff.calls('/admin/roles/{roleId}', 'DELETE').length, 1);
+  bff.on('get', '/admin/roles', { body: { roles: [role(2)] } });
   await view.click('Réessayer l’actualisation');
   await view.waitFor(() => !view.text().includes('Réessayer l’actualisation'));
   assert.deepEqual(view.props('RolesPanel').roles.map((item) => item.id), [2]);
-  assert.equal(bff.calls('/bff/admin/roles/{roleId}', 'DELETE').length, 1);
+  assert.equal(bff.calls('/admin/roles/{roleId}', 'DELETE').length, 1);
 });
 
 function deferred() {
@@ -78,13 +78,13 @@ test('pending and refused deletion preserve the role, modal and draft; a confirm
   await view.click('Modifier');
   await changeField('role-name', 'Brouillon conservé');
   const write = deferred();
-  bff.on('delete', '/bff/admin/roles/{roleId}', () => write.promise);
+  bff.on('delete', '/admin/roles/{roleId}', () => write.promise);
   await startDeletion();
   await view.act(() => {
     view.props('ConfirmModal').onConfirm();
     view.props('ConfirmModal').onConfirm();
   });
-  await view.waitFor(() => bff.calls('/bff/admin/roles/{roleId}', 'DELETE').length === 1);
+  await view.waitFor(() => bff.calls('/admin/roles/{roleId}', 'DELETE').length === 1);
   assert.deepEqual(view.props('RolesPanel').roles.map((item) => item.id), [1, 2]);
   assert.equal(view.props('ConfirmModal').busy, true);
   assert.equal(field('role-name').value, 'Brouillon conservé');
@@ -93,38 +93,38 @@ test('pending and refused deletion preserve the role, modal and draft; a confirm
   assert.equal(view.props('ConfirmModal').open, true);
   assert.deepEqual(view.props('RolesPanel').roles.map((item) => item.id), [1, 2]);
   assert.equal(field('role-name').value, 'Brouillon conservé');
-  assert.equal(bff.calls('/bff/admin/roles', 'GET').length, 1);
-  bff.on('delete', '/bff/admin/roles/{roleId}', { status: 204 });
-  bff.on('get', '/bff/admin/roles', bffError(503));
+  assert.equal(bff.calls('/admin/roles', 'GET').length, 1);
+  bff.on('delete', '/admin/roles/{roleId}', { status: 204 });
+  bff.on('get', '/admin/roles', bffError(503));
   await confirmDeletion();
   assert.deepEqual(view.props('RolesPanel').roles.map((item) => item.id), [2]);
   assert.equal(field('role-name').value, '');
-  assert.equal(bff.calls('/bff/admin/roles/{roleId}', 'DELETE').length, 2);
+  assert.equal(bff.calls('/admin/roles/{roleId}', 'DELETE').length, 2);
 });
 
 test('the confirmed deletion is rendered before a delayed follow-up GET settles', async () => {
   await openRoles();
   const read = deferred();
-  bff.on('delete', '/bff/admin/roles/{roleId}', { status: 204 });
-  bff.on('get', '/bff/admin/roles', () => read.promise);
+  bff.on('delete', '/admin/roles/{roleId}', { status: 204 });
+  bff.on('get', '/admin/roles', () => read.promise);
   await startDeletion();
   await view.act(() => view.props('ConfirmModal').onConfirm());
-  await view.waitFor(() => bff.calls('/bff/admin/roles', 'GET').length === 2);
+  await view.waitFor(() => bff.calls('/admin/roles', 'GET').length === 2);
   assert.deepEqual(view.props('RolesPanel').roles.map((item) => item.id), [2]);
   assert.equal(view.props('ConfirmModal').busy, true);
   read.resolve(bffError(503));
   await view.waitFor(() => view.props('ConfirmModal').open === false);
-  assert.equal(bff.calls('/bff/admin/roles/{roleId}', 'DELETE').length, 1);
+  assert.equal(bff.calls('/admin/roles/{roleId}', 'DELETE').length, 1);
 });
 
 test('a global read started before the deletion cannot restore the confirmed removed role', async () => {
   await openRoles();
   const stale = deferred();
   let reads = 0;
-  bff.on('get', '/bff/admin/roles', () => ++reads === 1 ? stale.promise : bffError(503));
+  bff.on('get', '/admin/roles', () => ++reads === 1 ? stale.promise : bffError(503));
   await view.click('Actualiser');
-  await view.waitFor(() => bff.calls('/bff/admin/roles', 'GET').length === 2);
-  bff.on('delete', '/bff/admin/roles/{roleId}', { status: 204 });
+  await view.waitFor(() => bff.calls('/admin/roles', 'GET').length === 2);
+  bff.on('delete', '/admin/roles/{roleId}', { status: 204 });
   await startDeletion(); await confirmDeletion();
   stale.resolve({ body: { roles: [role(1), role(2)] } });
   await view.waitFor(() => view.hostElements('Actualiser')[0]?.props.disabled === false);
@@ -136,11 +136,11 @@ test('deleting another role preserves an unrelated create draft', async () => {
   await openRoles();
   await changeField('role-name', 'Nouveau rôle non envoyé');
   await changeField('role-description', 'Description non envoyée');
-  bff.on('delete', '/bff/admin/roles/{roleId}', { status: 204 });
-  bff.on('get', '/bff/admin/roles', bffError(503));
+  bff.on('delete', '/admin/roles/{roleId}', { status: 204 });
+  bff.on('get', '/admin/roles', bffError(503));
   await startDeletion(); await confirmDeletion();
   assert.equal(field('role-name').value, 'Nouveau rôle non envoyé');
   assert.equal(field('role-description').value, 'Description non envoyée');
-  assert.equal(bff.calls('/bff/admin/roles', 'POST').length, 0);
+  assert.equal(bff.calls('/admin/roles', 'POST').length, 0);
   assert.deepEqual(view.props('RolesPanel').roles.map((item) => item.id), [2]);
 });

@@ -8,7 +8,7 @@ ON CONFLICT (id) DO NOTHING;
 -- Core API >= 1.1.1 exige au moins un rôle sur l'utilisateur pour GET /user/me
 -- (sinon 502 côté BFF User, donc sur /api/user/me et sur le shell du front).
 -- The "User" role alone does not grant administration: BFF User answers 403 to every
--- /bff/admin/* call. Since MAIR-516 the test user also carries the "Admin" role, so the
+-- /admin/* call. Since MAIR-516 the test user also carries the "Admin" role, so the
 -- console, the ZAP scan and the k6 write scenario (group creation and deletion) reach
 -- the administration routes the way a real administrator does.
 INSERT INTO user_roles (user_id, role_id)

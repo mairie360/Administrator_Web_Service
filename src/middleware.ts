@@ -106,5 +106,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  // BFF User paths (contracts/openapi.json) are relayed at the root of this origin and answer
+  // with their own 401: only pages go through the login redirect.
+  matcher: ["/((?!(?:api|admin|auth|user|me|session|health|check_apis)(?:/|$)|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };

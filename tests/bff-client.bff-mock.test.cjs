@@ -112,15 +112,15 @@ describe('requestBff', () => {
 describe('refusal details (MAIR-514)', () => {
   test('a refusal carries the details of the ErrorResponse envelope, or none when the body is not JSON', async () => {
     const details = [{ path: 'body.first_name', message: 'Must not contain < or >' }, { message: 'Context only' }, { path: 'ignored' }];
-    bff.on('post', '/bff/admin/users', { status: 400, body: { error: { code: 'BAD_REQUEST', message: 'Validation failed', details } }, outOfContract: true });
-    await assert.rejects(requestBff('/bff/admin/users', { method: 'POST', body: JSON.stringify({ first_name: 'Anne', last_name: 'Martin', email: 'anne.martin@mairie.test', password: 'motdepasse' }) }), (error) => {
+    bff.on('post', '/admin/users', { status: 400, body: { error: { code: 'BAD_REQUEST', message: 'Validation failed', details } }, outOfContract: true });
+    await assert.rejects(requestBff('/admin/users', { method: 'POST', body: JSON.stringify({ first_name: 'Anne', last_name: 'Martin', email: 'anne.martin@mairie.test', password: 'motdepasse' }) }), (error) => {
       assert.equal(error.name, 'BffRequestError');
       assert.deepEqual([error.status, error.message], [400, 'Erreur BFF (400)']);
       assert.deepEqual(error.details, [{ path: 'body.first_name', message: 'Must not contain < or >' }, { path: undefined, message: 'Context only' }]);
       return true;
     });
-    bff.on('get', '/bff/admin/roles', { status: 503, raw: 'down', contentType: 'text/plain', outOfContract: true });
-    await assert.rejects(requestBff('/bff/admin/roles'), (error) => {
+    bff.on('get', '/admin/roles', { status: 503, raw: 'down', contentType: 'text/plain', outOfContract: true });
+    await assert.rejects(requestBff('/admin/roles'), (error) => {
       assert.deepEqual([error.status, error.details], [503, []]);
       return true;
     });
@@ -144,9 +144,9 @@ describe('protected document navigation', () => {
     });
 
     const results = await Promise.allSettled([
-      requestBff('/bff/admin/roles'),
-      requestBff('/bff/admin/groups'),
-      requestBff('/bff/admin/sessions', { redirect: 'follow' }),
+      requestBff('/admin/roles'),
+      requestBff('/admin/groups'),
+      requestBff('/admin/sessions', { redirect: 'follow' }),
     ]);
 
     assert.ok(results.every(result => result.status === 'rejected' && result.reason.name === 'BffNavigationRequiredError'));
@@ -168,14 +168,14 @@ describe('protected document navigation', () => {
       return { type: 'opaqueredirect' };
     });
 
-    await assert.rejects(requestBff('/bff/admin/groups/1', { method: 'DELETE' }), {
+    await assert.rejects(requestBff('/admin/groups/1', { method: 'DELETE' }), {
       name: 'BffNavigationRequiredError',
     });
     assert.equal(location.reloads, 0);
     assert.equal(location.assigned.length, 1);
     assert.equal(new URL(location.assigned[0]).searchParams.get('redirect'), location.href);
     assert.equal(requests.length, 1);
-    assert.equal(requests[0].path, '/api/bff/bff/admin/groups/1');
+    assert.equal(requests[0].path, '/admin/groups/1');
     assert.equal(requests[0].init.method, 'DELETE');
     assert.equal(requests[0].init.redirect, 'manual');
     assert.equal(requests[0].init.body, undefined);
@@ -191,7 +191,7 @@ describe('protected document navigation', () => {
       return { type: 'opaqueredirect' };
     });
 
-    await assert.rejects(requestBff('/bff/admin/roles', { signal: controller.signal }), { name: 'AbortError' });
+    await assert.rejects(requestBff('/admin/roles', { signal: controller.signal }), { name: 'AbortError' });
     assert.equal(location.reloads, 0);
   });
 
@@ -206,7 +206,7 @@ describe('protected document navigation', () => {
     }));
 
     for (status of [401, 403, 503]) {
-      await assert.rejects(requestBff('/bff/admin/roles'), {
+      await assert.rejects(requestBff('/admin/roles'), {
         name: 'BffRequestError', status, message: `Erreur BFF (${status})`,
       });
     }
@@ -219,7 +219,7 @@ describe('protected document navigation', () => {
     global.window = { location };
     t.mock.method(global, 'fetch', async () => { throw new TypeError('Network unavailable'); });
 
-    await assert.rejects(requestBff('/bff/admin/roles'), { name: 'TypeError', message: 'Network unavailable' });
+    await assert.rejects(requestBff('/admin/roles'), { name: 'TypeError', message: 'Network unavailable' });
     assert.equal(location.reloads, 0);
   });
 
@@ -227,7 +227,7 @@ describe('protected document navigation', () => {
     delete global.window;
     t.mock.method(global, 'fetch', async () => ({ type: 'opaqueredirect' }));
 
-    await assert.rejects(requestBff('/bff/admin/roles'), { name: 'BffNavigationRequiredError' });
+    await assert.rejects(requestBff('/admin/roles'), { name: 'BffNavigationRequiredError' });
   });
 });
 

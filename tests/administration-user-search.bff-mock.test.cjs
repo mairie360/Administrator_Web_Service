@@ -43,12 +43,12 @@ async function withConsole(handler, run) {
       try { return await originalList(options); }
       finally { completed.push({ ...options }); }
     };
-    bff.on('GET', '/bff/admin/roles', { body: { roles: [] } });
-    bff.on('GET', '/bff/admin/groups', { body: { groups: [] } });
-    bff.on('GET', '/bff/admin/sessions', { body: { sessions: [] } });
-    bff.on('GET', '/bff/admin/sessions/history', { body: { sessions: [] } });
+    bff.on('GET', '/admin/roles', { body: { roles: [] } });
+    bff.on('GET', '/admin/groups', { body: { groups: [] } });
+    bff.on('GET', '/admin/sessions', { body: { sessions: [] } });
+    bff.on('GET', '/admin/sessions/history', { body: { sessions: [] } });
     const reply = handler(deferred);
-    bff.on('GET', '/bff/admin/users', reply);
+    bff.on('GET', '/admin/users', reply);
     view = mount(React.createElement(AdministrationConsole));
     await view.waitFor(() => completed.length > 0 &&
       view.hostElements('Actualiser')[0]?.props.disabled === false);
@@ -76,7 +76,7 @@ test('a late earlier search cannot replace the latest rows, total or page', asyn
       ? earlier.promise : response(request.url.searchParams.get('search') === 'Bob' ? [bob] : [alice, bob]);
   }, async ({ view, bff, search, completed }) => {
     await search('Alice');
-    await view.waitFor(() => bff.calls('/bff/admin/users').length === 2);
+    await view.waitFor(() => bff.calls('/admin/users').length === 2);
     await search('Bob');
     await view.waitFor(() => completed.some(item => item.search === 'Bob') && view.text().includes('Bob Recette'));
     earlier.resolve(response([alice], { total: 99, total_pages: 5 }));
@@ -101,9 +101,9 @@ test('an earlier refusal cannot clear the latest loading indicator; a fresh retr
     };
   }, async ({ view, bff, search, completed }) => {
     await search('Alice');
-    await view.waitFor(() => bff.calls('/bff/admin/users').length === 2);
+    await view.waitFor(() => bff.calls('/admin/users').length === 2);
     await search('Bob');
-    await view.waitFor(() => bff.calls('/bff/admin/users').length === 3);
+    await view.waitFor(() => bff.calls('/admin/users').length === 3);
     // Error DTOs are not published by BFF User; use the existing explicit
     // out-of-contract transport-refusal fixture, never claim schema coverage.
     earlier.resolve(bffError(503, 'Earlier search refused'));
@@ -130,7 +130,7 @@ test('an earlier success cannot clear or replace a newer search refusal', async 
     };
   }, async ({ view, bff, search, completed }) => {
     await search('Alice');
-    await view.waitFor(() => bff.calls('/bff/admin/users').length === 2);
+    await view.waitFor(() => bff.calls('/admin/users').length === 2);
     await search('Bob');
     await view.waitFor(() => view.text().includes(unavailable));
     earlier.resolve(response([alice], { total: 99 }));
@@ -148,7 +148,7 @@ test('repeated refresh of unchanged criteria keeps only the latest response', as
     return () => ++reads === 2 ? earlier.promise : response([bob]);
   }, async ({ view, bff, search, completed }) => {
     await search('');
-    await view.waitFor(() => bff.calls('/bff/admin/users').length === 2);
+    await view.waitFor(() => bff.calls('/admin/users').length === 2);
     await search('');
     await view.waitFor(() => completed.length === 2 && view.text().includes('Bob Recette'));
     earlier.resolve(response([alice]));
@@ -168,7 +168,7 @@ test('a page response started before a new search cannot restore its rows or pag
         : response([alice, bob], { total: 21, total_pages: 2 });
   }, async ({ view, bff, search, completed }) => {
     await view.fire(props => props['aria-label'] === 'Page suivante', 'onClick');
-    await view.waitFor(() => bff.calls('/bff/admin/users').length === 2);
+    await view.waitFor(() => bff.calls('/admin/users').length === 2);
     await search('Bob');
     await view.waitFor(() => view.text().includes('Bob Recette') && view.text().includes('Page 1 / 1'));
     earlier.resolve(response([alice], { page: 2, total: 21, total_pages: 2 }));
@@ -186,7 +186,7 @@ test('an old panel read cannot change the total after leaving and reopening User
     return () => ++reads === 2 ? earlier.promise : response([bob]);
   }, async ({ view, bff, search, completed }) => {
     await search('');
-    await view.waitFor(() => bff.calls('/bff/admin/users').length === 2);
+    await view.waitFor(() => bff.calls('/admin/users').length === 2);
     await view.click('Rôles');
     assert.equal(view.find('UsersPanel').length, 0);
     await view.click('Utilisateurs');

@@ -78,11 +78,11 @@ const sequence = () => bff.requests.map(({ method, template }) => `${method} ${t
 const consoleLoaded = () => view.hostElements('Actualiser')[0]?.props.disabled === false;
 
 function mockConsoleData({ roles = [role(1), role(2)], groups = [group(1)], active = [session('s-1')], history = [session('s-0', { revoked_at: '2026-09-14T08:00:00Z' })], users = [user(7), user(8, ['Bob', 'Martin'])] } = {}) {
-  bff.on('get', '/bff/admin/roles', { body: { roles } });
-  bff.on('get', '/bff/admin/groups', { body: { groups } });
-  bff.on('get', '/bff/admin/sessions', { body: { sessions: active } });
-  bff.on('get', '/bff/admin/sessions/history', { body: { sessions: history } });
-  bff.on('get', '/bff/admin/users', { body: { users, page: 1, page_size: 20, total: users.length, total_pages: 1 } });
+  bff.on('get', '/admin/roles', { body: { roles } });
+  bff.on('get', '/admin/groups', { body: { groups } });
+  bff.on('get', '/admin/sessions', { body: { sessions: active } });
+  bff.on('get', '/admin/sessions/history', { body: { sessions: history } });
+  bff.on('get', '/admin/users', { body: { users, page: 1, page_size: 20, total: users.length, total_pages: 1 } });
 }
 
 async function renderLoadedConsole(options) {
@@ -108,11 +108,11 @@ test('the page shell renders the BFF-backed console with the resolved user sessi
   await view.waitFor(() => view.props('Header').user.name === 'Alice Dupont' && view.text().includes('2 Utilisateurs') && consoleLoaded());
 
   assert.deepEqual(sequence(), [
-    'GET /bff/admin/groups',
-    'GET /bff/admin/roles',
-    'GET /bff/admin/sessions',
-    'GET /bff/admin/sessions/history',
-    'GET /bff/admin/users',
+    'GET /admin/groups',
+    'GET /admin/roles',
+    'GET /admin/sessions',
+    'GET /admin/sessions/history',
+    'GET /admin/users',
     'GET /me',
   ]);
   assert.match(view.html, /<span[^>]*>Alice Dupont<\/span>/);
@@ -147,7 +147,7 @@ test('a pending profile does not mount the console or request administration dat
 
   await view.waitFor(() => consoleLoaded() && view.text().includes('Bob Martin'));
   assert.equal(view.find('AdministrationConsole').length, 1);
-  assert.equal(bff.requests.filter(request => request.template.startsWith('/bff/admin/')).length, 5);
+  assert.equal(bff.requests.filter(request => request.template.startsWith('/admin/')).length, 5);
 });
 
 for (const roleName of ['Responsable', 'Maire', 'User', 'Guest']) {
@@ -275,9 +275,9 @@ for (const status of [200, 503]) test(`unconfirmed logout${status} keeps the mou
   assert.equal(roleName().value, 'Brouillon local conservé');
   assert.equal(window.localStorage.getItem('mairie360.auth.jwt'), 'legacy');
   assert.deepEqual(window.location.assigned, []);
-  bff.on('get', '/bff/admin/roles', bffError(401));
+  bff.on('get', '/admin/roles', bffError(401));
   const [{ requestBff }] = loadTs(['src/lib/bff-client.ts']);
-  await assert.rejects(requestBff('/bff/admin/roles'), { status: 401 });
+  await assert.rejects(requestBff('/admin/roles'), { status: 401 });
   assert.deepEqual(window.location.assigned, [], 'a late data401 cannot dismiss the explicit recovery choice');
   assert.equal(roleName().value, 'Brouillon local conservé');
   await view.click('Retour à la connexion');
@@ -298,7 +298,7 @@ test('the console loads roles, groups, sessions and users and renders the counts
 
   const html = await view.waitFor(() => bff.requests.length === 5 && consoleLoaded() && !view.html.includes('aria-label="Chargement"') && view.text().includes('2 Utilisateurs'));
 
-  assert.deepEqual(sequence(), ['GET /bff/admin/groups', 'GET /bff/admin/roles', 'GET /bff/admin/sessions', 'GET /bff/admin/sessions/history', 'GET /bff/admin/users']);
+  assert.deepEqual(sequence(), ['GET /admin/groups', 'GET /admin/roles', 'GET /admin/sessions', 'GET /admin/sessions/history', 'GET /admin/users']);
   assert.equal(bff.requests[0].headers.authorization, `Bearer ${front.cookie}`);
   assert.match(view.text(), /2 Utilisateurs 2 Rôles 1 Groupes 1 Sessions actives/);
   assert.match(html, /<button type="button" role="tab" aria-selected="true"[^>]*>[\s\S]*?Utilisateurs/);
@@ -347,8 +347,8 @@ test('session history distinguishes expiration, revocation and unknown expiry wi
 test('long group names stay complete in the scoped responsive console and detail panel', async () => {
   const longName = 'Recette'.repeat(9); // 63 characters: within the existing group contract.
   await renderLoadedConsole({ groups: [group(1, { name: longName })] });
-  bff.on('get', '/bff/admin/groups/{groupId}', { body: { group: group(1, { name: longName }) } });
-  bff.on('get', '/bff/admin/groups/{groupId}/users', { body: { users: [] } });
+  bff.on('get', '/admin/groups/{groupId}', { body: { group: group(1, { name: longName }) } });
+  bff.on('get', '/admin/groups/{groupId}/users', { body: { users: [] } });
 
   await view.click((props, text, tag) => tag === 'button' && props.role === 'tab' && text.includes('Groupes'));
   await view.click((props, text, tag) => tag === 'button' && text.includes(longName));
@@ -362,14 +362,14 @@ test('long group names stay complete in the scoped responsive console and detail
   assert.match(view.html, new RegExp(`id="edit-group-name"[^>]*value="${longName}"`));
   assert.ok(view.text().includes('Enregistrer le groupe'));
   assert.deepEqual(sequence(), [
-    'GET /bff/admin/groups', 'GET /bff/admin/groups/{groupId}',
-    'GET /bff/admin/groups/{groupId}/users', 'GET /bff/admin/roles',
-    'GET /bff/admin/sessions', 'GET /bff/admin/sessions/history', 'GET /bff/admin/users',
+    'GET /admin/groups', 'GET /admin/groups/{groupId}',
+    'GET /admin/groups/{groupId}/users', 'GET /admin/roles',
+    'GET /admin/sessions', 'GET /admin/sessions/history', 'GET /admin/users',
   ]);
 });
 
 test('a 401 from the BFF is rendered as the administrator-session alert', async () => {
-  for (const template of ['/bff/admin/roles', '/bff/admin/groups', '/bff/admin/sessions', '/bff/admin/sessions/history', '/bff/admin/users']) {
+  for (const template of ['/admin/roles', '/admin/groups', '/admin/sessions', '/admin/sessions/history', '/admin/users']) {
     bff.on('get', template, bffError(401, 'Invalid or missing session token'));
   }
   view = mount(React.createElement(AdministrationConsole));
@@ -384,7 +384,7 @@ test('a 401 from the BFF is rendered as the administrator-session alert', async 
 
 test('a partial failure keeps the data that loaded and lists the failed source', async () => {
   mockConsoleData();
-  bff.on('get', '/bff/admin/roles', bffError(503, 'Core API unavailable'));
+  bff.on('get', '/admin/roles', bffError(503, 'Core API unavailable'));
   view = mount(React.createElement(AdministrationConsole));
 
   const html = await view.waitFor((current) => current.includes('role="alert"') && view.text().includes('2 Utilisateurs'));
@@ -398,13 +398,13 @@ test('a partial failure keeps the data that loaded and lists the failed source',
 
 test('the refresh button reloads the four administration sources', async () => {
   await renderLoadedConsole();
-  bff.on('get', '/bff/admin/roles', { body: { roles: [role(1), role(2), role(3)] } });
+  bff.on('get', '/admin/roles', { body: { roles: [role(1), role(2), role(3)] } });
 
   await view.click('Actualiser');
   await view.waitFor(() => bff.requests.length === 9 && view.text().includes('3 Rôles'));
 
-  assert.deepEqual(sequence().filter((line) => line.endsWith('/roles')), ['GET /bff/admin/roles', 'GET /bff/admin/roles']);
-  assert.equal(bff.calls('/bff/admin/users').length, 1, 'the users list has its own loader');
+  assert.deepEqual(sequence().filter((line) => line.endsWith('/roles')), ['GET /admin/roles', 'GET /admin/roles']);
+  assert.equal(bff.calls('/admin/users').length, 1, 'the users list has its own loader');
 });
 
 const deferred = () => {
@@ -415,10 +415,10 @@ const deferred = () => {
 const changeField = (id, value) => view.fire(props => props.id === id, 'onChange', { target: { value } });
 
 const initialLists = [
-  { path: '/bff/admin/roles', tab: 'Rôles', unknown: 'Les rôles n’ont pas pu être chargés.', empty: 'Aucun rôle disponible.', body: { roles: [] } },
-  { path: '/bff/admin/groups', tab: 'Groupes', unknown: 'Les groupes n’ont pas pu être chargés.', empty: 'Aucun groupe pour le moment.', body: { groups: [] } },
-  { path: '/bff/admin/sessions', tab: 'Sessions', unknown: 'Les sessions n’ont pas pu être chargées.', empty: 'Aucune session à afficher.', body: { sessions: [] } },
-  { path: '/bff/admin/sessions/history', tab: 'Sessions', history: true, unknown: 'Les sessions n’ont pas pu être chargées.', empty: 'Aucune session à afficher.', body: { sessions: [] } },
+  { path: '/admin/roles', tab: 'Rôles', unknown: 'Les rôles n’ont pas pu être chargés.', empty: 'Aucun rôle disponible.', body: { roles: [] } },
+  { path: '/admin/groups', tab: 'Groupes', unknown: 'Les groupes n’ont pas pu être chargés.', empty: 'Aucun groupe pour le moment.', body: { groups: [] } },
+  { path: '/admin/sessions', tab: 'Sessions', unknown: 'Les sessions n’ont pas pu être chargées.', empty: 'Aucune session à afficher.', body: { sessions: [] } },
+  { path: '/admin/sessions/history', tab: 'Sessions', history: true, unknown: 'Les sessions n’ont pas pu être chargées.', empty: 'Aucune session à afficher.', body: { sessions: [] } },
 ];
 for (const source of initialLists) {
   test(`an unread ${source.path} is unavailable, not an empty list, and a GET retry can confirm emptiness`, async () => {
@@ -443,13 +443,13 @@ for (const source of initialLists) {
 test('unread user totals and pagination stay unknown until an empty response is confirmed', async () => {
   const waiting = deferred();
   mockConsoleData();
-  bff.on('get', '/bff/admin/users', async () => {
+  bff.on('get', '/admin/users', async () => {
     await waiting.promise;
     return { body: { users: [], page: 1, page_size: 20, total: 0, total_pages: 0 } };
   });
   view = mount(React.createElement(AdministrationConsole));
   try {
-    await view.waitFor(() => bff.calls('/bff/admin/users').length === 1 && view.html.includes('aria-label="Chargement"'));
+    await view.waitFor(() => bff.calls('/admin/users').length === 1 && view.html.includes('aria-label="Chargement"'));
     assert.doesNotMatch(view.text(), /0 utilisateur|Page 1 \/ 1/);
   } finally {
     waiting.resolve();
@@ -461,7 +461,7 @@ test('unread user totals and pagination stay unknown until an empty response is 
 
 test('an initial refused user read never claims a zero total or a confirmed page', async () => {
   mockConsoleData();
-  bff.on('get', '/bff/admin/users', bffError(503));
+  bff.on('get', '/admin/users', bffError(503));
   view = mount(React.createElement(AdministrationConsole));
   await view.waitFor(() => consoleLoaded() && view.text().includes('Réessayer le chargement des utilisateurs'));
   assert.doesNotMatch(view.text(), /0 utilisateur|Page 1 \/ 1/);
@@ -473,7 +473,7 @@ test('an initial refused user read never claims a zero total or a confirmed page
 test('the initial pending lists have unknown counters and never show a confirmed empty state', async () => {
   const waiting = deferred();
   mockConsoleData();
-  bff.on('get', '/bff/admin/roles', async () => { await waiting.promise; return { body: { roles: [] } }; });
+  bff.on('get', '/admin/roles', async () => { await waiting.promise; return { body: { roles: [] } }; });
   view = mount(React.createElement(AdministrationConsole));
   try {
     await view.waitFor(() => bff.requests.length === 5);
@@ -522,15 +522,15 @@ test('independent panel drafts and session history survive a console refresh aft
   await changeField('create-first-name', 'Brouillon utilisateur');
   await refreshConsole();
   assert.equal(fieldValue('create-first-name'), 'Brouillon utilisateur');
-  assert.equal(bff.calls('/bff/admin/users', 'GET').length, 1);
+  assert.equal(bff.calls('/admin/users', 'GET').length, 1);
 
   await view.click((props, text) => props.role === 'tab' && text === 'Rôles');
   await changeField('role-name', 'Brouillon rôle');
   await refreshConsole();
   assert.equal(fieldValue('role-name'), 'Brouillon rôle');
 
-  bff.on('get', '/bff/admin/groups/{groupId}', { body: { group: group(1) } });
-  bff.on('get', '/bff/admin/groups/{groupId}/users', { body: { users: [] } });
+  bff.on('get', '/admin/groups/{groupId}', { body: { group: group(1) } });
+  bff.on('get', '/admin/groups/{groupId}/users', { body: { users: [] } });
   await openGroups();
   await changeField('group-name', 'Brouillon création');
   await view.click((props, text, tag) => tag === 'button' && text.includes('Groupe 1'));
@@ -552,46 +552,46 @@ test('independent panel drafts and session history survive a console refresh aft
 test('a delayed initial console read cannot erase a group confirmed by a later creation', async () => {
   mockConsoleData();
   const initialRoles = deferred();
-  bff.on('get', '/bff/admin/roles', () => initialRoles.promise);
+  bff.on('get', '/admin/roles', () => initialRoles.promise);
   view = mount(React.createElement(AdministrationConsole));
   await view.waitFor(() => bff.requests.length === 5 && view.text().includes('2 Utilisateurs'));
   await openGroups();
   await changeField('group-name', 'Groupe confirmé');
-  bff.on('post', '/bff/admin/groups', { status: 201, body: { group: group(2, { name: 'Groupe confirmé' }) } });
-  bff.on('get', '/bff/admin/groups', { body: { groups: [group(1), group(2, { name: 'Groupe confirmé' })] } });
+  bff.on('post', '/admin/groups', { status: 201, body: { group: group(2, { name: 'Groupe confirmé' }) } });
+  bff.on('get', '/admin/groups', { body: { groups: [group(1), group(2, { name: 'Groupe confirmé' })] } });
   await view.act(() => groupForm().props.onSubmit({ preventDefault() {} }));
   assert.match(view.text(), /Groupe confirmé/);
   initialRoles.resolve({ body: { roles: [role(1), role(2)] } });
   await view.waitFor(consoleLoaded);
   assert.match(view.text(), /Groupe confirmé/);
-  assert.equal(bff.calls('/bff/admin/groups', 'POST').length, 1);
+  assert.equal(bff.calls('/admin/groups', 'POST').length, 1);
 });
 
 test('a targeted roles refresh supersedes only roles while a global read is delayed', async () => {
   mockConsoleData();
   const initialGroups = deferred();
-  bff.on('get', '/bff/admin/groups', () => initialGroups.promise);
+  bff.on('get', '/admin/groups', () => initialGroups.promise);
   view = mount(React.createElement(AdministrationConsole));
   await view.waitFor(() => bff.requests.length === 5 && view.text().includes('2 Utilisateurs'));
   await view.click((props, text) => props.role === 'tab' && text === 'Rôles');
-  bff.on('get', '/bff/admin/roles', { body: { roles: [role(3, { name: 'Rôle confirmé' })] } });
+  bff.on('get', '/admin/roles', { body: { roles: [role(3, { name: 'Rôle confirmé' })] } });
   await view.act(() => view.props('RolesPanel').refreshRoles());
   initialGroups.resolve({ body: { groups: [group(1), group(2)] } });
   await view.waitFor(consoleLoaded);
   assert.deepEqual(view.props('RolesPanel').roles.map(item => item.id), [3]);
   assert.match(view.text(), /1 Rôles 2 Groupes 1 Sessions actives/);
-  assert.equal(bff.calls('/bff/admin/roles', 'GET').length, 2);
+  assert.equal(bff.calls('/admin/roles', 'GET').length, 2);
 });
 
 test('a targeted sessions refresh preserves both current and history against a delayed global read', async () => {
   mockConsoleData();
   const initialGroups = deferred();
-  bff.on('get', '/bff/admin/groups', () => initialGroups.promise);
+  bff.on('get', '/admin/groups', () => initialGroups.promise);
   view = mount(React.createElement(AdministrationConsole));
   await view.waitFor(() => bff.requests.length === 5 && view.text().includes('2 Utilisateurs'));
   await view.click((props, text) => props.role === 'tab' && text === 'Sessions');
-  bff.on('get', '/bff/admin/sessions', { body: { sessions: [] } });
-  bff.on('get', '/bff/admin/sessions/history', { body: { sessions: [session('confirmed-revoked', { revoked_at: '2026-09-15T08:00:00Z' })] } });
+  bff.on('get', '/admin/sessions', { body: { sessions: [] } });
+  bff.on('get', '/admin/sessions/history', { body: { sessions: [session('confirmed-revoked', { revoked_at: '2026-09-15T08:00:00Z' })] } });
   await view.act(() => view.props('SessionsPanel').refreshSessions());
   initialGroups.resolve({ body: { groups: [group(1)] } });
   await view.waitFor(consoleLoaded);
@@ -607,9 +607,9 @@ for (const failedSource of ['active', 'history']) {
     const previousActive = view.props('SessionsPanel').activeSessions;
     const previousHistory = view.props('SessionsPanel').sessionHistory;
     const latestHistory = [session('independent-history', { revoked_at: '2026-09-15T08:00:00Z' })];
-    bff.on('get', '/bff/admin/sessions', failedSource === 'active'
+    bff.on('get', '/admin/sessions', failedSource === 'active'
       ? bffError(503) : { body: { sessions: [] } });
-    bff.on('get', '/bff/admin/sessions/history', failedSource === 'history'
+    bff.on('get', '/admin/sessions/history', failedSource === 'history'
       ? bffError(503) : { body: { sessions: latestHistory } });
     await assert.rejects(view.props('SessionsPanel').refreshSessions(), error => error.status === 503);
     await view.act(() => undefined);
@@ -622,13 +622,13 @@ for (const failedSource of ['active', 'history']) {
 test('obsolete resource failures cannot hide newer data or suppress an independent current failure', async () => {
   mockConsoleData();
   const initialRoles = deferred();
-  bff.on('get', '/bff/admin/roles', () => initialRoles.promise);
-  bff.on('get', '/bff/admin/groups', bffError(401));
-  bff.on('get', '/bff/admin/sessions/history', bffError(503));
+  bff.on('get', '/admin/roles', () => initialRoles.promise);
+  bff.on('get', '/admin/groups', bffError(401));
+  bff.on('get', '/admin/sessions/history', bffError(503));
   view = mount(React.createElement(AdministrationConsole));
   await view.waitFor(() => bff.requests.length === 5 && view.text().includes('2 Utilisateurs'));
   await openGroups();
-  bff.on('get', '/bff/admin/groups', { body: { groups: [group(2, { name: 'Groupe confirmé' })] } });
+  bff.on('get', '/admin/groups', { body: { groups: [group(2, { name: 'Groupe confirmé' })] } });
   await view.act(() => view.props('GroupsPanel').refreshGroups());
   initialRoles.resolve({ body: { roles: [role(1)] } });
   await view.waitFor(consoleLoaded);
@@ -649,16 +649,16 @@ test('an older global read cannot overwrite a newer global read or its loading a
     finally { consumed.resolve(); }
   };
   const reload = view.hostElements('Actualiser')[0].props.onClick;
-  bff.on('get', '/bff/admin/roles', () => older.promise);
+  bff.on('get', '/admin/roles', () => older.promise);
   try {
     await view.act(() => reload());
-    await view.waitFor(() => bff.calls('/bff/admin/roles', 'GET').length === 2);
+    await view.waitFor(() => bff.calls('/admin/roles', 'GET').length === 2);
   } finally {
     administrationApi.listRoles = originalListRoles;
   }
-  bff.on('get', '/bff/admin/roles', { body: { roles: [role(3)] } });
+  bff.on('get', '/admin/roles', { body: { roles: [role(3)] } });
   await view.act(() => reload());
-  await view.waitFor(() => bff.calls('/bff/admin/roles', 'GET').length === 3 && consoleLoaded());
+  await view.waitFor(() => bff.calls('/admin/roles', 'GET').length === 3 && consoleLoaded());
   const settledPasses = view.passes;
   older.resolve(bffError(401));
   await consumed.promise;
@@ -670,9 +670,9 @@ test('an older global read cannot overwrite a newer global read or its loading a
 });
 
 for (const read of [
-  { tab: 'Rôles', panel: 'RolesPanel', refresh: 'refreshRoles', route: '/bff/admin/roles', envelope: 'roles', property: 'roles', latest: [role(3)] },
-  { tab: 'Groupes', panel: 'GroupsPanel', refresh: 'refreshGroups', route: '/bff/admin/groups', envelope: 'groups', property: 'groups', latest: [group(3)] },
-  { tab: 'Sessions', panel: 'SessionsPanel', refresh: 'refreshSessions', route: '/bff/admin/sessions', envelope: 'sessions', property: 'activeSessions', latest: [session('current-session')] },
+  { tab: 'Rôles', panel: 'RolesPanel', refresh: 'refreshRoles', route: '/admin/roles', envelope: 'roles', property: 'roles', latest: [role(3)] },
+  { tab: 'Groupes', panel: 'GroupsPanel', refresh: 'refreshGroups', route: '/admin/groups', envelope: 'groups', property: 'groups', latest: [group(3)] },
+  { tab: 'Sessions', panel: 'SessionsPanel', refresh: 'refreshSessions', route: '/admin/sessions', envelope: 'sessions', property: 'activeSessions', latest: [session('current-session')] },
 ]) {
   test(`${read.tab}: targeted failures finishing after unmount do not propagate`, async () => {
     await renderLoadedConsole();
@@ -697,7 +697,7 @@ for (const read of [
     const pending = refresh();
     await view.waitFor(() => bff.calls(read.route, 'GET').length === 2);
     bff.on('get', read.route, { body: { [read.envelope]: read.latest } });
-    if (read.tab === 'Sessions') bff.on('get', '/bff/admin/sessions/history', { body: { sessions: [] } });
+    if (read.tab === 'Sessions') bff.on('get', '/admin/sessions/history', { body: { sessions: [] } });
     await refresh();
     await view.waitFor(() => view.props(read.panel)[read.property][0]?.id === read.latest[0].id);
     older.resolve({ body: { [read.envelope]: original } });
@@ -726,26 +726,26 @@ test('group creation is synchronous-single-flight and locks fields, selection an
   await changeField('group-description', 'Description');
   const write = deferred();
   const reload = deferred();
-  bff.on('post', '/bff/admin/groups', () => write.promise);
-  bff.on('get', '/bff/admin/groups', () => reload.promise);
+  bff.on('post', '/admin/groups', () => write.promise);
+  bff.on('get', '/admin/groups', () => reload.promise);
   const submitted = groupForm().props.onSubmit;
   const first = view.act(() => submitted({ preventDefault() {} }));
   const repeated = view.act(() => submitted({ preventDefault() {} }));
   await repeated;
-  await view.waitFor(() => bff.calls('/bff/admin/groups', 'POST').length === 1);
+  await view.waitFor(() => bff.calls('/admin/groups', 'POST').length === 1);
   assert.match(view.html, /<fieldset disabled="" aria-busy="true"/);
   assert.ok(view.hostElements(props => props.role === 'tab').every(({ props }) => props.disabled));
   assert.equal(view.hostElements('Créer').find(({ type }) => type === 'button').props.disabled, true);
   assert.equal(await view.props('GroupsPanel').runAction('other', 'Ignored', () => assert.fail('concurrent action ran')), false);
   write.resolve({ status: 201, body: { group: group(2, { name: 'Équipe', description: 'Description' }) } });
-  await view.waitFor(() => bff.calls('/bff/admin/groups', 'GET').length === 2);
+  await view.waitFor(() => bff.calls('/admin/groups', 'GET').length === 2);
   assert.match(view.html, /<fieldset disabled="" aria-busy="true"/);
   reload.resolve({ body: { groups: [group(1), group(2, { name: 'Équipe', description: 'Description' })] } });
   await first;
   assert.match(view.html, /id="group-name"[^>]*value=""/);
   assert.match(view.html, /<fieldset aria-busy="false"/);
   assert.match(view.text(), /Groupe créé/);
-  assert.equal(bff.calls('/bff/admin/groups', 'POST').length, 1);
+  assert.equal(bff.calls('/admin/groups', 'POST').length, 1);
 });
 
 test('refused group creation retains both fields and enables an explicit successful retry', async () => {
@@ -753,17 +753,17 @@ test('refused group creation retains both fields and enables an explicit success
   await openGroups();
   await changeField('group-name', 'Équipe conservée');
   await changeField('group-description', 'Brouillon conservé');
-  bff.on('post', '/bff/admin/groups', bffError(503));
+  bff.on('post', '/admin/groups', bffError(503));
   await view.act(() => groupForm().props.onSubmit({ preventDefault() {} }));
   assert.match(view.html, /id="group-name"[^>]*value="Équipe conservée"/);
   assert.match(view.html, /id="group-description"[^>]*value="Brouillon conservé"/);
   assert.match(view.text(), /momentanément indisponible/);
   assert.match(view.html, /<fieldset aria-busy="false"/);
   assert.doesNotMatch(view.text(), /Groupe créé/);
-  bff.on('post', '/bff/admin/groups', { status: 201, body: { group: group(2) } });
+  bff.on('post', '/admin/groups', { status: 201, body: { group: group(2) } });
   await view.act(() => groupForm().props.onSubmit({ preventDefault() {} }));
   assert.match(view.html, /id="group-name"[^>]*value=""/);
-  assert.equal(bff.calls('/bff/admin/groups', 'POST').length, 2);
+  assert.equal(bff.calls('/admin/groups', 'POST').length, 2);
 });
 
 test('confirmed creation with refused reload clears the submitted form and retries only GET', async () => {
@@ -771,60 +771,60 @@ test('confirmed creation with refused reload clears the submitted form and retri
   await openGroups();
   await changeField('group-name', 'Équipe créée');
   await changeField('group-description', 'Confirmée');
-  bff.on('post', '/bff/admin/groups', { status: 201, body: { group: group(2) } });
-  bff.on('get', '/bff/admin/groups', bffError(503));
+  bff.on('post', '/admin/groups', { status: 201, body: { group: group(2) } });
+  bff.on('get', '/admin/groups', bffError(503));
   await view.act(() => groupForm().props.onSubmit({ preventDefault() {} }));
   assert.match(view.html, /id="group-name"[^>]*value=""/);
   assert.match(view.text(), /Groupe créé/);
   assert.match(view.text(), /L’action est enregistrée/);
   assert.match(view.text(), /Ne répétez pas l’action/);
   await view.click('Réessayer l’actualisation');
-  await view.waitFor(() => bff.calls('/bff/admin/groups', 'GET').length === 3 && view.props('GroupsPanel').busyAction === null);
+  await view.waitFor(() => bff.calls('/admin/groups', 'GET').length === 3 && view.props('GroupsPanel').busyAction === null);
   assert.match(view.text(), /Réessayer l’actualisation/, 'another refused read stays retryable');
-  bff.on('get', '/bff/admin/groups', { body: { groups: [group(2)] } });
+  bff.on('get', '/admin/groups', { body: { groups: [group(2)] } });
   await view.click('Réessayer l’actualisation');
   await view.waitFor(() => !view.text().includes('Ne répétez pas l’action'));
   assert.doesNotMatch(view.text(), /Ne répétez pas l’action/);
-  assert.equal(bff.calls('/bff/admin/groups', 'POST').length, 1);
-  assert.equal(bff.calls('/bff/admin/groups', 'GET').length, 4);
+  assert.equal(bff.calls('/admin/groups', 'POST').length, 1);
+  assert.equal(bff.calls('/admin/groups', 'GET').length, 4);
 });
 
 test('group edit keeps a refused draft and applies the confirmed DTO even if its list refresh fails', async () => {
   await renderLoadedConsole();
   await openGroups();
-  bff.on('get', '/bff/admin/groups/{groupId}', { body: { group: group(1) } });
-  bff.on('get', '/bff/admin/groups/{groupId}/users', { body: { users: [] } });
+  bff.on('get', '/admin/groups/{groupId}', { body: { group: group(1) } });
+  bff.on('get', '/admin/groups/{groupId}/users', { body: { users: [] } });
   await view.click((props, text) => props.type === 'button' && text.includes('Ouvrir le groupe'));
   await view.waitFor(() => view.html.includes('id="edit-group-name"'));
   await changeField('edit-group-name', ' Groupe modifié ');
   await changeField('edit-group-description', ' Description modifiée ');
-  bff.on('patch', '/bff/admin/groups/{groupId}', bffError(503));
+  bff.on('patch', '/admin/groups/{groupId}', bffError(503));
   await view.act(() => editGroupForm().props.onSubmit({ preventDefault() {} }));
   assert.match(view.html, /id="edit-group-name"[^>]*value=" Groupe modifié "/);
   assert.match(view.html, /<textarea[^>]*id="edit-group-description"[^>]*> Description modifiée <\/textarea>/);
   const write = deferred();
-  bff.on('patch', '/bff/admin/groups/{groupId}', () => write.promise);
-  bff.on('get', '/bff/admin/groups', bffError(503));
+  bff.on('patch', '/admin/groups/{groupId}', () => write.promise);
+  bff.on('get', '/admin/groups', bffError(503));
   const pending = view.act(() => editGroupForm().props.onSubmit({ preventDefault() {} }));
-  await view.waitFor(() => bff.calls('/bff/admin/groups/{groupId}', 'PATCH').length === 2);
+  await view.waitFor(() => bff.calls('/admin/groups/{groupId}', 'PATCH').length === 2);
   assert.match(view.html, /<fieldset disabled="" aria-busy="true"/);
   write.resolve({ body: { group: group(1, { name: 'Groupe modifié', description: 'Description modifiée' }) } });
   await pending;
   assert.match(view.html, /id="edit-group-name"[^>]*value="Groupe modifié"/);
   assert.match(view.text(), /Groupe mis à jour/);
   assert.match(view.text(), /L’action est enregistrée/);
-  assert.equal(bff.calls('/bff/admin/groups/{groupId}', 'PATCH').length, 2);
+  assert.equal(bff.calls('/admin/groups/{groupId}', 'PATCH').length, 2);
 });
 
 test('out-of-order group detail responses cannot replace the last selected group', async () => {
   await renderLoadedConsole({ groups: [group(1), group(2)] });
   await openGroups();
   const older = deferred();
-  bff.on('get', '/bff/admin/groups/{groupId}', request => request.pathParams.groupId === '1'
+  bff.on('get', '/admin/groups/{groupId}', request => request.pathParams.groupId === '1'
     ? older.promise : { body: { group: group(2) } });
-  bff.on('get', '/bff/admin/groups/{groupId}/users', { body: { users: [] } });
+  bff.on('get', '/admin/groups/{groupId}/users', { body: { users: [] } });
   await view.click((props, text) => props.type === 'button' && text.includes('Groupe 1'));
-  await view.waitFor(() => bff.calls('/bff/admin/groups/{groupId}', 'GET').length === 1);
+  await view.waitFor(() => bff.calls('/admin/groups/{groupId}', 'GET').length === 1);
   await view.click((props, text) => props.type === 'button' && text.includes('Groupe 2'));
   await view.waitFor(() => view.html.includes('value="Groupe 2"'));
   older.resolve({ body: { group: group(1) } });
@@ -858,14 +858,14 @@ const openUserCreation = async () => {
 
 test('failed user reload retains the last received rows and retries only the current search', async () => {
   await renderLoadedConsole();
-  bff.on('get', '/bff/admin/users', bffError(503));
+  bff.on('get', '/admin/users', bffError(503));
   await view.fire(props => props.role === 'search', 'onSubmit', { preventDefault() {} });
   await view.waitFor(() => view.text().includes('momentanément indisponible'));
   assert.match(view.text(), /Identifiant #7/);
   assert.match(view.text(), /Identifiant #8/);
   assert.match(view.text(), /Dernières données reçues/);
   assert.doesNotMatch(view.text(), /L’action est enregistrée/);
-  bff.on('get', '/bff/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
+  bff.on('get', '/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
   await retryUsersRead();
   await view.waitFor(() => !view.text().includes('momentanément indisponible') && !view.html.includes('aria-label="Chargement"'));
   assert.doesNotMatch(view.text(), /Identifiant #7/);
@@ -876,8 +876,8 @@ test('failed user reload retains the last received rows and retries only the cur
 test('confirmed user creation with refused reload clears its form without inventing a user and retries only GET', async () => {
   await renderLoadedConsole();
   await openUserCreation();
-  bff.on('post', '/bff/admin/users', { status: 204 });
-  bff.on('get', '/bff/admin/users', bffError(503));
+  bff.on('post', '/admin/users', { status: 204 });
+  bff.on('get', '/admin/users', bffError(503));
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
   assert.match(view.text(), /Utilisateur créé/);
   assert.match(view.text(), /L’action est enregistrée, mais les utilisateurs n’ont pas pu être actualisés/);
@@ -887,12 +887,12 @@ test('confirmed user creation with refused reload clears its form without invent
   assert.doesNotMatch(view.html, /id="create-password"/);
   assert.match(view.text(), /— Utilisateurs/);
   const confirmed = user(9, ['Camille', 'Test']);
-  bff.on('get', '/bff/admin/users', { body: usersPage([user(7), confirmed]) });
+  bff.on('get', '/admin/users', { body: usersPage([user(7), confirmed]) });
   await retryUsersRead();
   await view.waitFor(() => view.text().includes('Camille Test'));
   assert.doesNotMatch(view.text(), /Ne répétez pas l’action/);
-  assert.equal(bff.calls('/bff/admin/users', 'POST').length, 1);
-  assert.equal(bff.calls('/bff/admin/users', 'GET').length, 3);
+  assert.equal(bff.calls('/admin/users', 'POST').length, 1);
+  assert.equal(bff.calls('/admin/users', 'GET').length, 3);
   await view.click('Nouvel utilisateur');
   assert.equal(view.hostElements(props => props.id === 'create-first-name')[0].props.value, '');
   assert.equal(view.hostElements(props => props.id === 'create-password')[0].props.value, '');
@@ -901,23 +901,23 @@ test('confirmed user creation with refused reload clears its form without invent
 test('refused user creation preserves its draft and never becomes a confirmed-reload warning', async () => {
   await renderLoadedConsole();
   await openUserCreation();
-  bff.on('post', '/bff/admin/users', bffError(503));
+  bff.on('post', '/admin/users', bffError(503));
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
   assert.equal(view.hostElements(props => props.id === 'create-first-name')[0].props.value, 'Camille');
   assert.equal(view.hostElements(props => props.id === 'create-password')[0].props.value, disposableCreationPassword);
   assert.doesNotMatch(view.text(), /Utilisateur créé|L’action est enregistrée/);
-  assert.equal(bff.calls('/bff/admin/users', 'GET').length, 1);
-  bff.on('post', '/bff/admin/users', { status: 204 });
+  assert.equal(bff.calls('/admin/users', 'GET').length, 1);
+  bff.on('post', '/admin/users', { status: 204 });
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
   assert.match(view.text(), /Utilisateur créé/);
-  assert.equal(bff.calls('/bff/admin/users', 'POST').length, 2);
+  assert.equal(bff.calls('/admin/users', 'POST').length, 2);
 });
 
 test('confirmed user deletion with refused reload removes only its row and retries GET without another DELETE', async () => {
   await renderLoadedConsole();
   await selectUserRow(7);
-  bff.on('delete', '/bff/admin/users/{userId}', { status: 204 });
-  bff.on('get', '/bff/admin/users', bffError(503));
+  bff.on('delete', '/admin/users/{userId}', { status: 204 });
+  bff.on('get', '/admin/users', bffError(503));
   await view.click('Supprimer l’utilisateur');
   await view.act(() => view.find('ConfirmModal').find(modal => modal.props.open).props.onConfirm());
   await view.waitFor(() => view.text().includes('Utilisateur supprimé') && view.text().includes('momentanément indisponible') && view.find('ConfirmModal').every(modal => !modal.props.open));
@@ -927,49 +927,49 @@ test('confirmed user deletion with refused reload removes only its row and retri
   assert.doesNotMatch(view.html, /id="edit-first-name"/);
   assert.match(view.text(), /— Utilisateurs/);
   assert.match(view.text(), /Total à actualiser/);
-  bff.on('get', '/bff/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
+  bff.on('get', '/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
   await retryUsersRead();
   await view.waitFor(() => view.text().includes('1 Utilisateurs'));
-  assert.equal(bff.calls('/bff/admin/users/{userId}', 'DELETE').length, 1);
-  assert.equal(bff.calls('/bff/admin/users', 'GET').length, 3);
+  assert.equal(bff.calls('/admin/users/{userId}', 'DELETE').length, 1);
+  assert.equal(bff.calls('/admin/users', 'GET').length, 3);
   assert.doesNotMatch(view.text(), /Ne répétez pas l’action|Identifiant #7/);
 });
 
 test('refused user deletion keeps the record and confirmation available for an explicit retry', async () => {
   await renderLoadedConsole();
   await selectUserRow(7);
-  bff.on('delete', '/bff/admin/users/{userId}', bffError(503));
+  bff.on('delete', '/admin/users/{userId}', bffError(503));
   await view.click('Supprimer l’utilisateur');
   await view.act(() => view.find('ConfirmModal').find(modal => modal.props.open).props.onConfirm());
   await view.waitFor(() => view.text().includes('momentanément indisponible'));
   assert.match(view.text(), /Identifiant #7/);
   assert.equal(view.find('ConfirmModal').some(modal => modal.props.open), true);
   assert.doesNotMatch(view.text(), /Utilisateur supprimé|L’action est enregistrée/);
-  assert.equal(bff.calls('/bff/admin/users', 'GET').length, 1);
-  bff.on('delete', '/bff/admin/users/{userId}', { status: 204 });
-  bff.on('get', '/bff/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
+  assert.equal(bff.calls('/admin/users', 'GET').length, 1);
+  bff.on('delete', '/admin/users/{userId}', { status: 204 });
+  bff.on('get', '/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
   await view.act(() => view.find('ConfirmModal').find(modal => modal.props.open).props.onConfirm());
   await view.waitFor(() => view.text().includes('Utilisateur supprimé') && view.find('ConfirmModal').every(modal => !modal.props.open) && !view.html.includes('aria-label="Chargement"'));
-  assert.equal(bff.calls('/bff/admin/users/{userId}', 'DELETE').length, 2);
+  assert.equal(bff.calls('/admin/users/{userId}', 'DELETE').length, 2);
   assert.doesNotMatch(view.text(), /Identifiant #7/);
 });
 
 test('user read retry uses newly submitted criteria after a confirmed deletion and two refused reloads', async () => {
   await renderLoadedConsole();
   await selectUserRow(7);
-  bff.on('delete', '/bff/admin/users/{userId}', { status: 204 });
-  bff.on('get', '/bff/admin/users', bffError(503));
+  bff.on('delete', '/admin/users/{userId}', { status: 204 });
+  bff.on('get', '/admin/users', bffError(503));
   await view.click('Supprimer l’utilisateur');
   await view.act(() => view.find('ConfirmModal').find(modal => modal.props.open).props.onConfirm());
   await view.waitFor(() => view.text().includes('Ne répétez pas l’action') && view.find('ConfirmModal').every(modal => !modal.props.open));
   await view.fire(props => props.type === 'search', 'onChange', { target: { value: 'Bob' } });
   await view.fire(props => props.role === 'search', 'onSubmit', { preventDefault() {} });
-  await view.waitFor(() => bff.calls('/bff/admin/users', 'GET').length === 3 && view.text().includes('Ne répétez pas l’action'));
-  bff.on('get', '/bff/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
+  await view.waitFor(() => bff.calls('/admin/users', 'GET').length === 3 && view.text().includes('Ne répétez pas l’action'));
+  bff.on('get', '/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
   await retryUsersRead();
   await view.waitFor(() => view.text().includes('1 Utilisateurs') && !view.text().includes('Ne répétez pas l’action'));
-  assert.equal(bff.calls('/bff/admin/users', 'GET').at(-1).url.searchParams.get('search'), 'Bob');
-  assert.equal(bff.calls('/bff/admin/users/{userId}', 'DELETE').length, 1);
+  assert.equal(bff.calls('/admin/users', 'GET').at(-1).url.searchParams.get('search'), 'Bob');
+  assert.equal(bff.calls('/admin/users/{userId}', 'DELETE').length, 1);
   assert.doesNotMatch(view.text(), /Identifiant #7/);
 });
 
@@ -984,13 +984,13 @@ test('a users read started before a confirmed deletion cannot resurrect its row 
     try { return await originalListUsers(...args); }
     finally { consumed.resolve(); }
   };
-  bff.on('get', '/bff/admin/users', () => older.promise);
+  bff.on('get', '/admin/users', () => older.promise);
   await view.fire(props => props.role === 'search', 'onSubmit', { preventDefault() {} });
-  await view.waitFor(() => bff.calls('/bff/admin/users', 'GET').length === 2);
+  await view.waitFor(() => bff.calls('/admin/users', 'GET').length === 2);
   administrationApi.listUsers = originalListUsers;
   try {
-    bff.on('delete', '/bff/admin/users/{userId}', { status: 204 });
-    bff.on('get', '/bff/admin/users', bffError(503));
+    bff.on('delete', '/admin/users/{userId}', { status: 204 });
+    bff.on('get', '/admin/users', bffError(503));
     await view.click('Supprimer l’utilisateur');
     await view.act(() => view.find('ConfirmModal').find(modal => modal.props.open).props.onConfirm());
     await view.waitFor(() => view.text().includes('Ne répétez pas l’action') && view.find('ConfirmModal').every(modal => !modal.props.open));
@@ -1002,7 +1002,7 @@ test('a users read started before a confirmed deletion cannot resurrect its row 
     assert.match(view.text(), /Identifiant #8/);
     assert.match(view.text(), /Ne répétez pas l’action|Total à actualiser/);
     assert.match(view.text(), /— Utilisateurs/);
-    assert.equal(bff.calls('/bff/admin/users/{userId}', 'DELETE').length, 1);
+    assert.equal(bff.calls('/admin/users/{userId}', 'DELETE').length, 1);
   } finally {
     administrationApi.listUsers = originalListUsers;
     older.resolve({ body: usersPage([]) });
@@ -1015,9 +1015,9 @@ test('profile save freezes fields and mouse/keyboard selection until confirmatio
   await selectUserRow(7);
   await changeField('edit-first-name', 'Alice confirmée');
   const write = deferred();
-  bff.on('patch', '/bff/admin/users/{userId}', () => write.promise);
+  bff.on('patch', '/admin/users/{userId}', () => write.promise);
   const pending = view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
-  await view.waitFor(() => bff.calls('/bff/admin/users/{userId}', 'PATCH').length === 1);
+  await view.waitFor(() => bff.calls('/admin/users/{userId}', 'PATCH').length === 1);
   const locked = view.html.includes('<fieldset disabled="" aria-busy="true"');
   await selectUserRow(8);
   await selectUserRow(8, 'onKeyDown');
@@ -1030,7 +1030,7 @@ test('profile save freezes fields and mouse/keyboard selection until confirmatio
   assert.equal(selectedBefore.props['aria-disabled'], true);
   assert.match(view.html, /id="edit-first-name"[^>]*value="Alice confirmée"/);
   assert.match(view.text(), /Utilisateur mis à jour/);
-  assert.equal(bff.calls('/bff/admin/users/{userId}', 'PATCH').length, 1);
+  assert.equal(bff.calls('/admin/users/{userId}', 'PATCH').length, 1);
 });
 
 test('refused profile saves preserve all draft fields for an explicit retry', async () => {
@@ -1040,7 +1040,7 @@ test('refused profile saves preserve all draft fields for an explicit retry', as
   await changeField('edit-last-name', 'Nom conservé');
   await changeField('edit-email', 'draft@mairie.test');
   await changeField('edit-phone', '+33100000000');
-  bff.on('patch', '/bff/admin/users/{userId}', bffError(503));
+  bff.on('patch', '/admin/users/{userId}', bffError(503));
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
   assert.match(view.html, /id="edit-first-name"[^>]*value="Alice brouillon"/);
   assert.match(view.html, /id="edit-last-name"[^>]*value="Nom conservé"/);
@@ -1048,9 +1048,9 @@ test('refused profile saves preserve all draft fields for an explicit retry', as
   assert.match(view.html, /id="edit-phone"[^>]*value="\+33100000000"/);
   assert.doesNotMatch(view.html, /<fieldset disabled=/);
   assert.match(view.text(), /momentanément indisponible/);
-  bff.on('patch', '/bff/admin/users/{userId}', { status: 204 });
+  bff.on('patch', '/admin/users/{userId}', { status: 204 });
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
-  assert.equal(bff.calls('/bff/admin/users/{userId}', 'PATCH').length, 2);
+  assert.equal(bff.calls('/admin/users/{userId}', 'PATCH').length, 2);
   assert.match(view.text(), /Alice brouillon Nom conservé/);
 });
 
@@ -1059,12 +1059,12 @@ test('editing only a profile preserves every existing role without role mutation
   await renderLoadedConsole({ users: [multiRole] });
   await selectUserRow(7);
   await changeField('edit-first-name', 'Alice modifiée');
-  bff.on('patch', '/bff/admin/users/{userId}', { status: 204 });
+  bff.on('patch', '/admin/users/{userId}', { status: 204 });
   // A handler makes the regression observable without changing any real rights.
-  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', { status: 204 });
+  bff.on('delete', '/admin/users/{userId}/roles/{roleId}', { status: 204 });
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
-  assert.equal(bff.calls('/bff/admin/users/{userId}/roles/{roleId}', 'DELETE').length, 0);
-  assert.equal(bff.calls('/bff/admin/users/{userId}/roles', 'POST').length, 0);
+  assert.equal(bff.calls('/admin/users/{userId}/roles/{roleId}', 'DELETE').length, 0);
+  assert.equal(bff.calls('/admin/users/{userId}/roles', 'POST').length, 0);
   assert.match(view.text(), /Admin, Rôle 2/);
 });
 
@@ -1073,14 +1073,14 @@ test('an explicit role selection still replaces existing roles through the decla
   await renderLoadedConsole({ users: [multiRole], roles: [role(1), role(2), role(3)] });
   await selectUserRow(7);
   await changeField('edit-role', '3');
-  bff.on('patch', '/bff/admin/users/{userId}', { status: 204 });
-  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', { status: 204 });
-  bff.on('post', '/bff/admin/users/{userId}/roles', { status: 204 });
+  bff.on('patch', '/admin/users/{userId}', { status: 204 });
+  bff.on('delete', '/admin/users/{userId}/roles/{roleId}', { status: 204 });
+  bff.on('post', '/admin/users/{userId}/roles', { status: 204 });
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
-  assert.deepEqual(bff.calls('/bff/admin/users/{userId}/roles/{roleId}', 'DELETE').map(call => call.path).sort(), [
-    '/bff/admin/users/7/roles/1', '/bff/admin/users/7/roles/2',
+  assert.deepEqual(bff.calls('/admin/users/{userId}/roles/{roleId}', 'DELETE').map(call => call.path).sort(), [
+    '/admin/users/7/roles/1', '/admin/users/7/roles/2',
   ]);
-  assert.deepEqual(bff.calls('/bff/admin/users/{userId}/roles', 'POST').map(call => call.body), [{ user_id: 7, role_id: 3 }]);
+  assert.deepEqual(bff.calls('/admin/users/{userId}/roles', 'POST').map(call => call.body), [{ user_id: 7, role_id: 3 }]);
   assert.match(view.text(), /Utilisateur mis à jour/);
   assert.match(view.text(), /Rôle 3/);
   assert.equal(view.hostElements(props => props.id === 'edit-role')[0].props.value, '3');
@@ -1092,9 +1092,9 @@ test('a confirmed profile and role removal survive a separate failed addition an
   await selectUserRow(7);
   await changeField('edit-first-name', 'Alice confirmée');
   await changeField('edit-role', '3');
-  bff.on('patch', '/bff/admin/users/{userId}', { status: 204 });
-  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', { status: 204 });
-  bff.on('post', '/bff/admin/users/{userId}/roles', bffError(503));
+  bff.on('patch', '/admin/users/{userId}', { status: 204 });
+  bff.on('delete', '/admin/users/{userId}/roles/{roleId}', { status: 204 });
+  bff.on('post', '/admin/users/{userId}/roles', bffError(503));
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
   const row = () => view.hostElements((_props, text, tag) => tag === 'tr' && text.includes('Identifiant #7'))[0].text;
   assert.match(row(), /Alice confirmée/);
@@ -1104,11 +1104,11 @@ test('a confirmed profile and role removal survive a separate failed addition an
   assert.match(view.text(), /Ajout du rôle « Rôle 3 » non confirmé/);
   assert.doesNotMatch(view.text(), /Utilisateur mis à jour/);
   assert.equal(view.hostElements(props => props.id === 'edit-role')[0].props.value, '3');
-  bff.on('post', '/bff/admin/users/{userId}/roles', { status: 204 });
+  bff.on('post', '/admin/users/{userId}/roles', { status: 204 });
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
-  assert.equal(bff.calls('/bff/admin/users/{userId}', 'PATCH').length, 1);
-  assert.equal(bff.calls('/bff/admin/users/{userId}/roles/{roleId}', 'DELETE').length, 1);
-  assert.equal(bff.calls('/bff/admin/users/{userId}/roles', 'POST').length, 2);
+  assert.equal(bff.calls('/admin/users/{userId}', 'PATCH').length, 1);
+  assert.equal(bff.calls('/admin/users/{userId}/roles/{roleId}', 'DELETE').length, 1);
+  assert.equal(bff.calls('/admin/users/{userId}/roles', 'POST').length, 2);
   assert.match(row(), /Alice confirmée.*Rôle 3/);
   assert.match(view.text(), /Utilisateur mis à jour/);
   assert.doesNotMatch(view.text(), /Les changements de rôle ne sont pas tous confirmés/);
@@ -1119,16 +1119,16 @@ test('composed partial profile confirmation survives deletion readback failure w
   await selectUserRow(7);
   await changeField('edit-first-name', 'Alice confirmée');
   await changeField('edit-role', '3');
-  bff.on('patch', '/bff/admin/users/{userId}', { status: 204 });
-  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', { status: 204 });
-  bff.on('post', '/bff/admin/users/{userId}/roles', bffError(503));
+  bff.on('patch', '/admin/users/{userId}', { status: 204 });
+  bff.on('delete', '/admin/users/{userId}/roles/{roleId}', { status: 204 });
+  bff.on('post', '/admin/users/{userId}/roles', bffError(503));
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
   assert.match(view.text(), /Les changements de rôle ne sont pas tous confirmés/);
   const row = view.hostElements((_props, text, tag) => tag === 'tr' && text.includes('Identifiant #7'))[0];
   assert.match(row.text, /Alice confirmée.*Aucun rôle/);
 
-  bff.on('delete', '/bff/admin/users/{userId}', { status: 204 });
-  bff.on('get', '/bff/admin/users', bffError(503));
+  bff.on('delete', '/admin/users/{userId}', { status: 204 });
+  bff.on('get', '/admin/users', bffError(503));
   await view.click('Supprimer l’utilisateur');
   await view.act(() => view.find('ConfirmModal').find(modal => modal.props.open).props.onConfirm());
   await view.waitFor(() => view.text().includes('Ne répétez pas l’action') && view.find('ConfirmModal').every(modal => !modal.props.open));
@@ -1140,19 +1140,19 @@ test('composed partial profile confirmation survives deletion readback failure w
   // unsatisfied role request. GET recovery must not repeat any prior write.
   await selectUserRow(8);
   await changeField('edit-first-name', 'Bob brouillon');
-  bff.on('get', '/bff/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
+  bff.on('get', '/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
   await retryUsersRead();
   await view.waitFor(() => view.text().includes('1 Utilisateurs') && !view.text().includes('Ne répétez pas l’action'));
   assert.equal(view.hostElements(props => props.id === 'edit-first-name')[0].props.value, 'Bob brouillon');
   assert.equal(view.hostElements(props => props.id === 'edit-role')[0].props.value, '1');
   assert.doesNotMatch(view.text(), /Les changements de rôle ne sont pas tous confirmés|Identifiant #7/);
   assert.deepEqual(bff.requests.filter(call => call.method !== 'GET').map(call => `${call.method} ${call.template}`), [
-    'PATCH /bff/admin/users/{userId}',
-    'DELETE /bff/admin/users/{userId}/roles/{roleId}',
-    'POST /bff/admin/users/{userId}/roles',
-    'DELETE /bff/admin/users/{userId}',
+    'PATCH /admin/users/{userId}',
+    'DELETE /admin/users/{userId}/roles/{roleId}',
+    'POST /admin/users/{userId}/roles',
+    'DELETE /admin/users/{userId}',
   ]);
-  assert.equal(bff.calls('/bff/admin/users', 'GET').length, 3);
+  assert.equal(bff.calls('/admin/users', 'GET').length, 3);
 });
 
 test('a failed removal is retried even when the confirmed target role is now first', async () => {
@@ -1161,20 +1161,20 @@ test('a failed removal is retried even when the confirmed target role is now fir
   await selectUserRow(7);
   await changeField('edit-first-name', 'Alice confirmée');
   await changeField('edit-role', '2');
-  bff.on('patch', '/bff/admin/users/{userId}', { status: 204 });
-  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', request => request.pathParams.roleId === '3'
+  bff.on('patch', '/admin/users/{userId}', { status: 204 });
+  bff.on('delete', '/admin/users/{userId}/roles/{roleId}', request => request.pathParams.roleId === '3'
     ? bffError(503) : { status: 204 });
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
   assert.match(view.text(), /Retrait du rôle « Rôle 3 » non confirmé/);
   assert.match(view.text(), /Retrait du rôle « Rôle 1 » confirmé/);
   // The target is now first: equality must not discard the remaining removal.
-  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', { status: 204 });
+  bff.on('delete', '/admin/users/{userId}/roles/{roleId}', { status: 204 });
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
-  assert.equal(bff.calls('/bff/admin/users/{userId}', 'PATCH').length, 1);
-  assert.deepEqual(bff.calls('/bff/admin/users/{userId}/roles/{roleId}', 'DELETE').map(call => call.path).sort(), [
-    '/bff/admin/users/7/roles/1', '/bff/admin/users/7/roles/3', '/bff/admin/users/7/roles/3',
+  assert.equal(bff.calls('/admin/users/{userId}', 'PATCH').length, 1);
+  assert.deepEqual(bff.calls('/admin/users/{userId}/roles/{roleId}', 'DELETE').map(call => call.path).sort(), [
+    '/admin/users/7/roles/1', '/admin/users/7/roles/3', '/admin/users/7/roles/3',
   ]);
-  assert.equal(bff.calls('/bff/admin/users/{userId}/roles', 'POST').length, 0);
+  assert.equal(bff.calls('/admin/users/{userId}/roles', 'POST').length, 0);
   assert.doesNotMatch(view.text(), /Les changements de rôle ne sont pas tous confirmés/);
 });
 
@@ -1183,15 +1183,15 @@ test('partial multi-role removal retries only the failed removal', async () => {
   await renderLoadedConsole({ users: [account], roles: [role(1), role(2), role(3)] });
   await selectUserRow(7);
   await changeField('edit-role', '');
-  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', request => request.pathParams.roleId === '1'
+  bff.on('delete', '/admin/users/{userId}/roles/{roleId}', request => request.pathParams.roleId === '1'
     ? bffError(503) : { status: 204 });
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
-  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', { status: 204 });
+  bff.on('delete', '/admin/users/{userId}/roles/{roleId}', { status: 204 });
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
-  assert.deepEqual(bff.calls('/bff/admin/users/{userId}/roles/{roleId}', 'DELETE').map(call => call.path).sort(), [
-    '/bff/admin/users/7/roles/1', '/bff/admin/users/7/roles/1', '/bff/admin/users/7/roles/2', '/bff/admin/users/7/roles/3',
+  assert.deepEqual(bff.calls('/admin/users/{userId}/roles/{roleId}', 'DELETE').map(call => call.path).sort(), [
+    '/admin/users/7/roles/1', '/admin/users/7/roles/1', '/admin/users/7/roles/2', '/admin/users/7/roles/3',
   ]);
-  assert.equal(bff.calls('/bff/admin/users/{userId}', 'PATCH').length, 0);
+  assert.equal(bff.calls('/admin/users/{userId}', 'PATCH').length, 0);
   assert.match(view.text(), /Aucun rôle/);
 });
 
@@ -1201,11 +1201,11 @@ test('a fast role failure keeps every control locked until the slower confirmed 
   await changeField('edit-first-name', 'Alice confirmée');
   await changeField('edit-role', '3');
   const slowRemoval = deferred();
-  bff.on('patch', '/bff/admin/users/{userId}', { status: 204 });
-  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', () => slowRemoval.promise);
-  bff.on('post', '/bff/admin/users/{userId}/roles', bffError(503));
+  bff.on('patch', '/admin/users/{userId}', { status: 204 });
+  bff.on('delete', '/admin/users/{userId}/roles/{roleId}', () => slowRemoval.promise);
+  bff.on('post', '/admin/users/{userId}/roles', bffError(503));
   const pending = view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
-  await view.waitFor(() => bff.calls('/bff/admin/users/{userId}/roles', 'POST').length === 1);
+  await view.waitFor(() => bff.calls('/admin/users/{userId}/roles', 'POST').length === 1);
   await new Promise(resolve => setImmediate(resolve));
   await view.settle();
   assert.match(view.html, /<fieldset disabled="" aria-busy="true"/);
@@ -1223,10 +1223,10 @@ test('a refused profile does not start role writes and preserves the complete dr
   await selectUserRow(7);
   await changeField('edit-first-name', 'Alice brouillon');
   await changeField('edit-role', '3');
-  bff.on('patch', '/bff/admin/users/{userId}', bffError(503));
+  bff.on('patch', '/admin/users/{userId}', bffError(503));
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
-  assert.equal(bff.calls('/bff/admin/users/{userId}/roles/{roleId}', 'DELETE').length, 0);
-  assert.equal(bff.calls('/bff/admin/users/{userId}/roles', 'POST').length, 0);
+  assert.equal(bff.calls('/admin/users/{userId}/roles/{roleId}', 'DELETE').length, 0);
+  assert.equal(bff.calls('/admin/users/{userId}/roles', 'POST').length, 0);
   assert.equal(view.hostElements(props => props.id === 'edit-first-name')[0].props.value, 'Alice brouillon');
   assert.equal(view.hostElements(props => props.id === 'edit-role')[0].props.value, '3');
   assert.doesNotMatch(view.text(), /Le profil est enregistré|Utilisateur mis à jour/);
@@ -1236,14 +1236,14 @@ test('a delayed pre-save user read cannot restore a partially confirmed profile 
   await renderLoadedConsole({ roles: [role(1), role(3)] });
   await selectUserRow(7);
   const oldRead = deferred();
-  bff.on('get', '/bff/admin/users', () => oldRead.promise);
+  bff.on('get', '/admin/users', () => oldRead.promise);
   await view.act(() => view.hostElements(props => props.role === 'search')[0].props.onSubmit({ preventDefault() {} }));
-  await view.waitFor(() => bff.calls('/bff/admin/users', 'GET').length === 2);
+  await view.waitFor(() => bff.calls('/admin/users', 'GET').length === 2);
   await changeField('edit-first-name', 'Alice confirmée');
   await changeField('edit-role', '3');
-  bff.on('patch', '/bff/admin/users/{userId}', { status: 204 });
-  bff.on('delete', '/bff/admin/users/{userId}/roles/{roleId}', { status: 204 });
-  bff.on('post', '/bff/admin/users/{userId}/roles', bffError(503));
+  bff.on('patch', '/admin/users/{userId}', { status: 204 });
+  bff.on('delete', '/admin/users/{userId}/roles/{roleId}', { status: 204 });
+  bff.on('post', '/admin/users/{userId}/roles', bffError(503));
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
   oldRead.resolve({ body: { users: [user(7), user(8, ['Bob', 'Martin'])], page: 1, page_size: 20, total: 2, total_pages: 1 } });
   await view.waitFor(() => !view.html.includes('aria-label="Chargement"'));
@@ -1262,9 +1262,9 @@ test('opening a role preserves explicit false, null and absent deletability', as
     await view.click((props, text) => props.role === 'tab' && text === 'Rôles');
     await view.click((props, text) => props.type === 'button' && text.includes('Modifier'));
     assert.equal(view.hostElements((props, _text, tag) => tag === 'input' && props.type === 'checkbox')[0].props.checked, false);
-    bff.on('put', '/bff/admin/roles/{roleId}', { status: 204 });
+    bff.on('put', '/admin/roles/{roleId}', { status: 204 });
     await view.act(() => view.hostElements(props => props.id === 'role-form')[0].props.onSubmit({ preventDefault() {} }));
-    const sent = bff.calls('/bff/admin/roles/{roleId}', 'PUT').at(-1).body;
+    const sent = bff.calls('/admin/roles/{roleId}', 'PUT').at(-1).body;
     assert.equal(sent.can_be_deleted, deletability);
     view.unmount();
     view = undefined;
@@ -1282,13 +1282,13 @@ test('role edit remains locked through write/reload and retains a refused draft'
   await changeField('role-description', 'Description conservée');
   const write = deferred();
   const reload = deferred();
-  bff.on('put', '/bff/admin/roles/{roleId}', () => write.promise);
-  bff.on('get', '/bff/admin/roles', () => reload.promise);
+  bff.on('put', '/admin/roles/{roleId}', () => write.promise);
+  bff.on('get', '/admin/roles', () => reload.promise);
   const pending = view.act(() => view.hostElements(props => props.id === 'role-form')[0].props.onSubmit({ preventDefault() {} }));
-  await view.waitFor(() => bff.calls('/bff/admin/roles/{roleId}', 'PUT').length === 1);
+  await view.waitFor(() => bff.calls('/admin/roles/{roleId}', 'PUT').length === 1);
   const lockedAtWrite = view.html.includes('<fieldset disabled="" aria-busy="true"');
   write.resolve({ status: 204 });
-  await view.waitFor(() => bff.calls('/bff/admin/roles', 'GET').length === 2);
+  await view.waitFor(() => bff.calls('/admin/roles', 'GET').length === 2);
   const lockedAtReload = view.html.includes('<fieldset disabled="" aria-busy="true"');
   reload.resolve({ body: { roles: [role(1)] } });
   await pending;
@@ -1296,7 +1296,7 @@ test('role edit remains locked through write/reload and retains a refused draft'
   assert.equal(lockedAtReload, true);
   await view.click((props, text) => props.type === 'button' && text.includes('Modifier'));
   await changeField('role-name', 'Refus conservé');
-  bff.on('put', '/bff/admin/roles/{roleId}', bffError(503));
+  bff.on('put', '/admin/roles/{roleId}', bffError(503));
   await view.act(() => view.hostElements(props => props.id === 'role-form')[0].props.onSubmit({ preventDefault() {} }));
   assert.match(view.html, /id="role-name"[^>]*value="Refus conservé"/);
   assert.doesNotMatch(view.html, /<fieldset disabled=/);
@@ -1317,8 +1317,8 @@ test('session lists are read-only and preserve both views without a token form',
   await view.click((props, text, tag) => tag === 'button' && text.startsWith('Actives'));
   assert.deepEqual(view.props('SessionsPanel').activeSessions, active);
   assert.equal(bff.requests.some(request => request.method !== 'GET'), false);
-  assert.equal(bff.calls('/bff/admin/sessions', 'GET').length, 1);
-  assert.equal(bff.calls('/bff/admin/sessions/history', 'GET').length, 1);
+  assert.equal(bff.calls('/admin/sessions', 'GET').length, 1);
+  assert.equal(bff.calls('/admin/sessions/history', 'GET').length, 1);
 });
 
 // MAIR-514: the inputs carry the text rules of the published contract (names ≤ 64 without `<` / `>`, e-mail ≤ 320,

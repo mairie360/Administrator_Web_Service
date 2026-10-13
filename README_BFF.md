@@ -142,7 +142,7 @@ Option BFF si navigation distante:
 
 ## Administration
 
-### `GET /bff/admin`
+### `GET /admin`
 
 Endpoint agregateur pour charger la page Administration en une seule requete.
 
@@ -264,7 +264,7 @@ type AdministrationUser = {
 
 Endpoints recommandes si le front charge ou modifie les utilisateurs separement.
 
-### `GET /bff/admin/users`
+### `GET /admin/users`
 
 Query params envoyes par le front:
 
@@ -298,7 +298,7 @@ Reponse:
 }
 ```
 
-### `POST /bff/admin/users`
+### `POST /admin/users`
 
 Payload envoye par le front:
 
@@ -314,7 +314,7 @@ Payload envoye par le front:
 
 Reponse: l'utilisateur cree avec `id`, `status` et `lastConnection`.
 
-### `PATCH /bff/admin/users/:id`
+### `PATCH /admin/users/:id`
 
 Payload envoye par le front:
 
@@ -329,7 +329,7 @@ Payload envoye par le front:
 }
 ```
 
-### `POST /bff/admin/users/:id/action`
+### `POST /admin/users/:id/action`
 
 Payload envoye par le front:
 
@@ -347,7 +347,7 @@ type AdministrationUserAction = "open" | "edit" | "toggle-status" | "delete";
 
 ## Logs, systeme et audit
 
-### `GET /bff/admin/logs`
+### `GET /admin/logs`
 
 Query params:
 
@@ -377,7 +377,7 @@ Reponse:
 }
 ```
 
-### `POST /bff/admin/logs/export`
+### `POST /admin/logs/export`
 
 Payload:
 
@@ -397,11 +397,11 @@ Reponse:
 }
 ```
 
-### `DELETE /bff/admin/logs`
+### `DELETE /admin/logs`
 
 Vide les logs selon les droits utilisateur.
 
-### `GET /bff/admin/system`
+### `GET /admin/system`
 
 Retourne:
 
@@ -413,7 +413,7 @@ Retourne:
 }
 ```
 
-### `POST /bff/admin/system/backup`
+### `POST /admin/system/backup`
 
 Demande la creation d'une sauvegarde.
 
@@ -426,7 +426,7 @@ Reponse:
 }
 ```
 
-### `GET /bff/admin/audit`
+### `GET /admin/audit`
 
 Query params:
 
@@ -458,7 +458,7 @@ Reponse:
 
 ## Parametres admin
 
-### `PATCH /bff/admin/settings`
+### `PATCH /admin/settings`
 
 Payload envoye par le front:
 
@@ -476,7 +476,7 @@ Payload envoye par le front:
 
 Reponse: le meme objet `settings` persiste.
 
-### `POST /bff/admin/danger-actions/:id`
+### `POST /admin/danger-actions/:id`
 
 Payload optionnel:
 
@@ -585,5 +585,5 @@ Reponse:
   - BFF: `{ "iconId": "users" }`
   - Front: `{ icon: Users }`
 - Les dates ISO doivent etre formatees cote front avant affichage si le composant attend une chaine lisible.
-- `AdministrationModule` accepte un chargement complet via `GET /bff/admin`, mais les endpoints granulaires sont preferables pour rafraichir uniquement les utilisateurs, les logs ou les parametres apres une action.
+- `AdministrationModule` accepte un chargement complet via `GET /admin`, mais les endpoints granulaires sont preferables pour rafraichir uniquement les utilisateurs, les logs ou les parametres apres une action.
 - Le front doit garder un fallback local pour la navigation afin que l'app reste utilisable si le BFF ne renvoie que les permissions.
