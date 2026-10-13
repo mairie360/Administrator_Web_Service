@@ -1,6 +1,7 @@
 "use client";
 
-import { AppShell } from "@mairie360/lib-components";
+import AccessibleShell from "@/components/accessible-shell";
+
 import { useRef, useState } from "react";
 import { AdministrationConsole } from "@/components/administration-console";
 import { logoutAndReload, useAuthSession } from "@/lib/auth-session";
@@ -25,7 +26,8 @@ export default function Home() {
   };
 
   return (
-    <AppShell
+    <AccessibleShell
+      className="administration-shell"
       activeItem="admin"
       isAdmin={session.isAdmin}
       user={session.user}
@@ -43,9 +45,12 @@ export default function Home() {
           </section>
         )}
         {session.loading ? (
+          <>
+          <h1 className="sr-only">Administration</h1>
           <p role="status" className="text-sm text-muted-foreground">
             Vérification du profil…
           </p>
+          </>
         ) : session.error ? (
           <section className="space-y-4 rounded-lg border bg-card p-6">
             <div role="alert" className="space-y-2">
@@ -73,6 +78,6 @@ export default function Home() {
           </section>
         )}
       </div>
-    </AppShell>
+    </AccessibleShell>
   );
 }

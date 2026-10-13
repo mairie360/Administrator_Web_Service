@@ -4,6 +4,7 @@ import { FrontUrlsProvider } from "@/lib/front-urls-provider";
 import { Geist, Geist_Mono } from "next/font/google";
 import "@mairie360/lib-components/dist/styles.css";
 import "./globals.css";
+import "./municipal-theme.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,7 +40,7 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} mairie-ui antialiased`}
       >
         <FrontUrlsProvider urls={readFrontUrlsFromEnv()}>{children}</FrontUrlsProvider>
       </body>
