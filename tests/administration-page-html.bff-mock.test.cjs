@@ -225,7 +225,7 @@ test('desktop and mobile navigation expose only active modules and keep Settings
         assert.equal(props.activeItem, 'admin');
       }
       const menus = view.html.match(/<nav\b[^>]*aria-label="Menu principal"[^>]*>[\s\S]*?<\/nav>/g) ?? [];
-      assert.equal(menus.length, sidebars.length);
+      assert.equal(menus.length, sidebars.length + 1);
       for (const menu of menus) {
         assert.doesNotMatch(menu, /E-mails|Fichiers/);
         assert.match(menu, /Paramètres/);

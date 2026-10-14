@@ -1,0 +1,125 @@
+{
+  "module": "Administrator",
+  "readyText": "alice@example.invalid",
+  "routes": {
+    "/admin/users": {
+      "users": [
+        {
+          "id": 1,
+          "first_name": "Alice",
+          "last_name": "Recette",
+          "email": "alice@example.invalid",
+          "phone_number": null,
+          "status": "active",
+          "is_archived": false,
+          "roles": [
+            {
+              "id": 1,
+              "name": "Admin"
+            }
+          ]
+        }
+      ],
+      "page": 1,
+      "page_size": 20,
+      "total": 1,
+      "total_pages": 1
+    },
+    "/admin/roles": [
+      {
+        "id": 1,
+        "name": "Admin",
+        "description": "Administration",
+        "can_be_deleted": false
+      }
+    ],
+    "/admin/groups": [
+      {
+        "id": 1,
+        "name": "Mairie",
+        "owner_id": 1,
+        "description": null
+      }
+    ],
+    "/admin/sessions": [],
+    "/api/user/me": {
+      "user": {
+        "id": 1,
+        "first_name": "Alice",
+        "last_name": "Recette",
+        "email": "alice@example.invalid",
+        "phone": null,
+        "status": "active"
+      },
+      "groups": [
+        {
+          "id": 1,
+          "name": "Mairie",
+          "owner_id": 1,
+          "description": null
+        }
+      ],
+      "roles": [
+        {
+          "id": 1,
+          "name": "Admin"
+        }
+      ]
+    },
+    "/api/auth/me": {
+      "user": {
+        "id": 1,
+        "first_name": "Alice",
+        "last_name": "Recette",
+        "email": "alice@example.invalid",
+        "phone": null,
+        "status": "active"
+      },
+      "groups": [
+        {
+          "id": 1,
+          "name": "Mairie",
+          "owner_id": 1,
+          "description": null
+        }
+      ],
+      "roles": [
+        {
+          "id": 1,
+          "name": "Admin"
+        }
+      ]
+    },
+    "/api/auth/session": {
+      "user": {
+        "id": 1,
+        "first_name": "Alice",
+        "last_name": "Recette",
+        "email": "alice@example.invalid",
+        "phone": null,
+        "status": "active"
+      },
+      "groups": [
+        {
+          "id": 1,
+          "name": "Mairie",
+          "owner_id": 1,
+          "description": null
+        }
+      ],
+      "roles": [
+        {
+          "id": 1,
+          "name": "Admin"
+        }
+      ]
+    },
+    "/api/auth/role": {
+      "isAdmin": true
+    },
+    "/api/auth/current-user": {
+      "id": "1"
+    },
+    "/admin/sessions/history": []
+  }
+}

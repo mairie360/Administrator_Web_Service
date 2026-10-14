@@ -42,7 +42,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} mairie-ui antialiased`}
       >
-        <FrontUrlsProvider urls={readFrontUrlsFromEnv()}>{children}</FrontUrlsProvider>
+        <FrontUrlsProvider urls={readFrontUrlsFromEnv()} cookieDomain={process.env.COOKIE_DOMAIN}>{children}</FrontUrlsProvider>
       </body>
     </html>
   );
