@@ -1,6 +1,9 @@
 "use client";
+import { subscribePageReturn } from "@/lib/page-return";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePageUrlState } from '@/lib/use-page-url-state';
+import { urlChoice } from '@/lib/page-url-state';
 import { Activity, AlertCircle, CheckCircle2, KeyRound, MonitorSmartphone, RefreshCw, ShieldCheck, UserCog, UsersRound, X } from "lucide-react";
 import { administrationApi, type AdministrationGroup, type AdministrationRole, type AdministrationSession } from "@/lib/administration-api";
 import { BffRequestError } from "@/lib/bff-client";
@@ -12,6 +15,7 @@ import { GroupsPanel } from "./administration/groups-panel";
 import { SessionsPanel } from "./administration/sessions-panel";
 
 type TabId = "users" | "roles" | "groups" | "sessions";
+const administrationUrlSchema = { tab: urlChoice(['users', 'roles', 'groups', 'sessions'], 'users') };
 
 const tabs: Array<{
   id: TabId;
@@ -25,7 +29,9 @@ const tabs: Array<{
 ];
 
 export function AdministrationConsole() {
-  const [activeTab, setActiveTab] = useState<TabId>("users");
+  const pageUrl = usePageUrlState(administrationUrlSchema);
+  const activeTab = pageUrl.state.tab as TabId;
+  const setActiveTab = (tab: TabId) => pageUrl.update({ tab });
   const [usersTotal, setUsersTotal] = useState<number | null>(null);
   // null means no successful read; [] is a confirmed empty collection.
   const [roles, setRoles] = useState<AdministrationRole[] | null>(null);
@@ -105,6 +111,14 @@ export function AdministrationConsole() {
       sessionsReadRevision.current += 1;
     };
   }, [loadAll]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const page = document;
+    const refresh = () => { if (!page.hidden && !loading && !actionPending.current) void loadAll(); };
+    const unsubscribe = subscribePageReturn(refresh);
+    return () => unsubscribe();
+  }, [loadAll, loading]);
 
   const runAction = useCallback(
     async (

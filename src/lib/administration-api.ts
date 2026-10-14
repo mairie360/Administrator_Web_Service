@@ -177,7 +177,7 @@ function boundedText(value: string, label: string, { min = 0, max }: { min?: num
 }
 
 export const administrationApi = {
-  async listUsers({ page = 1, search = "" }: { page?: number; search?: string } = {}) {
+  async listUsers({ page = 1, search = "" }: { page?: number; search?: string } = {}, signal?: AbortSignal) {
     const query: GetAdminUsersParams = {
       page: positiveInteger(page, "La page"),
       page_size: 20,
@@ -187,7 +187,7 @@ export const administrationApi = {
       query.search = boundedText(trimmedSearch, "La recherche", { max: SEARCH_MAX_LENGTH });
     }
 
-    const { data: response } = await bffUser.getAdminUsers(query);
+    const { data: response } = await bffUser.getAdminUsers(query, { signal });
     const record = asRecord(response);
     const users = extractArray(response, ["users", "items"]).filter(isAdministrationUser);
 

@@ -1,4 +1,5 @@
 "use client";
+import { subscribePageReturn } from "@/lib/page-return";
 
 import { EMAIL_MAX_LENGTH, NAME_MAX_LENGTH, NO_MARKUP_HINT, NO_MARKUP_PATTERN, PASSWORD_MAX_LENGTH, PHONE_HINT, PHONE_MAX_LENGTH, PHONE_PATTERN } from "@/lib/text-constraints";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
@@ -8,6 +9,10 @@ import { administrationErrorMessage } from "@/lib/administration-error";
 import { inputClassName, Field, Panel, ActionButton, EmptyState } from "./controls";
 import { ConfirmModal } from "./confirm-modal";
 import { type RunAction } from "./types";
+import { urlPage, urlText } from "@/lib/page-url-state";
+import { usePageUrlState } from "@/lib/use-page-url-state";
+
+const usersUrlSchema = { usersSearch: urlText(100), usersPage: urlPage };
 
 const emptyUsersPage: AdministrationUsersPage = {
   users: [],
@@ -30,9 +35,16 @@ export function UsersPanel({
 }) {
   const [usersPage, setUsersPage] = useState<AdministrationUsersPage>(emptyUsersPage);
   const [hasReceivedUsers, setHasReceivedUsers] = useState(false);
-  const [page, setPage] = useState(1);
+  const pageUrl = usePageUrlState(usersUrlSchema);
+  const page = Number(pageUrl.state.usersPage);
+  const search = pageUrl.state.usersSearch;
   const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
+  const usersReadController = useRef<AbortController | null>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (pageUrl.ready) setSearchInput(search);
+  }, [pageUrl.ready, search]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [usersMutationConfirmed, setUsersMutationConfirmed] = useState(false);
@@ -66,13 +78,16 @@ export function UsersPanel({
   });
 
   const loadUsers = useCallback(async () => {
+    usersReadController.current?.abort();
+    const controller = new AbortController();
+    usersReadController.current = controller;
     const revision = ++usersReadRevision.current;
-    const isCurrent = () => usersReadRevision.current === revision;
+    const isCurrent = () => !controller.signal.aborted && usersReadRevision.current === revision;
     setUsersLoading(true);
     setUsersError(null);
 
     try {
-      const response = await administrationApi.listUsers({ page, search });
+      const response = await administrationApi.listUsers({ page, search }, controller.signal);
       if (!isCurrent()) return;
       setUsersPage(response);
       setHasReceivedUsers(true);
@@ -80,19 +95,29 @@ export function UsersPanel({
       onTotalChange(response.total);
 
       if (response.total_pages > 0 && page > response.total_pages) {
-        setPage(response.total_pages);
+        pageUrl.update({ usersPage: String(response.total_pages) }, "replace");
       }
     } catch (error) {
       if (isCurrent()) setUsersError(administrationErrorMessage(error));
     } finally {
       if (isCurrent()) setUsersLoading(false);
     }
-  }, [onTotalChange, page, search]);
+  }, [onTotalChange, page, search, pageUrl.update]);
 
   useEffect(() => {
+    if (!pageUrl.ready) return;
     void loadUsers();
-    return () => { usersReadRevision.current += 1; };
-  }, [loadUsers]);
+    return () => { usersReadRevision.current += 1; usersReadController.current?.abort(); };
+  }, [loadUsers, pageUrl.ready]);
+
+  useEffect(() => () => { if (searchTimer.current) clearTimeout(searchTimer.current); }, []);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const browserPage = document;
+    const refresh = () => { if (!browserPage.hidden && pageUrl.ready && busyAction === null) void loadUsers(); };
+    const unsubscribe = subscribePageReturn(refresh);
+    return () => unsubscribe();
+  }, [loadUsers, pageUrl.ready, busyAction]);
 
   const selectUser = (user: AdministrationUser) => {
     if (busyAction !== null) return;
@@ -120,6 +145,7 @@ export function UsersPanel({
 
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (searchTimer.current) clearTimeout(searchTimer.current);
     const nextSearch = searchInput.trim();
 
     if (page === 1 && search === nextSearch) {
@@ -129,13 +155,12 @@ export function UsersPanel({
 
     // Invalidate at submission, before the effect starts the replacement read.
     usersReadRevision.current += 1;
-    setSearch(nextSearch);
-    setPage(1);
+    pageUrl.update({ usersSearch: nextSearch, usersPage: "1" });
   };
 
   const changePage = (direction: number) => {
     usersReadRevision.current += 1;
-    setPage((current) => Math.max(1, current + direction));
+    pageUrl.update({ usersPage: String(Math.max(1, page + direction)) });
   };
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
@@ -357,10 +382,16 @@ export function UsersPanel({
               />
               <input
                 type="search"
+                maxLength={100}
                 className={inputClassName + " pl-9"}
                 placeholder="Rechercher par nom, prénom ou e-mail"
                 value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setSearchInput(value);
+                  if (searchTimer.current) clearTimeout(searchTimer.current);
+                  searchTimer.current = setTimeout(() => pageUrl.update({ usersSearch: value.trim(), usersPage: "1" }, "replace"), 250);
+                }}
               />
             </label>
             <ActionButton type="submit" variant="secondary">
