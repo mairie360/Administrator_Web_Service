@@ -304,7 +304,7 @@ describe('no network access outside the BFF contract', () => {
     // Only the generated operations are called: no path string, no base path, no hand-written request.
     const adminSource = fs.readFileSync(path.join(ROOT, 'src/lib/administration-api.ts'), 'utf8');
     assert.doesNotMatch(adminSource, /ADMIN_BASE_PATH|requestAdmin|requestBff|["`]\/(?:admin|api|bff)\b/);
-    const operations = [...adminSource.matchAll(/bffUser\.(\w+)\(/g)].map(([, name]) => name);
+    const operations = [...adminSource.matchAll(/client\.(\w+)\(/g)].map(([, name]) => name);
     assert.ok(operations.length > 0);
     const generated = fs.readFileSync(require.resolve('@mairie360/bff-user-openapi/endpoints/bffUser'), 'utf8');
     operations.forEach((name) => assert.match(generated, new RegExp(`const ${name} = \\(`), `${name} n'est pas une opération générée`));

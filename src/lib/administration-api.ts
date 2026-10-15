@@ -7,6 +7,7 @@ import type {
   AdministrationUsersPage,
 } from "@mairie360/bff-user-openapi/model";
 import type { GetAdminUsersParams } from "@mairie360/bff-user-openapi/model";
+import { parseUsersPage, parseRoles, parseGroups, parseSessions } from "./administration-response";
 import { bffUser } from "./bff-client";
 
 // Modèles du contrat publié de BFF User (@mairie360/bff-user-openapi, version exacte de package.json).
@@ -78,16 +79,6 @@ function extractArray(value: unknown, preferredKeys: string[]): unknown[] {
   return firstArray ?? [];
 }
 
-function isRole(value: unknown): value is AdministrationRole {
-  const role = asRecord(value);
-  return (
-    role !== null &&
-    typeof role.id === "number" &&
-    typeof role.name === "string" &&
-    typeof role.description === "string"
-  );
-}
-
 function isGroup(value: unknown): value is AdministrationGroup {
   const group = asRecord(value);
   return (
@@ -98,29 +89,6 @@ function isGroup(value: unknown): value is AdministrationGroup {
     (group.description === undefined ||
       group.description === null ||
       typeof group.description === "string")
-  );
-}
-
-function isUserRole(value: unknown): value is AdministrationUserRole {
-  const role = asRecord(value);
-  return role !== null && typeof role.id === "number" && typeof role.name === "string";
-}
-
-function isAdministrationUser(value: unknown): value is AdministrationUser {
-  const user = asRecord(value);
-  return (
-    user !== null &&
-    typeof user.id === "number" &&
-    typeof user.first_name === "string" &&
-    typeof user.last_name === "string" &&
-    typeof user.email === "string" &&
-    (user.phone_number === undefined ||
-      user.phone_number === null ||
-      typeof user.phone_number === "string") &&
-    typeof user.status === "string" &&
-    typeof user.is_archived === "boolean" &&
-    Array.isArray(user.roles) &&
-    user.roles.every(isUserRole)
   );
 }
 
@@ -137,21 +105,6 @@ function isGroupMember(value: unknown): value is AdministrationGroupMember {
       typeof user.phone_number === "string") &&
     typeof user.status === "string" &&
     typeof user.is_archived === "boolean"
-  );
-}
-
-function isSession(value: unknown): value is AdministrationSession {
-  const session = asRecord(value);
-  return (
-    session !== null &&
-    typeof session.id === "string" &&
-    typeof session.device_info === "string" &&
-    typeof session.ip_address === "string" &&
-    typeof session.created_at === "string" &&
-    typeof session.expires_at === "string" &&
-    (session.revoked_at === undefined ||
-      session.revoked_at === null ||
-      typeof session.revoked_at === "string")
   );
 }
 
@@ -176,149 +129,139 @@ function boundedText(value: string, label: string, { min = 0, max }: { min?: num
   return value;
 }
 
-export const administrationApi = {
-  async listUsers({ page = 1, search = "" }: { page?: number; search?: string } = {}, signal?: AbortSignal) {
-    const query: GetAdminUsersParams = {
-      page: positiveInteger(page, "La page"),
-      page_size: 20,
-    };
-    const trimmedSearch = search.trim();
-    if (trimmedSearch) {
-      query.search = boundedText(trimmedSearch, "La recherche", { max: SEARCH_MAX_LENGTH });
-    }
+export function createAdministrationApi(client: typeof bffUser = bffUser) {
+  return {
+    async listUsers({ page = 1, search = "" }: { page?: number; search?: string } = {}, signal?: AbortSignal) {
+      const query: GetAdminUsersParams = {
+        page: positiveInteger(page, "La page"),
+        page_size: 20,
+      };
+      const trimmedSearch = search.trim();
+      if (trimmedSearch) {
+        query.search = boundedText(trimmedSearch, "La recherche", { max: SEARCH_MAX_LENGTH });
+      }
 
-    const { data: response } = await bffUser.getAdminUsers(query, { signal });
-    const record = asRecord(response);
-    const users = extractArray(response, ["users", "items"]).filter(isAdministrationUser);
+      const { data: response } = await client.getAdminUsers(query, { signal });
+      return parseUsersPage(response);
+    },
 
-    return {
-      users,
-      page: typeof record?.page === "number" ? record.page : page,
-      page_size: typeof record?.page_size === "number" ? record.page_size : 20,
-      total: typeof record?.total === "number" ? record.total : users.length,
-      total_pages:
-        typeof record?.total_pages === "number"
-          ? record.total_pages
-          : users.length > 0
-            ? 1
-            : 0,
-    } satisfies AdministrationUsersPage;
-  },
+    async listRoles() {
+      const { data: response } = await client.getAdminRoles();
+      return parseRoles(response);
+    },
 
-  async listRoles() {
-    const { data: response } = await bffUser.getAdminRoles();
-    return extractArray(response, ["roles"]).filter(isRole);
-  },
+    createRole(input: RoleInput) {
+      return done(client.postAdminRoles(input));
+    },
 
-  createRole(input: RoleInput) {
-    return done(bffUser.postAdminRoles(input));
-  },
+    replaceRole(roleId: number, input: RoleInput) {
+      return done(client.putAdminRolesRoleId(positiveInteger(roleId, "L’identifiant du rôle"), input));
+    },
 
-  replaceRole(roleId: number, input: RoleInput) {
-    return done(bffUser.putAdminRolesRoleId(positiveInteger(roleId, "L’identifiant du rôle"), input));
-  },
+    updateRole(roleId: number, input: RolePatchInput) {
+      return done(client.patchAdminRolesRoleId(positiveInteger(roleId, "L’identifiant du rôle"), input));
+    },
 
-  updateRole(roleId: number, input: RolePatchInput) {
-    return done(bffUser.patchAdminRolesRoleId(positiveInteger(roleId, "L’identifiant du rôle"), input));
-  },
+    deleteRole(roleId: number) {
+      return done(client.deleteAdminRolesRoleId(positiveInteger(roleId, "L’identifiant du rôle")));
+    },
 
-  deleteRole(roleId: number) {
-    return done(bffUser.deleteAdminRolesRoleId(positiveInteger(roleId, "L’identifiant du rôle")));
-  },
+    async listGroups() {
+      const { data: response } = await client.getAdminGroups();
+      return parseGroups(response);
+    },
 
-  async listGroups() {
-    const { data: response } = await bffUser.getAdminGroups();
-    return extractArray(response, ["groups"]).filter(isGroup);
-  },
+    async getGroup(groupId: number) {
+      const { data: response } = await client.getAdminGroupsGroupId(positiveInteger(groupId, "L’identifiant du groupe"));
+      const record = asRecord(response);
+      const group = record?.group ?? response;
+      return isGroup(group) ? group : null;
+    },
 
-  async getGroup(groupId: number) {
-    const { data: response } = await bffUser.getAdminGroupsGroupId(positiveInteger(groupId, "L’identifiant du groupe"));
-    const record = asRecord(response);
-    const group = record?.group ?? response;
-    return isGroup(group) ? group : null;
-  },
+    createGroup(input: GroupInput) {
+      return done(client.postAdminGroups(input));
+    },
 
-  createGroup(input: GroupInput) {
-    return done(bffUser.postAdminGroups(input));
-  },
+    async updateGroup(groupId: number, input: GroupInput) {
+      const resolvedGroupId = positiveInteger(groupId, "L’identifiant du groupe");
+      boundedText(input.name, "Le nom du groupe", { min: 1, max: GROUP_NAME_MAX_LENGTH });
+      boundedText(input.description, "La description du groupe", { max: GROUP_DESCRIPTION_MAX_LENGTH });
+      const { data: response } = await client.patchAdminGroupsGroupId(resolvedGroupId, input);
+      const record = asRecord(response);
+      const group = record?.group ?? response;
+      return isGroup(group) ? group : null;
+    },
 
-  async updateGroup(groupId: number, input: GroupInput) {
-    const resolvedGroupId = positiveInteger(groupId, "L’identifiant du groupe");
-    boundedText(input.name, "Le nom du groupe", { min: 1, max: GROUP_NAME_MAX_LENGTH });
-    boundedText(input.description, "La description du groupe", { max: GROUP_DESCRIPTION_MAX_LENGTH });
-    const { data: response } = await bffUser.patchAdminGroupsGroupId(resolvedGroupId, input);
-    const record = asRecord(response);
-    const group = record?.group ?? response;
-    return isGroup(group) ? group : null;
-  },
+    deleteGroup(groupId: number) {
+      return done(client.deleteAdminGroupsGroupId(positiveInteger(groupId, "L’identifiant du groupe")));
+    },
 
-  deleteGroup(groupId: number) {
-    return done(bffUser.deleteAdminGroupsGroupId(positiveInteger(groupId, "L’identifiant du groupe")));
-  },
+    async listGroupUsers(groupId: number) {
+      const { data: response } = await client.getAdminGroupsGroupIdUsers(positiveInteger(groupId, "L’identifiant du groupe"));
+      return extractArray(response, ["users"]).filter(isGroupMember);
+    },
 
-  async listGroupUsers(groupId: number) {
-    const { data: response } = await bffUser.getAdminGroupsGroupIdUsers(positiveInteger(groupId, "L’identifiant du groupe"));
-    return extractArray(response, ["users"]).filter(isGroupMember);
-  },
+    addUserToGroup(groupId: number, userId: number) {
+      const resolvedGroupId = positiveInteger(groupId, "L’identifiant du groupe");
+      const resolvedUserId = positiveInteger(userId, "L’identifiant utilisateur");
+      return done(client.postAdminGroupsGroupIdUsers(resolvedGroupId, {
+        group_id: resolvedGroupId,
+        user_id: resolvedUserId,
+      }));
+    },
 
-  addUserToGroup(groupId: number, userId: number) {
-    const resolvedGroupId = positiveInteger(groupId, "L’identifiant du groupe");
-    const resolvedUserId = positiveInteger(userId, "L’identifiant utilisateur");
-    return done(bffUser.postAdminGroupsGroupIdUsers(resolvedGroupId, {
-      group_id: resolvedGroupId,
-      user_id: resolvedUserId,
-    }));
-  },
+    removeUserFromGroup(groupId: number, userId: number) {
+      return done(client.deleteAdminGroupsGroupIdUsersUserId(
+        positiveInteger(groupId, "L’identifiant du groupe"),
+        positiveInteger(userId, "L’identifiant utilisateur"),
+      ));
+    },
 
-  removeUserFromGroup(groupId: number, userId: number) {
-    return done(bffUser.deleteAdminGroupsGroupIdUsersUserId(
-      positiveInteger(groupId, "L’identifiant du groupe"),
-      positiveInteger(userId, "L’identifiant utilisateur"),
-    ));
-  },
+    createUser(input: CreateUserInput) {
+      return done(client.postAdminUsers(input));
+    },
 
-  createUser(input: CreateUserInput) {
-    return done(bffUser.postAdminUsers(input));
-  },
+    updateUser(userId: number, input: UpdateUserInput) {
+      return done(client.patchAdminUsersUserId(positiveInteger(userId, "L’identifiant utilisateur"), input));
+    },
 
-  updateUser(userId: number, input: UpdateUserInput) {
-    return done(bffUser.patchAdminUsersUserId(positiveInteger(userId, "L’identifiant utilisateur"), input));
-  },
+    resetUserPassword(userId: number, newPassword: string) {
+      const resolvedUserId = positiveInteger(userId, "L’identifiant utilisateur");
+      boundedText(newPassword, "Le mot de passe", { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH });
+      return done(client.patchAdminUsersUserIdPassword(resolvedUserId, { new_password: newPassword }));
+    },
 
-  resetUserPassword(userId: number, newPassword: string) {
-    const resolvedUserId = positiveInteger(userId, "L’identifiant utilisateur");
-    boundedText(newPassword, "Le mot de passe", { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH });
-    return done(bffUser.patchAdminUsersUserIdPassword(resolvedUserId, { new_password: newPassword }));
-  },
+    deleteUser(userId: number) {
+      return done(client.deleteAdminUsersUserId(positiveInteger(userId, "L’identifiant utilisateur")));
+    },
 
-  deleteUser(userId: number) {
-    return done(bffUser.deleteAdminUsersUserId(positiveInteger(userId, "L’identifiant utilisateur")));
-  },
+    addRoleToUser(userId: number, roleId: number) {
+      const resolvedUserId = positiveInteger(userId, "L’identifiant utilisateur");
+      const resolvedRoleId = positiveInteger(roleId, "L’identifiant du rôle");
+      return done(client.postAdminUsersUserIdRoles(resolvedUserId, {
+        user_id: resolvedUserId,
+        role_id: resolvedRoleId,
+      }));
+    },
 
-  addRoleToUser(userId: number, roleId: number) {
-    const resolvedUserId = positiveInteger(userId, "L’identifiant utilisateur");
-    const resolvedRoleId = positiveInteger(roleId, "L’identifiant du rôle");
-    return done(bffUser.postAdminUsersUserIdRoles(resolvedUserId, {
-      user_id: resolvedUserId,
-      role_id: resolvedRoleId,
-    }));
-  },
+    removeRoleFromUser(userId: number, roleId: number) {
+      return done(client.deleteAdminUsersUserIdRolesRoleId(
+        positiveInteger(userId, "L’identifiant utilisateur"),
+        positiveInteger(roleId, "L’identifiant du rôle"),
+      ));
+    },
 
-  removeRoleFromUser(userId: number, roleId: number) {
-    return done(bffUser.deleteAdminUsersUserIdRolesRoleId(
-      positiveInteger(userId, "L’identifiant utilisateur"),
-      positiveInteger(roleId, "L’identifiant du rôle"),
-    ));
-  },
+    async listActiveSessions() {
+      const { data: response } = await client.getAdminSessions();
+      return parseSessions(response);
+    },
 
-  async listActiveSessions() {
-    const { data: response } = await bffUser.getAdminSessions();
-    return extractArray(response, ["sessions"]).filter(isSession);
-  },
+    async listSessionHistory() {
+      const { data: response } = await client.getAdminSessionsHistory();
+      return parseSessions(response);
+    },
 
-  async listSessionHistory() {
-    const { data: response } = await bffUser.getAdminSessionsHistory();
-    return extractArray(response, ["sessions"]).filter(isSession);
-  },
+  };
+}
 
-};
+export const administrationApi = createAdministrationApi();

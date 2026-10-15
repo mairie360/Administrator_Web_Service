@@ -1,101 +1,13 @@
 "use client";
-import { normalizeDisplayRole } from "@mairie360/front-kit/shared";
+import { EMPTY_SESSION_USER, parseAuthSession, type AuthSession, type AuthSessionUser } from "./auth-session-model";
+export * from "./auth-session-model";
 
 import { useEffect, useState } from "react";
 import { isSessionRecoveryPending, navigateToLogin } from "./logout";
 export { logoutAndReload } from "./logout";
 
-export const APP_ROLES = [
-  "Admin",
-  "Responsable",
-  "Maire",
-  "User",
-  "Guest",
-] as const;
-
-export type AppRole = (typeof APP_ROLES)[number];
-
-export type AuthSessionUser = {
-  name: string;
-  email?: string;
-  role?: string;
-  service?: string;
-  phone?: string;
-  status?: string;
-  avatar?: string;
-  avatarUrl?: string;
-  position?: string;
-  address?: string;
-  city?: string;
-  lastConnection?: string;
-};
-
-type SessionUser = {
-  name?: unknown;
-  first_name?: unknown;
-  last_name?: unknown;
-  email?: unknown;
-  phone?: unknown;
-  phone_number?: unknown;
-  status?: unknown;
-  role?: unknown;
-  roles?: Array<SessionRole | string> | null;
-  groups?: Array<SessionGroup | string> | null;
-};
-
-type SessionGroup = {
-  name?: unknown;
-};
-
-type SessionRole = {
-  name?: unknown;
-};
-
-type SessionResponse = {
-  user?: SessionUser | null;
-  groups?: Array<SessionGroup | string> | null;
-  roles?: Array<SessionRole | string> | null;
-};
-
-export type AuthSession = {
-  user: AuthSessionUser & { role: AppRole };
-  groups: string[];
-  roles: AppRole[];
-  role: AppRole;
-  isAdmin: boolean;
-  loading: boolean;
-  error: string | null;
-};
-
-const EMPTY_SESSION_USER: AuthSessionUser = { name: "" };
-
-/** One shared alias table; the BFF still owns business permissions. */
-export function normalizeAppRole(value: unknown): AppRole | null {
-  return normalizeDisplayRole(value) ?? null;
-}
-
-function getRoleName(role: SessionRole | string) {
-  return typeof role === "string" ? role : role.name;
-}
-
-function getGroupName(group: SessionGroup | string) {
-  return typeof group === "string" ? group : group.name;
-}
-
-export function resolveAppRoles(roles: Array<SessionRole | string>): AppRole[] {
-  const normalizedRoles = new Set(
-    roles
-      .map((role) => normalizeAppRole(getRoleName(role)))
-      .filter((role): role is AppRole => role !== null),
-  );
-
-  const resolvedRoles = APP_ROLES.filter((role) => normalizedRoles.has(role));
-
-  return resolvedRoles.length ? resolvedRoles : ["Guest"];
-}
-
-export function useAuthSession(initialUser: AuthSessionUser = EMPTY_SESSION_USER) {
-  const [session, setSession] = useState<AuthSession>({
+export function useAuthSession(initialUser: AuthSessionUser = EMPTY_SESSION_USER, initialSession?: AuthSession) {
+  const [session, setSession] = useState<AuthSession>(initialSession ?? {
     user: {
       ...initialUser,
       name: "Chargement…",
@@ -117,7 +29,9 @@ export function useAuthSession(initialUser: AuthSessionUser = EMPTY_SESSION_USER
     error: null,
   });
 
+  const [retryRevision, setRetryRevision] = useState(0);
   useEffect(() => {
+    if (initialSession && retryRevision === 0) return;
     const controller = new AbortController();
 
     async function loadSession() {
@@ -144,70 +58,9 @@ export function useAuthSession(initialUser: AuthSessionUser = EMPTY_SESSION_USER
           return;
         }
 
-        const body = (await response.json()) as SessionResponse;
-        const rawGroups = Array.isArray(body.groups)
-          ? body.groups
-          : Array.isArray(body.user?.groups)
-            ? body.user.groups
-            : [];
-        const groups = rawGroups
-          .map((group) => {
-            const groupName = getGroupName(group);
-            return typeof groupName === "string" ? groupName.trim() : "";
-          })
-          .filter(Boolean);
-        const userRole =
-          typeof body.user?.role === "string" && body.user.role.trim()
-            ? [body.user.role]
-            : [];
-        const responseRoles = Array.isArray(body.user?.roles)
-          ? body.user.roles
-          : Array.isArray(body.roles)
-            ? body.roles
-            : [];
-        const roles = resolveAppRoles(
-          userRole.length > 0 ? userRole : responseRoles,
-        );
-        const role = roles[0];
-        const explicitName =
-          typeof body.user?.name === "string" ? body.user.name.trim() : "";
-        const firstName =
-          typeof body.user?.first_name === "string"
-            ? body.user.first_name.trim()
-            : "";
-        const lastName =
-          typeof body.user?.last_name === "string"
-            ? body.user.last_name.trim()
-            : "";
-        const name = explicitName || `${firstName} ${lastName}`.trim();
-        const email =
-          typeof body.user?.email === "string" ? body.user.email.trim() : "";
-        const rawPhone = body.user?.phone ?? body.user?.phone_number;
-        const phone = typeof rawPhone === "string" ? rawPhone.trim() : "";
-        const status =
-          typeof body.user?.status === "string" ? body.user.status.trim() : "";
-        const groupLabel = groups.length ? groups.join(", ") : undefined;
-
-        setSession({
-          user: {
-            name: name || email,
-            email: email || undefined,
-            phone: phone || undefined,
-            status: status || undefined,
-            service: groupLabel,
-            position: undefined,
-            address: undefined,
-            city: undefined,
-            lastConnection: undefined,
-            role,
-          },
-          groups,
-          roles,
-          role,
-          isAdmin: role === "Admin",
-          loading: false,
-          error: null,
-        });
+        const receipt = await response.json();
+        controller.signal.throwIfAborted();
+        setSession(parseAuthSession(receipt));
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         setSession((current) => ({
@@ -221,7 +74,7 @@ export function useAuthSession(initialUser: AuthSessionUser = EMPTY_SESSION_USER
     void loadSession();
 
     return () => controller.abort();
-  }, [initialUser]);
+  }, [initialUser, initialSession, retryRevision]);
 
-  return session;
+  return { ...session, retry: () => setRetryRevision(value => value + 1) };
 }

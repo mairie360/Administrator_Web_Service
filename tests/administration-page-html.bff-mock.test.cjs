@@ -6,7 +6,7 @@ const { FRONT_ORIGIN, FrontHarness, loadTs } = require('./support/front-harness.
 const { installReactRuntime, mount } = require('./support/server-view.cjs');
 
 // HTML of the administration front rendered with react-dom/server against the mocked BFF User: the real
-// page (src/app/page.tsx: shell with the session of GET /api/user/me) and the real administration console
+// client page (src/components/administration-page.tsx: same-origin profile fallback; async SSR is tested separately) and the real administration console
 // (src/components/administration-console.tsx, driven by src/lib/administration-api.ts) are rendered, the
 // hook state is kept between render passes (tests/support/server-view.cjs), so the markup reflects what the
 // BFF answered through the middleware and the contract-gated proxy.
@@ -36,7 +36,7 @@ function installWindow() {
 before(async () => {
   await bff.start();
   front = new FrontHarness({ bff }).install();
-  [{ default: Home }, { AdministrationConsole }] = loadTs(['src/app/page.tsx', 'src/components/administration-console.tsx']);
+  [{ default: Home }, { AdministrationConsole }] = loadTs(['src/components/administration-page.tsx', 'src/components/administration-console.tsx']);
 });
 after(async () => {
   front.uninstall();
@@ -178,8 +178,9 @@ for (const status of [403, 503]) {
     assert.doesNotMatch(view.text(), /Accès réservé aux administrateurs/);
     assert.deepEqual(sequence(), ['GET /me']);
     await view.click((props, text, tag) => tag === 'button' && text === 'Réessayer');
-    assert.equal(window.reloads, 1);
-    assert.deepEqual(sequence(), ['GET /me'], 'retry requests a document reload, never an administration write');
+    await view.waitFor(() => bff.calls('/me', 'GET').length === 2);
+    assert.equal(window.reloads, 0);
+    assert.deepEqual(sequence(), ['GET /me', 'GET /me'], 'retry uses the same-origin API and never performs an administration write');
   });
 }
 

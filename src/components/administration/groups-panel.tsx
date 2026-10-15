@@ -1,5 +1,7 @@
 "use client";
 
+import AdministrationMutationForm from "@/components/administration-mutation-form";
+
 import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH, NO_MARKUP_HINT, NO_MARKUP_PATTERN, reportMarkupValidity } from "@/lib/text-constraints";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Layers3, LoaderCircle, Plus, RefreshCw, Save, Search, Trash2 } from "lucide-react";
@@ -298,7 +300,7 @@ export function GroupsPanel({
           title="Créer un groupe"
           description="Ajoutez un groupe pour organiser les utilisateurs."
         >
-          <form
+          <AdministrationMutationForm
             onSubmit={handleCreate}
             className="grid gap-4 sm:grid-cols-[1fr_1.5fr_auto] sm:items-end"
           >
@@ -337,7 +339,7 @@ export function GroupsPanel({
               <Plus className="h-4 w-4" aria-hidden="true" />
               Créer
             </ActionButton>
-          </form>
+          </AdministrationMutationForm>
         </Panel>
       </div>
 
@@ -362,7 +364,7 @@ export function GroupsPanel({
           <EmptyState>Cliquez sur un groupe dans la liste.</EmptyState>
         ) : (
           <div className="space-y-6">
-            <form onSubmit={handleUpdate} className="space-y-4">
+            <AdministrationMutationForm onSubmit={handleUpdate} className="space-y-4">
               <Field label="Nom du groupe" htmlFor="edit-group-name">
                 <input
                   id="edit-group-name"
@@ -408,7 +410,7 @@ export function GroupsPanel({
                   Enregistrer le groupe
                 </ActionButton>
               </div>
-            </form>
+            </AdministrationMutationForm>
 
             <div className="border-t border-[#ebe8e3] pt-5">
               <div className="mb-3 flex items-center justify-between gap-3">

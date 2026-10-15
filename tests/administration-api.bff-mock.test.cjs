@@ -66,10 +66,10 @@ describe('administration API client against a contract-driven BFF User mock', ()
       assert.deepEqual(sequence(), ['GET /admin/users?page=1&page_size=20']);
     });
 
-    test('listUsers keeps only well-formed users when the BFF answers outside its contract', async () => {
+    test('listUsers refuses an incoherent receipt rather than confirming a partial page', async () => {
       bff.on('get', '/admin/users', { outOfContract: true, body: { items: [user(1), { id: 'x' }] } });
 
-      assert.deepEqual(await administrationApi.listUsers({ page: 3 }), { users: [user(1)], page: 3, page_size: 20, total: 1, total_pages: 1 });
+      await assert.rejects(administrationApi.listUsers({ page: 3 }), /incohérentes/);
     });
 
     test('rejects invalid identifiers before any network call', async () => {
@@ -116,13 +116,13 @@ describe('administration API client against a contract-driven BFF User mock', ()
       assert.deepEqual(sequence(), ['GET /admin/groups/5', 'GET /admin/groups/5/users']);
     });
 
-    test('tolerates bare arrays and malformed entries returned outside the contract', async () => {
+    test('refuses malformed list envelopes without converting them to confirmed empty collections', async () => {
       bff.on('get', '/admin/roles', { outOfContract: true, body: [role(1), { id: 2 }] })
         .on('get', '/admin/groups', { outOfContract: true, body: 'pas un objet' })
         .on('get', '/admin/groups/{groupId}', { outOfContract: true, body: { id: 5 } });
 
-      assert.deepEqual(await administrationApi.listRoles(), [role(1)]);
-      assert.deepEqual(await administrationApi.listGroups(), []);
+      await assert.rejects(administrationApi.listRoles(), /incohérentes/);
+      await assert.rejects(administrationApi.listGroups(), /incohérentes/);
       assert.equal(await administrationApi.getGroup(5), null);
     });
   });
