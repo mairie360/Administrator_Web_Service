@@ -57,7 +57,8 @@ test('a browser bearer without any cookie cannot authenticate the relay', async 
   const result = await forwardToBff(new NextRequest('http://localhost/me', { headers: { Authorization: 'Bearer forged-browser' } }), 'http://bff.example', '/me');
   assert.equal(result.status, 401);
   assert.equal(authorization, null);
-  assert.equal(result.headers.get('X-Mairie360-Login-Required'), 'true');
+  assert.equal(result.headers.get('Location'), null);
+  assert.equal(result.headers.get('Cache-Control'), 'no-store');
   assert.equal(result.headers.get('Set-Cookie'), null);
 });
 

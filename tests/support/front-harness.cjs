@@ -3,7 +3,7 @@ const path = require('node:path');
 const Module = require('node:module');
 const ts = require('typescript');
 const { AsyncLocalStorage } = require('node:async_hooks');
-const { createSessionRefreshHandler, createSessionLogoutHandler, forgetUserSession } = require('@mairie360/lib-components/next');
+const { createSessionRefreshHandler, createSessionLogoutHandler, forgetUserSession } = require('@mairie360/front-kit/next');
 
 const ROOT = path.join(__dirname, '..', '..');
 const SRC = path.join(ROOT, 'src');
@@ -151,7 +151,7 @@ class FrontHarness {
   async browserFetch(target, init = {}) {
     const method = (init.method ?? 'GET').toUpperCase();
     const headers = new Headers(init.headers);
-    const cookies = [this.cookie && `accessToken=${this.cookie}`, this.refreshCookie && `refreshToken=${this.refreshCookie}`].filter(Boolean);
+    const cookies = [this.cookie && `accessToken=${this.cookie}`, this.refreshCookie && (new URL(target, FRONT_ORIGIN).pathname === '/api' || new URL(target, FRONT_ORIGIN).pathname.startsWith('/api/')) && `refreshToken=${this.refreshCookie}`].filter(Boolean);
     if (cookies.length) headers.set('cookie', cookies.join('; '));
     if (!headers.has('origin')) headers.set('origin', FRONT_ORIGIN);
     if (!headers.has('sec-fetch-site')) headers.set('sec-fetch-site', 'same-origin');

@@ -65,7 +65,7 @@ async function administrationDom(t) {
   React = require('react');
   const { createRoot } = require('react-dom/client'), [{ default: Home }] = loadTs(['src/app/page.tsx']);
   root = createRoot(dom.window.document.getElementById('root'));
-  await React.act(async () => root.render(React.createElement(Home)));
+  await React.act(async () => root.render(React.createElement(require('@mairie360/front-kit/react').InstanceProvider, { role: 'Admin', timeZone: 'UTC' }, React.createElement(Home))));
   const loaded = () => dom.window.document.body.textContent.includes('Aucun utilisateur disponible.') &&
     [...dom.window.document.querySelectorAll('button')].some(button => button.textContent.trim() === 'Actualiser' && !button.disabled);
   for (let attempt = 0; attempt < 100 && !loaded(); attempt += 1) {
