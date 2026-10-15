@@ -1,4 +1,5 @@
 "use client";
+import { getInstanceTimeZone } from "@mairie360/front-kit/shared";
 
 import { type ButtonHTMLAttributes, type ReactNode } from "react";
 import { LoaderCircle } from "lucide-react";
@@ -15,6 +16,7 @@ export function formatDate(value?: string | null) {
   if (Number.isNaN(date.getTime())) return value;
 
   return new Intl.DateTimeFormat("fr-FR", {
+    timeZone: getInstanceTimeZone(),
     dateStyle: "short",
     timeStyle: "short",
   }).format(date);

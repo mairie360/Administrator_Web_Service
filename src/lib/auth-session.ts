@@ -1,4 +1,5 @@
 "use client";
+import { normalizeDisplayRole } from "@mairie360/front-kit/shared";
 
 import { useEffect, useState } from "react";
 import { isSessionRecoveryPending, navigateToLogin } from "./logout";
@@ -68,34 +69,9 @@ export type AuthSession = {
 
 const EMPTY_SESSION_USER: AuthSessionUser = { name: "" };
 
-const ROLE_ALIASES: Record<string, AppRole> = {
-  admin: "Admin",
-  administrateur: "Admin",
-  administrator: "Admin",
-  responsable: "Responsable",
-  manager: "Responsable",
-  maire: "Maire",
-  mayor: "Maire",
-  user: "User",
-  utilisateur: "User",
-  guest: "Guest",
-  invite: "Guest",
-};
-
-function normalizeRoleKey(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_-]+/g, "")
-    .replace(/^role/, "");
-}
-
+/** One shared alias table; the BFF still owns business permissions. */
 export function normalizeAppRole(value: unknown): AppRole | null {
-  return typeof value === "string"
-    ? ROLE_ALIASES[normalizeRoleKey(value)] ?? null
-    : null;
+  return normalizeDisplayRole(value) ?? null;
 }
 
 function getRoleName(role: SessionRole | string) {

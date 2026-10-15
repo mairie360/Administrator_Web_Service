@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createSessionLogoutProxy, proxyPublishedBffRequest } from '@mairie360/lib-components/next';
+import { createSessionLogoutProxy, proxyPublishedBffRequest } from '@mairie360/front-kit/next';
 import contract from '../../contracts/openapi.json';
 
 type RouteContext = { params: Promise<{ path: string[] }> };
@@ -32,13 +32,7 @@ export async function forwardToBff(request: NextRequest, baseUrl: string, path: 
   if (path.startsWith('/auth/') || ['/admin/sessions/refresh', '/admin/sessions/revoke'].includes(path)) return Response.json({ message: 'Route indisponible.' }, {
     status: 404, headers: { 'Cache-Control': 'no-store' },
   });
-  const headers = new Headers(request.headers);
-  headers.delete('Authorization');
-  const body = ['GET', 'HEAD'].includes(request.method) ? undefined : await request.arrayBuffer();
-  const relay = new NextRequest(request.url, {
-    method: request.method, headers, ...(body ? { body } : {}),
-  });
-  return proxyPublishedBffRequest(relay, path.split('/').filter(Boolean), {
+  return proxyPublishedBffRequest(request, path.split('/').filter(Boolean), {
     baseUrl: () => baseUrl,
     paths: contract.paths,
     loginUrl: () => process.env.LOGIN_FRONT_URL?.trim() ?? '',

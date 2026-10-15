@@ -8,6 +8,19 @@ require.extensions['.ts'] = (module, filename) => module._compile(ts.transpileMo
 const { proxyBffRequest, forwardToBff } = require('../src/lib/bff-proxy.ts');
 require.extensions['.ts'] = originalLoader;
 const originalFetch = global.fetch;
+for (const [name, target, headers, expected] of [
+  ['unknown route', '/not-published', {}, 404],
+  ['cross-site mutation', '/admin/users/1', { 'sec-fetch-site': 'cross-site' }, 403],
+  ['oversized declared body', '/admin/users/1', { 'content-length': String(2 * 1024 * 1024) }, 413],
+]) test(`relay rejects ${name} before any unbounded body allocation`, async () => {
+  global.fetch = async () => assert.fail('a rejected request cannot reach the BFF');
+  const request = new NextRequest('http://localhost' + target, {
+    method: 'PATCH', headers: { 'content-type': 'application/json', cookie: 'accessToken=test-session', ...headers }, body: '{}',
+  });
+  request.arrayBuffer = async () => assert.fail('the relay must not prebuffer the complete request');
+  const response = await forwardToBff(request, 'http://bff.example', target);
+  assert.equal(response.status, expected);
+});
 const bffUrlVariables = ['BFF_ADMIN_BASE_URL', 'USER_BFF_URL', 'BFF_USER_API_URL', 'NEXT_PUBLIC_BFF_ADMIN_BASE_URL'];
 const originalBffUrls = Object.fromEntries(bffUrlVariables.map((name) => [name, process.env[name]]));
 afterEach(() => {
