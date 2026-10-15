@@ -48,7 +48,7 @@ const business = () => bff.on('get', '/admin/roles', req => req.headers.authoriz
 test('expired access rotates at Login and retries the actual administration read once', async () => {
   renewed(); business();
   assert.deepEqual(await read(), roles);
-  assert.deepEqual(front.browserCalls, [{ method: 'GET', target: '/admin/roles' }]);
+  assert.deepEqual(front.browserCalls, [{ method: 'GET', target: '/admin/roles' }, { method: 'POST', target: '/api/auth/refresh' }, { method: 'GET', target: '/admin/roles' }]);
   assert.equal(front.ownerCalls.length, 1);
   assert.equal(front.ownerCalls[0].url.pathname, '/api/auth/refresh');
   assert.deepEqual(ownerBff.calls('/auth/refresh')[0].body, { refresh_token: refresh });

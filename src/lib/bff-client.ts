@@ -1,3 +1,4 @@
+import { sessionFetch } from '@mairie360/front-kit/browser';
 import axios, { type AxiosAdapter } from 'axios';
 import { getBffUser } from '@mairie360/bff-user-openapi/endpoints/bffUser';
 import { navigateToLogin } from './logout';
@@ -58,7 +59,7 @@ async function readErrorBody(response: Response): Promise<unknown> {
 }
 
 export async function requestBff<T>(path: string, init: RequestInit = {}) {
-  const response = await fetch(path, {
+  const response = await sessionFetch(path, {
     ...init,
     headers: createRequestHeaders(init),
     redirect: "manual",

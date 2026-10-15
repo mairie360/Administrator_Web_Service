@@ -258,13 +258,20 @@ describe('route handlers src/app/api', () => {
     const adapters = front.routes.filter(({ catchAll }) => !catchAll);
     assert.ok(adapters.length > 0);
 
-    for (const { prefix, module } of adapters) {
+    for (const { prefix, module } of adapters.filter(({ prefix }) => !['/api/auth/refresh', '/api/auth/resume'].includes(prefix))) {
       for (const method of Object.keys(module).filter((name) => /^[A-Z]+$/.test(name))) {
         bff.requests.length = 0;
         const response = await front.browserFetch(prefix, { method, ...(prefix === '/api/auth/logout' ? { headers: { 'Content-Type': 'application/json' }, body: '{}' } : {}) });
         assert.ok(response.status < 300, `${method} ${prefix} → ${response.status}`);
         assert.equal(bff.requests.length, 1, `${method} ${prefix} doit appeler exactement une opération du contrat`);
       }
+    }
+    for (const target of ['/api/auth/refresh', '/api/auth/resume']) {
+      assert.ok(adapters.some(({ prefix }) => prefix === target));
+      bff.requests.length = 0;
+      const response = await front.browserFetch(target, target.endsWith('refresh') ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' } : {});
+      assert.equal(response.headers.get('cache-control'), 'no-store');
+      assert.equal(bff.requests.length, 0, 'session coordination never masquerades as a business contract operation');
     }
   });
 });
@@ -278,7 +285,7 @@ describe('no network access outside the BFF contract', () => {
     const fetchers = [];
     for (const file of sources(SRC)) {
       const ast = policy.parse(path.relative(ROOT, file));
-      if (policy.calls(ast, 'fetch').length) fetchers.push(relative(file));
+      if ((policy.calls(ast, 'fetch').length || policy.calls(ast, 'sessionFetch').length)) fetchers.push(relative(file));
       // axios only carries the generated operations through the fetch of the BFF client.
       for (const api of policy.networkReferences(ast)) if (relative(file) !== 'src/lib/bff-client.ts' || !/axios/.test(api)) offenders.push(`${relative(file)} : ${api}`);
       for (const node of policy.nodes(ast, node => (policy.ts.isNewExpression(node) && policy.callName(node.expression) === 'Worker') || (policy.ts.isPropertyAccessExpression(node) && policy.ts.isIdentifier(node.expression) && node.expression.text === 'navigator' && node.name.text === 'serviceWorker'))) offenders.push(`${relative(file)} : worker`);
@@ -306,7 +313,7 @@ describe('no network access outside the BFF contract', () => {
   });
 
   test('the browser may only connect to its own origin and Next.js rewrites nothing elsewhere', () => {
-    const [{ buildContentSecurityPolicy }] = loadTs(['src/lib/content-security-policy.ts']);
+    const { buildContentSecurityPolicy } = require('@mairie360/front-kit/shared');
     const nextConfig = loadTs(['next.config.ts'])[0].default;
     const directives = Object.fromEntries(buildContentSecurityPolicy('n').split('; ').map((directive) => [directive.split(' ')[0], directive]));
 
