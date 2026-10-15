@@ -6,9 +6,9 @@ import { pageStateUrl, readPageUrlState, type UrlSchema } from './page-url-state
 const URL_STATE_EVENT = 'mairie360:page-state';
 
 /** Pass a module-level schema so subscriptions stay stable across renders. */
-export function usePageUrlState(schema: UrlSchema) {
-  const [state, setState] = useState(() => readPageUrlState('', schema));
-  const [ready, setReady] = useState(false);
+export function usePageUrlState(schema: UrlSchema, initialSearch?: string) {
+  const [state, setState] = useState(() => readPageUrlState(initialSearch ?? '', schema));
+  const [ready, setReady] = useState(initialSearch !== undefined);
   useEffect(() => {
     const browser = typeof window === 'undefined' ? undefined : window;
     if (!browser) { setReady(true); return; }
