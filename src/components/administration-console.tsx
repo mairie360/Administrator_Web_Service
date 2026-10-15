@@ -3,7 +3,8 @@ import { subscribePageReturn } from "@/lib/page-return";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePageUrlState } from '@/lib/use-page-url-state';
-import { urlChoice } from '@/lib/page-url-state';
+import { administrationUrlSchema } from '@/lib/administration-query';
+import type { InitialConsole } from '@/lib/administration-response';
 import { Activity, AlertCircle, CheckCircle2, KeyRound, MonitorSmartphone, RefreshCw, ShieldCheck, UserCog, UsersRound, X } from "lucide-react";
 import { administrationApi, type AdministrationGroup, type AdministrationRole, type AdministrationSession } from "@/lib/administration-api";
 import { BffRequestError } from "@/lib/bff-client";
@@ -15,7 +16,6 @@ import { GroupsPanel } from "./administration/groups-panel";
 import { SessionsPanel } from "./administration/sessions-panel";
 
 type TabId = "users" | "roles" | "groups" | "sessions";
-const administrationUrlSchema = { tab: urlChoice(['users', 'roles', 'groups', 'sessions'], 'users') };
 
 const tabs: Array<{
   id: TabId;
@@ -28,27 +28,31 @@ const tabs: Array<{
   { id: "sessions", label: "Sessions", icon: MonitorSmartphone },
 ];
 
-export function AdministrationConsole() {
-  const pageUrl = usePageUrlState(administrationUrlSchema);
+export function AdministrationConsole({ initialState, initialSearch }: { initialState?: InitialConsole; initialSearch?: string }) {
+  const [initial] = useState(initialState);
+  const pageUrl = usePageUrlState(administrationUrlSchema, initialSearch);
+  // Only a users panel present in the initial render may consume this receipt.
+  const [usersSeed, setUsersSeed] = useState(() => initial && pageUrl.state.tab === "users" ? { page: initial.users, error: initial.usersError } : undefined);
+  const consumeUsersSeed = useCallback(() => setUsersSeed(undefined), []);
   const activeTab = pageUrl.state.tab as TabId;
   const setActiveTab = (tab: TabId) => pageUrl.update({ tab });
-  const [usersTotal, setUsersTotal] = useState<number | null>(null);
+  const [usersTotal, setUsersTotal] = useState<number | null>(initial?.users?.total ?? null);
   // null means no successful read; [] is a confirmed empty collection.
-  const [roles, setRoles] = useState<AdministrationRole[] | null>(null);
-  const [groups, setGroups] = useState<AdministrationGroup[] | null>(null);
-  const [activeSessions, setActiveSessions] = useState<AdministrationSession[] | null>(null);
-  const [sessionHistory, setSessionHistory] = useState<AdministrationSession[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [roles, setRoles] = useState<AdministrationRole[] | null>(initial?.roles ?? null);
+  const [groups, setGroups] = useState<AdministrationGroup[] | null>(initial?.groups ?? null);
+  const [activeSessions, setActiveSessions] = useState<AdministrationSession[] | null>(initial?.activeSessions ?? null);
+  const [sessionHistory, setSessionHistory] = useState<AdministrationSession[] | null>(initial?.sessionHistory ?? null);
+  const [loading, setLoading] = useState(initial === undefined);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const actionPending = useRef(false);
   const [refreshFailure, setRefreshFailure] = useState<{
     message: string;
     retry: () => Promise<unknown>;
   } | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(initial?.error ?? null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [authRequired, setAuthRequired] = useState(false);
+  const [authRequired, setAuthRequired] = useState(initial?.authRequired ?? false);
   const allReadRevision = useRef(0);
   const rolesReadRevision = useRef(0);
   const groupsReadRevision = useRef(0);
@@ -103,14 +107,14 @@ export function AdministrationConsole() {
   }, []);
 
   useEffect(() => {
-    void loadAll();
+    if (initial === undefined) void loadAll();
     return () => {
       allReadRevision.current += 1;
       rolesReadRevision.current += 1;
       groupsReadRevision.current += 1;
       sessionsReadRevision.current += 1;
     };
-  }, [loadAll]);
+  }, [loadAll, initial]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -137,6 +141,8 @@ export function AdministrationConsole() {
 
       try {
         await action();
+        // A confirmed mutation also invalidates a seed whose panel was never opened.
+        setUsersSeed(undefined);
         setNotice(successMessage);
         if (refresh) {
           try {
@@ -372,6 +378,10 @@ export function AdministrationConsole() {
 
       {activeTab === "users" && (
         <UsersPanel
+          initialPage={usersSeed?.page}
+          initialError={usersSeed?.error}
+          initialSearch={usersSeed ? initialSearch : undefined}
+          onInitialReadConsumed={consumeUsersSeed}
           roles={roles ?? []}
           busyAction={busyAction}
           runAction={runAction}

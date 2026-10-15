@@ -22,10 +22,12 @@ const reactStub = {
 function renderHook(hook) {
   const effects = [];
   const result = { state: undefined, updates: 0 };
+  let slot = 0;
   hooks = {
     useState: (initial) => {
-      result.state = initial;
-      return [initial, (next) => { result.state = typeof next === 'function' ? next(result.state) : next; result.updates += 1; }];
+      const index = slot++; let state = initial;
+      if (index === 0) result.state = state;
+      return [state, (next) => { state = typeof next === 'function' ? next(state) : next; if (index === 0) { result.state = state; result.updates += 1; } }];
     },
     useEffect: (effect) => effects.push(effect),
   };

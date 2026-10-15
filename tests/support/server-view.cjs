@@ -10,7 +10,7 @@ const Module = require('node:module');
 //
 // Hooks that keep state (useState, useReducer, useRef, useMemo, useCallback, useEffect and the layout
 // variants) are served by this runner while a wrapped component renders; every other hook (useContext,
-// useId, useSyncExternalStore, ...) goes to React's own server implementation.
+// useId, ...) goes to React's own server implementation.
 //
 // Like React, a component function runs again only when its own state changed or when its parent ran again
 // (it then receives a new props object); otherwise its previous output is reused as is, so the elements it
@@ -54,6 +54,23 @@ const runnerHooks = {
       else instance.view.invalidate(instance);
     };
     return [cell.get(), setState];
+  },
+  useSyncExternalStore(subscribe, getSnapshot) {
+    // mount() flushes client effects and events: its snapshot must come from the
+    // client store. Direct renderToStaticMarkup tests still use real server React.
+    const [, update] = runnerHooks.useState(0);
+    const snapshot = runnerHooks.useRef(getSnapshot());
+    snapshot.current = getSnapshot();
+    runnerHooks.useEffect(() => {
+      const check = () => {
+        const next = getSnapshot();
+        if (!Object.is(snapshot.current, next)) { snapshot.current = next; update(value => value + 1); }
+      };
+      const unsubscribe = subscribe(check);
+      check();
+      return unsubscribe;
+    }, [subscribe, getSnapshot]);
+    return snapshot.current;
   },
   useReducer(reducer, initialArg, init) {
     const instance = current;

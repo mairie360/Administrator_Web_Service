@@ -1,5 +1,7 @@
 "use client";
 
+import AdministrationMutationForm from "@/components/administration-mutation-form";
+
 import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH, NO_MARKUP_HINT, NO_MARKUP_PATTERN, reportMarkupValidity } from "@/lib/text-constraints";
 import { useState, type FormEvent } from "react";
 import { Pencil, RefreshCw, Save, Trash2 } from "lucide-react";
@@ -138,7 +140,7 @@ export function RolesPanel({
         }
         className="h-fit"
       >
-        <form id="role-form" onSubmit={handleSubmit} className="space-y-4">
+        <AdministrationMutationForm id="role-form" onSubmit={handleSubmit} className="space-y-4">
           {mode !== "create" && (
             <Field label="Type de modification" htmlFor="role-write-mode">
               <select
@@ -200,7 +202,7 @@ export function RolesPanel({
               {mode === "create" ? "Créer" : "Enregistrer"}
             </ActionButton>
           </div>
-        </form>
+        </AdministrationMutationForm>
       </Panel>
 
       <ConfirmModal

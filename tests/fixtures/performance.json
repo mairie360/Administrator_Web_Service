@@ -25,23 +25,29 @@
       "total": 1,
       "total_pages": 1
     },
-    "/admin/roles": [
-      {
-        "id": 1,
-        "name": "Admin",
-        "description": "Administration",
-        "can_be_deleted": false
-      }
-    ],
-    "/admin/groups": [
-      {
-        "id": 1,
-        "name": "Mairie",
-        "owner_id": 1,
-        "description": null
-      }
-    ],
-    "/admin/sessions": [],
+    "/admin/roles": {
+      "roles": [
+        {
+          "id": 1,
+          "name": "Admin",
+          "description": "Administration",
+          "can_be_deleted": false
+        }
+      ]
+    },
+    "/admin/groups": {
+      "groups": [
+        {
+          "id": 1,
+          "name": "Mairie",
+          "owner_id": 1,
+          "description": null
+        }
+      ]
+    },
+    "/admin/sessions": {
+      "sessions": []
+    },
     "/api/user/me": {
       "user": {
         "id": 1,
@@ -120,6 +126,8 @@
     "/api/auth/current-user": {
       "id": "1"
     },
-    "/admin/sessions/history": []
+    "/admin/sessions/history": {
+      "sessions": []
+    }
   }
 }
