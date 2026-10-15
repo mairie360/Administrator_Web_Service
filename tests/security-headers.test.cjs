@@ -10,9 +10,9 @@ afterEach(() => {
 });
 const { NextRequest } = require('next/server');
 const { loadTs } = require('./support/front-harness.cjs');
-const [{ middleware }, { buildContentSecurityPolicy }, { default: nextConfig }] = loadTs([
+const { buildContentSecurityPolicy } = require('@mairie360/front-kit/shared');
+const [{ middleware }, { default: nextConfig }] = loadTs([
   'src/middleware.ts',
-  'src/lib/content-security-policy.ts',
   'next.config.ts',
 ]);
 
