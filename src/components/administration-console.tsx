@@ -1,11 +1,12 @@
 "use client";
 import { subscribePageReturn } from "@/lib/page-return";
 
+import { Toast } from "@mairie360/lib-components/primitives";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePageUrlState } from '@/lib/use-page-url-state';
 import { administrationUrlSchema } from '@/lib/administration-query';
 import type { InitialConsole } from '@/lib/administration-response';
-import { Activity, AlertCircle, CheckCircle2, KeyRound, MonitorSmartphone, RefreshCw, ShieldCheck, UserCog, UsersRound, X } from "lucide-react";
+import { Activity, AlertCircle, KeyRound, MonitorSmartphone, RefreshCw, ShieldCheck, UserCog, UsersRound } from "lucide-react";
 import { administrationApi, type AdministrationGroup, type AdministrationRole, type AdministrationSession } from "@/lib/administration-api";
 import { BffRequestError } from "@/lib/bff-client";
 import { administrationErrorMessage } from "@/lib/administration-error";
@@ -279,35 +280,9 @@ export function AdministrationConsole({ initialState, initialSearch }: { initial
         </div>
       )}
 
-      {notice && (
-        <div
-          role="status"
-          className="flex items-center justify-between gap-3 rounded-xl border border-[#a6e3c4] bg-[#f2fff8] px-4 py-3 text-sm font-semibold text-[#05603a]"
-        >
-          <span className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden="true" />
-            {notice}
-          </span>
-          <button type="button" aria-label="Fermer" onClick={() => setNotice(null)}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
+      {notice && <Toast message={notice} variant="success" onClose={() => setNotice(null)} />}
 
-      {actionError && (
-        <div
-          role="alert"
-          className="flex items-center justify-between gap-3 rounded-xl border border-[#f4c7c3] bg-[#fff7f6] px-4 py-3 text-sm font-semibold text-[#912018]"
-        >
-          <span className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
-            {actionError}
-          </span>
-          <button type="button" aria-label="Fermer" onClick={() => setActionError(null)}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
+      {actionError && <Toast message={actionError} variant="error" onClose={() => setActionError(null)} />}
 
       {refreshFailure && (
         <div role="alert" className="rounded-xl border border-[#fedf89] bg-[#fffaeb] px-4 py-3 text-sm text-[#93370d]">

@@ -1,12 +1,14 @@
 "use client";
 
+import { EmptyState, Skeleton } from "@mairie360/lib-components/primitives";
+
 import AdministrationMutationForm from "@/components/administration-mutation-form";
 
 import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH, NO_MARKUP_HINT, NO_MARKUP_PATTERN, reportMarkupValidity } from "@/lib/text-constraints";
 import { useState, type FormEvent } from "react";
 import { Pencil, RefreshCw, Save, Trash2 } from "lucide-react";
 import { administrationApi, type AdministrationRole } from "@/lib/administration-api";
-import { inputClassName, textareaClassName, Field, Panel, ActionButton, EmptyState } from "./controls";
+import { inputClassName, textareaClassName, Field, Panel, ActionButton } from "./controls";
 import { ConfirmModal } from "./confirm-modal";
 import { type RunAction } from "./types";
 
@@ -88,11 +90,9 @@ export function RolesPanel({
         }
       >
         {roles === null ? (
-          <EmptyState>
-            <p role="status">{loading ? "Chargement des rôles…" : "Les rôles n’ont pas pu être chargés. Utilisez Actualiser pour réessayer."}</p>
-          </EmptyState>
+          loading ? <Skeleton label="Chargement des rôles…" className="!h-32" /> : <EmptyState title="Les rôles n’ont pas pu être chargés. Utilisez Actualiser pour réessayer." role="status" />
         ) : roles.length === 0 ? (
-          <EmptyState>Aucun rôle disponible.</EmptyState>
+          <EmptyState title="Aucun rôle disponible." />
         ) : (
           <div className="divide-y divide-[#ebe8e3] rounded-lg border border-[#e4e1dc]">
             {roles.map((role) => (

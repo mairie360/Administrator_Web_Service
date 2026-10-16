@@ -4,6 +4,31 @@ const { administrationDom } = require('./support/administration-dom.cjs');
 const bob = { id: 7, first_name: 'Bob', last_name: 'Martin', email: 'bob@mairie.test', phone_number: null, status: 'active', is_archived: false, roles: [] };
 const page = users => ({ users, page: 1, page_size: 20, total: users.length, total_pages: users.length ? 1 : 0 });
 function configure(bff) { bff.on('get', '/admin/users', { body: page([bob]) }); }
+test('a local deletion alertdialog inerts the sole shared skip link and cancellation restores its main without a write', async t => {
+  const dom = await administrationDom(t, { serverPage: true, configure, expected: 'Bob Martin' });
+  const main = dom.document.querySelector('main');
+  const skips = [...dom.document.querySelectorAll('a[href]')].filter(link => link.getAttribute('href') === `#${main.id}`);
+  assert.equal(skips.length, 1);
+  const skip = skips[0];
+  assert.equal(skip.closest('[inert]'), null);
+  assert.ok(skip.compareDocumentPosition(dom.document.querySelector('.app-desktop-navigation button')) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
+  await dom.click([...dom.document.querySelectorAll('tr')].find(row => row.textContent.includes('Bob Martin')));
+  await dom.click(dom.button('Supprimer l’utilisateur'));
+  await dom.waitFor(() => skip.closest('[inert]'));
+  const dialog = dom.document.querySelector('[role="alertdialog"][aria-modal="true"]');
+  assert.ok(dialog);
+  assert.equal(dom.document.querySelector('.app-desktop-navigation').hasAttribute('inert'), true);
+  assert.equal(dom.document.querySelectorAll(`a[href="#${main.id}"]`).length, 1);
+  await dom.click([...dialog.querySelectorAll('button')].find(button => button.textContent.trim() === 'Annuler'));
+  await dom.waitFor(() => !skip.closest('[inert]'));
+  assert.equal(dom.document.querySelector('[role="alertdialog"]'), null);
+  assert.equal(dom.document.querySelector('main'), main);
+  assert.equal(dom.document.querySelector(`a[href="#${main.id}"]`), skip);
+  assert.equal(dom.bff.calls('/admin/users/{userId}', 'DELETE').length, 0);
+  assert.ok(dom.document.body.textContent.includes('Bob Martin'));
+  await dom.click(skip);
+  assert.equal(dom.document.activeElement, main);
+});
 test('a confirmed SSR receipt survives real React StrictMode effect replay without any duplicate bootstrap', async t => {
   const dom = await administrationDom(t, { serverPage: true, strict: true, configure, expected: 'Bob Martin' });
   assert.equal(dom.bff.calls('/me', 'GET').length, 1);
