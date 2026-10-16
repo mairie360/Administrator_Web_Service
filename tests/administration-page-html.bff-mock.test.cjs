@@ -88,7 +88,7 @@ function mockConsoleData({ roles = [role(1), role(2)], groups = [group(1)], acti
 async function renderLoadedConsole(options) {
   mockConsoleData(options);
   view = mount(React.createElement(AdministrationConsole));
-  return view.waitFor(() => bff.requests.length === 5 && consoleLoaded() && !view.html.includes('aria-label="Chargement"') && view.find('UsersPanel')[0]?.props.onTotalChange && view.text().includes('Utilisateurs'));
+  return view.waitFor(() => bff.requests.length === 5 && consoleLoaded() && !view.text().includes('Chargement des utilisateurs…') && view.find('UsersPanel')[0]?.props.onTotalChange && view.text().includes('Utilisateurs'));
 }
 
 test('the page shell renders the BFF-backed console with the resolved user session, never fixture administration', async () => {
@@ -294,10 +294,11 @@ test('the console loads roles, groups, sessions and users and renders the counts
 
   assert.equal(view.passes, 1);
   assert.match(view.html, /<h1[^>]*>Administration<\/h1>/);
-  assert.match(view.html, /aria-label="Chargement"/);
+  assert.match(view.text(), /Chargement des utilisateurs…/);
+    assert.match(view.html, /role="status" aria-live="polite"/);
   assert.match(view.text(), /— Utilisateurs — Rôles — Groupes — Sessions actives/);
 
-  const html = await view.waitFor(() => bff.requests.length === 5 && consoleLoaded() && !view.html.includes('aria-label="Chargement"') && view.text().includes('2 Utilisateurs'));
+  const html = await view.waitFor(() => bff.requests.length === 5 && consoleLoaded() && !view.text().includes('Chargement des utilisateurs…') && view.text().includes('2 Utilisateurs'));
 
   assert.deepEqual(sequence(), ['GET /admin/groups', 'GET /admin/roles', 'GET /admin/sessions', 'GET /admin/sessions/history', 'GET /admin/users']);
   assert.equal(bff.requests[0].headers.authorization, `Bearer ${front.cookie}`);
@@ -450,11 +451,11 @@ test('unread user totals and pagination stay unknown until an empty response is 
   });
   view = mount(React.createElement(AdministrationConsole));
   try {
-    await view.waitFor(() => bff.calls('/admin/users').length === 1 && view.html.includes('aria-label="Chargement"'));
+    await view.waitFor(() => bff.calls('/admin/users').length === 1 && view.text().includes('Chargement des utilisateurs…'));
     assert.doesNotMatch(view.text(), /0 utilisateur|Page 1 \/ 1/);
   } finally {
     waiting.resolve();
-    await view.waitFor(() => consoleLoaded() && !view.html.includes('aria-label="Chargement"'));
+    await view.waitFor(() => consoleLoaded() && !view.text().includes('Chargement des utilisateurs…'));
   }
   assert.match(view.text(), /0 utilisateur/);
   assert.match(view.text(), /Page 1 \/ 1/);
@@ -868,7 +869,7 @@ test('failed user reload retains the last received rows and retries only the cur
   assert.doesNotMatch(view.text(), /L’action est enregistrée/);
   bff.on('get', '/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
   await retryUsersRead();
-  await view.waitFor(() => !view.text().includes('momentanément indisponible') && !view.html.includes('aria-label="Chargement"'));
+  await view.waitFor(() => !view.text().includes('momentanément indisponible') && !view.text().includes('Chargement des utilisateurs…'));
   assert.doesNotMatch(view.text(), /Identifiant #7/);
   assert.match(view.text(), /Identifiant #8/);
   assert.deepEqual(bff.requests.filter(call => call.method !== 'GET'), []);
@@ -950,7 +951,7 @@ test('refused user deletion keeps the record and confirmation available for an e
   bff.on('delete', '/admin/users/{userId}', { status: 204 });
   bff.on('get', '/admin/users', { body: usersPage([user(8, ['Bob', 'Martin'])]) });
   await view.act(() => view.find('ConfirmModal').find(modal => modal.props.open).props.onConfirm());
-  await view.waitFor(() => view.text().includes('Utilisateur supprimé') && view.find('ConfirmModal').every(modal => !modal.props.open) && !view.html.includes('aria-label="Chargement"'));
+  await view.waitFor(() => view.text().includes('Utilisateur supprimé') && view.find('ConfirmModal').every(modal => !modal.props.open) && !view.text().includes('Chargement des utilisateurs…'));
   assert.equal(bff.calls('/admin/users/{userId}', 'DELETE').length, 2);
   assert.doesNotMatch(view.text(), /Identifiant #7/);
 });
@@ -1247,7 +1248,7 @@ test('a delayed pre-save user read cannot restore a partially confirmed profile 
   bff.on('post', '/admin/users/{userId}/roles', bffError(503));
   await view.act(() => userEditForm().props.onSubmit({ preventDefault() {} }));
   oldRead.resolve({ body: { users: [user(7), user(8, ['Bob', 'Martin'])], page: 1, page_size: 20, total: 2, total_pages: 1 } });
-  await view.waitFor(() => !view.html.includes('aria-label="Chargement"'));
+  await view.waitFor(() => !view.text().includes('Chargement des utilisateurs…'));
   await new Promise(resolve => setImmediate(resolve));
   await view.settle();
   const row = view.hostElements((_props, text, tag) => tag === 'tr' && text.includes('Identifiant #7'))[0];

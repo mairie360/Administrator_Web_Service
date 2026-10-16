@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { readFileSync, existsSync } = require('node:fs');
+const { readFileSync } = require('node:fs');
 const { resolve, dirname } = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { createRequire } = require('node:module');
@@ -14,13 +14,13 @@ const markup = `<body class="mairie-ui"><div class="administration-shell"><main>
 async function screen(theme, viewport = 1280) {
   const { compile } = load('tailwindcss');
   const globals = readFileSync(resolve(root, 'src/app/globals.css'), 'utf8');
-  const municipalPath = process.env.MAIRIE_THEME_FILE || resolve(root, existsSync(resolve(root, 'src/styles/municipal-theme.css')) ? 'src/styles/municipal-theme.css' : 'src/app/municipal-theme.css');
+  const municipalPath = process.env.MAIRIE_THEME_FILE || load.resolve('@mairie360/lib-components/styles.css');
   const municipal = readFileSync(municipalPath, 'utf8');
   const dom = new JSDOM(`<html data-theme="${theme}"><head></head>${markup}</html>`);
   dom.window.document.documentElement.setAttribute('data-qa-municipal', 'true');
   const classes = [...dom.window.document.querySelectorAll('[class]')].flatMap(element => [...element.classList]);
   const style = dom.window.document.createElement('style');
-  const compiled = (await compile(`${globals}\n${municipal}`, {
+  const compiledGlobals = (await compile(globals, {
     base: resolve(root, 'src/app'),
     loadStylesheet: async (id, base) => {
       const path = id === 'tailwindcss' ? load.resolve('tailwindcss/index.css') : id.startsWith('.') || id.startsWith('/') ? resolve(base, id) : load.resolve(id);
@@ -28,6 +28,7 @@ async function screen(theme, viewport = 1280) {
     },
     loadModule: async id => ({ path: load.resolve(id), base: root, module: (await import(pathToFileURL(load.resolve(id)).href)).default }),
   })).build(classes);
+  const compiled = `${municipal}\n${compiledGlobals}`;
   // JSDOM does not apply layered utility priority reliably. Keep the compiler's
   // layer order while exposing the declarations to its CSS cascade.
   const parsed = postcss.parse(transform({ filename: 'projects-contrast.css', code: Buffer.from(compiled), include: Features.Nesting }).code.toString());

@@ -21,7 +21,7 @@ for (const [component, filename] of [['UsersPanel', 'users-panel'], ['RolesPanel
 }
 test('shared field, panel, action and confirmation rendering has no administration data dependency', () => {
   const ui = parse('src/components/administration/controls.tsx');
-  for (const name of ['Field', 'Panel', 'ActionButton', 'EmptyState']) assert.ok(exportedCallable(ui, name));
+  for (const name of ['Field', 'Panel', 'ActionButton']) assert.ok(exportedCallable(ui, name));
   const confirmation = parse('src/components/administration/confirm-modal.tsx');
   assert.ok(exportedCallable(confirmation, 'ConfirmModal'));
   for (const source of [ui, confirmation]) assert.ok(imported(source).every(row => !/administration-api|bff-client|auth-session|administration-console/.test(row.specifier)));

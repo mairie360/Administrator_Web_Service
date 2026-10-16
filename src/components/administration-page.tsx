@@ -1,5 +1,7 @@
 "use client";
 
+import { Skeleton } from "@mairie360/lib-components/primitives";
+
 import type { InitialAdministration } from "@/lib/administration-response";
 
 import AccessibleShell from "@/components/accessible-shell";
@@ -50,9 +52,7 @@ export default function AdministrationPage({ initialState, initialSearch }: { in
         {session.loading ? (
           <>
           <h1 className="sr-only">Administration</h1>
-          <p role="status" className="text-sm text-muted-foreground">
-            Vérification du profil…
-          </p>
+          <Skeleton label="Vérification du profil…" className="!h-64" />
           </>
         ) : session.error ? (
           <section className="space-y-4 rounded-lg border bg-card p-6">

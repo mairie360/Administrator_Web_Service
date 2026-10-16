@@ -117,7 +117,7 @@ test('malformed console DTOs remain failed reads while independent confirmed res
 });
 test('loading is an immediate persistent accessible structure with reduced-motion support', () => {
   const [{ default: Loading }] = loadTs(['src/app/loading.tsx']); const html = renderToStaticMarkup(React.createElement(Loading));
-  assert.match(html, /aria-busy="true"/); assert.match(html, /role="status"/); assert.match(html, /motion-reduce:animate-none/);
+  assert.match(html, /aria-busy="true"/); assert.match(html, /role="status"/); assert.match(html, /motion-safe:animate-pulse/);
 });
 
 function client() {

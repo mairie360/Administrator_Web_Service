@@ -1,14 +1,16 @@
 "use client";
 
+import { EmptyState, Skeleton } from "@mairie360/lib-components/primitives";
+
 import AdministrationMutationForm from "@/components/administration-mutation-form";
 import { subscribePageReturn } from "@/lib/page-return";
 
 import { EMAIL_MAX_LENGTH, NAME_MAX_LENGTH, NO_MARKUP_HINT, NO_MARKUP_PATTERN, PASSWORD_MAX_LENGTH, PHONE_HINT, PHONE_MAX_LENGTH, PHONE_PATTERN } from "@/lib/text-constraints";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { ChevronLeft, ChevronRight, KeyRound, LoaderCircle, Pencil, Plus, Save, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, KeyRound, Pencil, Plus, Save, Search, Trash2 } from "lucide-react";
 import { administrationApi, type AdministrationRole, type AdministrationUser, type AdministrationUsersPage } from "@/lib/administration-api";
 import { administrationErrorMessage } from "@/lib/administration-error";
-import { inputClassName, Field, Panel, ActionButton, EmptyState } from "./controls";
+import { inputClassName, Field, Panel, ActionButton } from "./controls";
 import { ConfirmModal } from "./confirm-modal";
 import { type RunAction } from "./types";
 import { usersUrlSchema } from "@/lib/administration-query";
@@ -434,15 +436,11 @@ export function UsersPanel({
             </div>
           )}
           {usersLoading ? (
-            <div className="grid min-h-64 place-items-center text-[#667085]">
-              <LoaderCircle className="h-6 w-6 animate-spin" aria-label="Chargement" />
-            </div>
+            <Skeleton label="Chargement des utilisateurs…" className="!h-64" />
           ) : usersPage.users.length === 0 ? (usersError ? null : (
-            <EmptyState>
-              {search
-                ? "Aucun utilisateur ne correspond à cette recherche."
-                : "Aucun utilisateur disponible."}
-            </EmptyState>
+            <EmptyState title={search
+              ? "Aucun utilisateur ne correspond à cette recherche."
+              : "Aucun utilisateur disponible."} />
           )) : (
             <div className="overflow-x-auto rounded-lg border border-[#e4e1dc]">
               <table className="w-full min-w-[760px] text-left text-sm">
@@ -823,7 +821,7 @@ export function UsersPanel({
             </AdministrationMutationForm>
             </div>
           ) : (
-            <EmptyState>Sélectionnez un utilisateur dans le tableau.</EmptyState>
+            <EmptyState title="Sélectionnez un utilisateur dans le tableau." />
           )}
         </div>
       </Panel>

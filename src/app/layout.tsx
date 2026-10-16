@@ -6,9 +6,8 @@ import type { Metadata } from "next";
 import { readFrontUrlsFromEnv } from "@/lib/front-urls";
 import { FrontUrlsProvider } from "@/lib/front-urls-provider";
 import { Geist, Geist_Mono } from "next/font/google";
-import "@mairie360/lib-components/dist/styles.css";
+import "@mairie360/lib-components/styles.css";
 import "./globals.css";
-import "./municipal-theme.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

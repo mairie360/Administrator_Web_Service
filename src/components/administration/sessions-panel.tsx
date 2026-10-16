@@ -1,10 +1,12 @@
 "use client";
 
+import { EmptyState, Skeleton } from "@mairie360/lib-components/primitives";
+
 import { useEffect, useState } from "react";
 import { Clock3, History, RefreshCw } from "lucide-react";
 import { type AdministrationSession } from "@/lib/administration-api";
 import { administrationSessionState, nextSessionExpiryDelay } from "@/lib/administration-session-state";
-import { formatDate, Panel, ActionButton, EmptyState } from "./controls";
+import { formatDate, Panel, ActionButton } from "./controls";
 import { type RunAction } from "./types";
 
 function SessionTable({ sessions }: { sessions: AdministrationSession[] }) {
@@ -29,7 +31,7 @@ function SessionTable({ sessions }: { sessions: AdministrationSession[] }) {
     };
   }, [sessions]);
   if (sessions.length === 0) {
-    return <EmptyState>Aucune session à afficher.</EmptyState>;
+    return <EmptyState title="Aucune session à afficher." />;
   }
 
   return (
@@ -139,9 +141,7 @@ export function SessionsPanel({
           </button>
         </div>
         {visibleSessions === null ? (
-          <EmptyState>
-            <p role="status">{loading ? "Chargement des sessions…" : "Les sessions n’ont pas pu être chargées. Utilisez Actualiser pour réessayer."}</p>
-          </EmptyState>
+          loading ? <Skeleton label="Chargement des sessions…" className="!h-32" /> : <EmptyState title="Les sessions n’ont pas pu être chargées. Utilisez Actualiser pour réessayer." role="status" />
         ) : <SessionTable sessions={visibleSessions} />}
       </Panel>
 

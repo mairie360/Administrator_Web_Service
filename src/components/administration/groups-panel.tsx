@@ -1,13 +1,15 @@
 "use client";
 
+import { EmptyState, Skeleton } from "@mairie360/lib-components/primitives";
+
 import AdministrationMutationForm from "@/components/administration-mutation-form";
 
 import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH, NO_MARKUP_HINT, NO_MARKUP_PATTERN, reportMarkupValidity } from "@/lib/text-constraints";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { Layers3, LoaderCircle, Plus, RefreshCw, Save, Search, Trash2 } from "lucide-react";
+import { Layers3, Plus, RefreshCw, Save, Search, Trash2 } from "lucide-react";
 import { administrationApi, type AdministrationGroup, type AdministrationGroupMember, type AdministrationUser } from "@/lib/administration-api";
 import { administrationErrorMessage } from "@/lib/administration-error";
-import { inputClassName, textareaClassName, Field, Panel, ActionButton, EmptyState } from "./controls";
+import { inputClassName, textareaClassName, Field, Panel, ActionButton } from "./controls";
 import { ConfirmModal } from "./confirm-modal";
 import { type RunAction } from "./types";
 
@@ -260,11 +262,9 @@ export function GroupsPanel({
           }
         >
           {groups === null ? (
-            <EmptyState>
-              <p role="status">{loading ? "Chargement des groupes…" : "Les groupes n’ont pas pu être chargés. Utilisez Actualiser pour réessayer."}</p>
-            </EmptyState>
+            loading ? <Skeleton label="Chargement des groupes…" className="!h-32" /> : <EmptyState title="Les groupes n’ont pas pu être chargés. Utilisez Actualiser pour réessayer." role="status" />
           ) : groups.length === 0 ? (
-            <EmptyState>Aucun groupe pour le moment.</EmptyState>
+            <EmptyState title="Aucun groupe pour le moment." />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {groups.map((group) => (
@@ -353,15 +353,13 @@ export function GroupsPanel({
         className="h-fit"
       >
         {groupDetailLoading ? (
-          <div className="grid min-h-52 place-items-center text-[#667085]">
-            <LoaderCircle className="h-6 w-6 animate-spin" aria-label="Chargement" />
-          </div>
+          <Skeleton label="Chargement du groupe…" className="!h-52" />
         ) : groupDetailError ? (
           <div className="rounded-lg bg-[#fff7f6] p-4 text-sm text-[#912018]">
             {groupDetailError}
           </div>
         ) : !selectedGroup ? (
-          <EmptyState>Cliquez sur un groupe dans la liste.</EmptyState>
+          <EmptyState title="Cliquez sur un groupe dans la liste." />
         ) : (
           <div className="space-y-6">
             <AdministrationMutationForm onSubmit={handleUpdate} className="space-y-4">
@@ -434,7 +432,7 @@ export function GroupsPanel({
               </div>
 
               {groupUsers.length === 0 ? (
-                <EmptyState>Ce groupe ne contient aucun utilisateur.</EmptyState>
+                <EmptyState title="Ce groupe ne contient aucun utilisateur." />
               ) : (
                 <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
                   {groupUsers.map((user) => (
@@ -491,10 +489,7 @@ export function GroupsPanel({
 
               <div className="mt-3">
                 {userOptionsLoading ? (
-                  <div className="flex items-center gap-2 py-3 text-sm text-[#667085]">
-                    <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-                    Recherche des utilisateurs…
-                  </div>
+                  <Skeleton label="Recherche des utilisateurs…" className="!h-12" />
                 ) : userOptionsError ? (
                   <p className="py-3 text-sm text-[#912018]">{userOptionsError}</p>
                 ) : availableUsers.length === 0 ? (
