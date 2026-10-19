@@ -1,5 +1,5 @@
 "use client";
-import { getInstanceTimeZone } from "@mairie360/front-kit/shared";
+import { getInstanceTimeZone } from "@mairie360/lib-components/shared";
 
 import { type ButtonHTMLAttributes, type ReactNode } from "react";
 import { LoaderCircle } from "lucide-react";

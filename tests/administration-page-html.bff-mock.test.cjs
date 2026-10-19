@@ -94,7 +94,7 @@ async function renderLoadedConsole(options) {
 test('the page shell renders the BFF-backed console with the resolved user session, never fixture administration', async () => {
   bff.on('get', '/me', { body: me() });
   mockConsoleData();
-  view = mount(React.createElement(require('@mairie360/front-kit/react').InstanceProvider, { role: 'Admin', timeZone: 'UTC' }, React.createElement(Home)));
+  view = mount(React.createElement(require('@mairie360/lib-components/react').InstanceProvider, { role: 'Admin', timeZone: 'UTC' }, React.createElement(Home)));
 
   assert.equal(view.passes, 1);
   assert.equal(view.props('Header').user.name, 'Chargement…');

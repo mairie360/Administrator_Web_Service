@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextRequest } from 'next/server';
-import { isExpiredJwt, publicOrigin } from '@mairie360/front-kit/shared';
+import { isExpiredJwt, publicOrigin } from '@mairie360/lib-components/shared';
 import { BffRequestError, createUserClient, type requestBff } from './bff-client';
 import { configuredBffUrl, forwardToBff } from './bff-proxy';
 import { parseAuthSession, type AuthSession } from './auth-session-model';
