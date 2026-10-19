@@ -1,3 +1,4 @@
+import { InvalidAdministrationResponseError } from "./administration-response";
 import { BffRequestError } from "./bff-client";
 import type { BffErrorDetail } from "./bff-client";
 
@@ -36,6 +37,7 @@ export function describeValidationDetail({ path, message }: BffErrorDetail): str
 
 /** Keep service diagnostics out of the administrator-facing interface. */
 export function administrationErrorMessage(error: unknown): string {
+  if (error instanceof InvalidAdministrationResponseError) return error.message;
   if (error instanceof BffRequestError) {
     switch (error.status) {
       case 401:

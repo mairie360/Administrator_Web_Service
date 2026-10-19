@@ -1,10 +1,11 @@
 "use client";
+import { getInstanceTimeZone } from "@mairie360/front-kit/shared";
 
 import { type ButtonHTMLAttributes, type ReactNode } from "react";
 import { LoaderCircle } from "lucide-react";
 
 export const inputClassName =
-  "h-11 w-full rounded-lg border border-[#d8d5cf] bg-white px-3 text-sm text-[#172033] outline-none transition placeholder:text-[#98a2b3] focus:border-[#3c7773] focus:ring-2 focus:ring-[#3c7773]/15 disabled:cursor-not-allowed disabled:bg-[#f2f1ee]";
+  "h-11 w-full rounded-lg border border-[var(--mairie-control-border)] bg-[var(--mairie-control-background)] px-3 text-sm text-[var(--mairie-text)] outline-none transition placeholder:text-[var(--mairie-muted)] focus:border-[var(--mairie-accent)] focus:ring-2 focus:ring-[var(--mairie-accent)]/15 disabled:cursor-not-allowed disabled:bg-[var(--mairie-surface-raised)]";
 
 export const textareaClassName = `${inputClassName} min-h-24 resize-y py-3`;
 
@@ -15,6 +16,7 @@ export function formatDate(value?: string | null) {
   if (Number.isNaN(date.getTime())) return value;
 
   return new Intl.DateTimeFormat("fr-FR", {
+    timeZone: getInstanceTimeZone(),
     dateStyle: "short",
     timeStyle: "short",
   }).format(date);
@@ -33,9 +35,9 @@ export function Field({
 }) {
   return (
     <label htmlFor={htmlFor} className="block space-y-1.5">
-      <span className="block text-sm font-semibold text-[#344054]">{label}</span>
+      <span className="block text-sm font-semibold text-[var(--mairie-text)]">{label}</span>
       {children}
-      {hint && <span className="block text-xs text-[#667085]">{hint}</span>}
+      {hint && <span className="block text-xs text-[var(--mairie-muted)]">{hint}</span>}
     </label>
   );
 }
@@ -55,13 +57,13 @@ export function Panel({
 }) {
   return (
     <section
-      className={`administration-panel min-w-0 overflow-hidden rounded-xl border border-[#dedbd5] bg-white ${className}`}
+      className={`administration-panel min-w-0 overflow-hidden rounded-xl border border-[var(--mairie-border)] bg-[var(--mairie-surface)] ${className}`}
     >
-      <div className="flex flex-col gap-3 border-b border-[#ebe8e3] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-[var(--mairie-border)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-lg font-bold text-[#172033]">{title}</h2>
+          <h2 className="text-lg font-bold text-[var(--mairie-text)]">{title}</h2>
           {description && (
-            <p className="mt-1 text-sm leading-5 text-[#667085]">{description}</p>
+            <p className="mt-1 text-sm leading-5 text-[var(--mairie-muted)]">{description}</p>
           )}
         </div>
         {action}
@@ -83,30 +85,22 @@ export function ActionButton({
   busy?: boolean;
 }) {
   const variants = {
-    primary: "border-[#315f5c] bg-[#315f5c] text-white hover:bg-[#274d4a]",
-    secondary: "border-[#d0d5dd] bg-white text-[#344054] hover:bg-[#f8f7f5]",
-    danger: "border-[#f0b6b2] bg-white text-[#b42318] hover:bg-[#fff4f2]",
-    dangerSolid: "border-[#b42318] bg-[#b42318] text-white hover:bg-[#912018]",
-    ghost: "border-transparent bg-transparent text-[#475467] hover:bg-[#f2f1ee]",
+    primary: "border-[var(--mairie-action-background)] bg-[var(--mairie-action-background)] text-[var(--mairie-on-action)] hover:bg-[var(--mairie-action-hover-background)]",
+    secondary: "border-[var(--mairie-control-border)] bg-[var(--mairie-surface)] text-[var(--mairie-text)] hover:bg-[var(--mairie-surface-raised)]",
+    danger: "border-[var(--mairie-error-text)] bg-[var(--mairie-surface)] text-[var(--mairie-error-text)] hover:bg-[var(--mairie-error-surface)]",
+    dangerSolid: "border-[var(--mairie-error-action-background)] bg-[var(--mairie-error-action-background)] text-[var(--mairie-on-action)] hover:bg-[var(--mairie-error-action-hover-background)]",
+    ghost: "border-transparent bg-transparent text-[var(--mairie-muted)] hover:bg-[var(--mairie-surface-raised)]",
   };
 
   return (
     <button
       type="button"
-      className={`inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border px-3.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#3c7773]/25 disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
+      className={`inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border px-3.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[var(--mairie-accent)]/25 disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
       disabled={disabled || busy}
       {...props}
     >
       {busy && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}
       {children}
     </button>
-  );
-}
-
-export function EmptyState({ children }: { children: ReactNode }) {
-  return (
-    <div className="rounded-lg border border-dashed border-[#d8d5cf] bg-[#faf9f7] px-5 py-10 text-center text-sm text-[#667085]">
-      {children}
-    </div>
   );
 }

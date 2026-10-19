@@ -6,14 +6,17 @@ const { FrontHarness, loadTs, ROOT, BFF_URL_VARIABLES } = require('./front-harne
 const { ContractMockServer } = require('./contract-mock-server.cjs');
 const { bffUserContract } = require('./bff-user-contract.cjs');
 
+let serverAccess;
+
 /** Actual page, React hooks, published shell and contract-gated HTTP responses. */
-async function administrationDom(t) {
+async function administrationDom(t, { serverPage = false, strict = false, configure, searchParams = {}, expected = "Aucun utilisateur disponible." } = {}) {
   const keys = ['window', 'document', 'HTMLElement', 'Element', 'Node', 'SVGElement',
     'MutationObserver', 'Event', 'MouseEvent', 'KeyboardEvent', 'CustomEvent',
     'getComputedStyle', 'requestAnimationFrame', 'cancelAnimationFrame',
     'ResizeObserver', 'IS_REACT_ACT_ENVIRONMENT'];
   const previous = Object.fromEntries(keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
-  const env = Object.fromEntries(BFF_URL_VARIABLES.map(key => [key, process.env[key]]));
+  const environmentKeys = [...BFF_URL_VARIABLES, "LOGIN_FRONT_URL", "ADMINISTRATION_FRONT_URL"];
+  const env = Object.fromEntries(environmentKeys.map(key => [key, process.env[key]]));
   const errors = [], console = new VirtualConsole();
   console.on('jsdomError', error => errors.push(error.message));
   const dom = new JSDOM('<!doctype html><html><head></head><body><div id="root"></div></body></html>', {
@@ -24,11 +27,12 @@ async function administrationDom(t) {
   t.after(async () => {
     try {
       if (root) await React.act(async () => root.unmount());
+      serverAccess = undefined;
       setBrowserFrontUrls?.({}); front?.uninstall(); dom.window.close(); await bff.stop();
       assert.deepEqual([...bff.violations, ...(front?.violations || [])], []);
       assert.deepEqual(errors, [], 'Actual consumer CSS and DOM effects must be accepted');
     } finally {
-      for (const key of BFF_URL_VARIABLES) {
+      for (const key of environmentKeys) {
         if (env[key] === undefined) delete process.env[key]; else process.env[key] = env[key];
       }
       for (const key of keys) {
@@ -46,6 +50,7 @@ async function administrationDom(t) {
   // Platform adapters do not emulate media queries, layout or native scrolling.
   dom.window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} });
   dom.window.ResizeObserver = global.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+  dom.window.HTMLElement.prototype.scrollIntoView = () => {};
   const style = dom.window.document.createElement('style');
   style.textContent = fs.readFileSync(path.join(ROOT, 'src/app/globals.css'), 'utf8'); dom.window.document.head.append(style);
   await bff.start(); front = new FrontHarness({ bff }).install();
@@ -62,21 +67,38 @@ async function administrationDom(t) {
     DASHBOARD_FRONT_URL: 'https://dashboard.example/', PROJECT_FRONT_URL: 'https://projects.example/',
     CALENDAR_FRONT_URL: 'https://calendar.example/', MESSAGE_FRONT_URL: 'https://messages.example/',
     ELEARNING_FRONT_URL: 'https://training.example/', SETTINGS_FRONT_URL: 'https://settings.example/' });
+  configure?.(bff);
   React = require('react');
-  const { createRoot } = require('react-dom/client'), [{ default: Home }] = loadTs(['src/app/page.tsx']);
+  const { createRoot } = require('react-dom/client'), [{ default: Home }] = loadTs(['src/components/administration-page.tsx']);
+  let page = React.createElement(Home);
+  if (serverPage) {
+    front.uninstall();
+    process.env.BFF_ADMIN_BASE_URL = bff.url;
+    process.env.ADMINISTRATION_FRONT_URL = 'http://administration.mairie360.test';
+    process.env.LOGIN_FRONT_URL = front.ownerOrigin;
+    serverAccess = front.cookie;
+    const [{ default: ServerPage }] = loadTs(['src/app/page.tsx'], { stubs: { 'next/headers': { cookies: async () => ({ get: key => { assert.equal(key, 'accessToken'); return { value: serverAccess }; } }) } } });
+    dom.reconfigure({ url: 'http://administration.mairie360.test/?' + new URLSearchParams(searchParams) });
+    page = await ServerPage({ searchParams: Promise.resolve(searchParams) });
+    front.install();
+  }
   root = createRoot(dom.window.document.getElementById('root'));
-  await React.act(async () => root.render(React.createElement(Home)));
-  const loaded = () => dom.window.document.body.textContent.includes('Aucun utilisateur disponible.') &&
+  const shell = React.createElement(require('@mairie360/front-kit/react').InstanceProvider, { role: 'Admin', timeZone: 'UTC' }, page);
+  await React.act(async () => root.render(strict ? React.createElement(React.StrictMode, null, shell) : shell));
+  const loaded = () => dom.window.document.body.textContent.includes(expected) &&
     [...dom.window.document.querySelectorAll('button')].some(button => button.textContent.trim() === 'Actualiser' && !button.disabled);
   for (let attempt = 0; attempt < 100 && !loaded(); attempt += 1) {
     await React.act(async () => new Promise(resolve => setTimeout(resolve, 10)));
   }
   assert.ok(dom.window.document.body.textContent.includes('Alice Dupont'));
-  assert.ok(dom.window.document.body.textContent.includes('Aucun utilisateur disponible.'));
+  assert.ok(dom.window.document.body.textContent.includes(expected));
   assert.ok(loaded(), 'Wait for every console source, independently of the users panel');
   const button = name => [...dom.window.document.querySelectorAll('button')].find(element =>
     element.getAttribute('aria-label') === name || element.textContent.trim() === name);
-  return { document: dom.window.document, window: dom.window, bff, front, button,
+  return { waitFor: async predicate => {
+      for (let attempt = 0; attempt < 100 && !predicate(); attempt++) await React.act(async () => new Promise(resolve => setTimeout(resolve, 10)));
+      assert.ok(predicate(), 'Expected consumer state to settle');
+    }, document: dom.window.document, window: dom.window, bff, front, button,
     style: element => dom.window.getComputedStyle(element),
     click: async element => {
       assert.ok(element, 'Expected a real rendered command');

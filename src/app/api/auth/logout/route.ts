@@ -1,4 +1,4 @@
-import { createSessionLogoutProxy } from '@mairie360/lib-components/next';
+import { createSessionLogoutProxy } from '@mairie360/front-kit/next';
 
 /** Delegate explicit logout to Login; the browser checks its revocation receipt. */
 export const POST = createSessionLogoutProxy({

@@ -1,3 +1,4 @@
+import { sessionFetch } from '@mairie360/front-kit/browser';
 import axios, { type AxiosAdapter } from 'axios';
 import { getBffUser } from '@mairie360/bff-user-openapi/endpoints/bffUser';
 import { navigateToLogin } from './logout';
@@ -58,7 +59,7 @@ async function readErrorBody(response: Response): Promise<unknown> {
 }
 
 export async function requestBff<T>(path: string, init: RequestInit = {}) {
-  const response = await fetch(path, {
+  const response = await sessionFetch(path, {
     ...init,
     headers: createRequestHeaders(init),
     redirect: "manual",
@@ -93,20 +94,23 @@ export async function requestBff<T>(path: string, init: RequestInit = {}) {
 
 // The generated operations of the published BFF User contract own every path: axios only carries the
 // request through requestBff, which keeps the same-origin cookie, redirect and 401 handling.
-const contractAdapter: AxiosAdapter = async (config) => {
-  const data = await requestBff<unknown>(axios.getUri(config), {
-    method: (config.method ?? 'get').toUpperCase(),
-    headers: config.headers.toJSON() as Record<string, string>,
-    body: typeof config.data === 'string' ? config.data : undefined,
-    signal: (config.signal as AbortSignal | undefined) ?? undefined,
-  });
-  return {
-    data,
-    status: data === undefined ? 204 : 200,
-    statusText: data === undefined ? 'No Content' : 'OK',
-    headers: {},
-    config,
+export function createUserClient(request: typeof requestBff = requestBff) {
+  const contractAdapter: AxiosAdapter = async (config) => {
+    const data = await request<unknown>(axios.getUri(config), {
+      method: (config.method ?? 'get').toUpperCase(),
+      headers: config.headers.toJSON() as Record<string, string>,
+      body: typeof config.data === 'string' ? config.data : undefined,
+      signal: (config.signal as AbortSignal | undefined) ?? undefined,
+    });
+    return {
+      data,
+      status: data === undefined ? 204 : 200,
+      statusText: data === undefined ? 'No Content' : 'OK',
+      headers: {},
+      config,
+    };
   };
-};
+  return getBffUser(axios.create({ adapter: contractAdapter, headers: { Accept: 'application/json' } }));
+}
 
-export const bffUser = getBffUser(axios.create({ adapter: contractAdapter, headers: { Accept: 'application/json' } }));
+export const bffUser = createUserClient();

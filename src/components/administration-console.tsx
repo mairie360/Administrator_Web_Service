@@ -1,10 +1,12 @@
 "use client";
 import { subscribePageReturn } from "@/lib/page-return";
 
+import { Toast } from "@mairie360/lib-components/primitives";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePageUrlState } from '@/lib/use-page-url-state';
-import { urlChoice } from '@/lib/page-url-state';
-import { Activity, AlertCircle, CheckCircle2, KeyRound, MonitorSmartphone, RefreshCw, ShieldCheck, UserCog, UsersRound, X } from "lucide-react";
+import { administrationUrlSchema } from '@/lib/administration-query';
+import type { InitialConsole } from '@/lib/administration-response';
+import { Activity, AlertCircle, KeyRound, MonitorSmartphone, RefreshCw, ShieldCheck, UserCog, UsersRound } from "lucide-react";
 import { administrationApi, type AdministrationGroup, type AdministrationRole, type AdministrationSession } from "@/lib/administration-api";
 import { BffRequestError } from "@/lib/bff-client";
 import { administrationErrorMessage } from "@/lib/administration-error";
@@ -15,7 +17,6 @@ import { GroupsPanel } from "./administration/groups-panel";
 import { SessionsPanel } from "./administration/sessions-panel";
 
 type TabId = "users" | "roles" | "groups" | "sessions";
-const administrationUrlSchema = { tab: urlChoice(['users', 'roles', 'groups', 'sessions'], 'users') };
 
 const tabs: Array<{
   id: TabId;
@@ -28,27 +29,31 @@ const tabs: Array<{
   { id: "sessions", label: "Sessions", icon: MonitorSmartphone },
 ];
 
-export function AdministrationConsole() {
-  const pageUrl = usePageUrlState(administrationUrlSchema);
+export function AdministrationConsole({ initialState, initialSearch }: { initialState?: InitialConsole; initialSearch?: string }) {
+  const [initial] = useState(initialState);
+  const pageUrl = usePageUrlState(administrationUrlSchema, initialSearch);
+  // Only a users panel present in the initial render may consume this receipt.
+  const [usersSeed, setUsersSeed] = useState(() => initial && pageUrl.state.tab === "users" ? { page: initial.users, error: initial.usersError } : undefined);
+  const consumeUsersSeed = useCallback(() => setUsersSeed(undefined), []);
   const activeTab = pageUrl.state.tab as TabId;
   const setActiveTab = (tab: TabId) => pageUrl.update({ tab });
-  const [usersTotal, setUsersTotal] = useState<number | null>(null);
+  const [usersTotal, setUsersTotal] = useState<number | null>(initial?.users?.total ?? null);
   // null means no successful read; [] is a confirmed empty collection.
-  const [roles, setRoles] = useState<AdministrationRole[] | null>(null);
-  const [groups, setGroups] = useState<AdministrationGroup[] | null>(null);
-  const [activeSessions, setActiveSessions] = useState<AdministrationSession[] | null>(null);
-  const [sessionHistory, setSessionHistory] = useState<AdministrationSession[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [roles, setRoles] = useState<AdministrationRole[] | null>(initial?.roles ?? null);
+  const [groups, setGroups] = useState<AdministrationGroup[] | null>(initial?.groups ?? null);
+  const [activeSessions, setActiveSessions] = useState<AdministrationSession[] | null>(initial?.activeSessions ?? null);
+  const [sessionHistory, setSessionHistory] = useState<AdministrationSession[] | null>(initial?.sessionHistory ?? null);
+  const [loading, setLoading] = useState(initial === undefined);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const actionPending = useRef(false);
   const [refreshFailure, setRefreshFailure] = useState<{
     message: string;
     retry: () => Promise<unknown>;
   } | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(initial?.error ?? null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [authRequired, setAuthRequired] = useState(false);
+  const [authRequired, setAuthRequired] = useState(initial?.authRequired ?? false);
   const allReadRevision = useRef(0);
   const rolesReadRevision = useRef(0);
   const groupsReadRevision = useRef(0);
@@ -103,14 +108,14 @@ export function AdministrationConsole() {
   }, []);
 
   useEffect(() => {
-    void loadAll();
+    if (initial === undefined) void loadAll();
     return () => {
       allReadRevision.current += 1;
       rolesReadRevision.current += 1;
       groupsReadRevision.current += 1;
       sessionsReadRevision.current += 1;
     };
-  }, [loadAll]);
+  }, [loadAll, initial]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -137,6 +142,8 @@ export function AdministrationConsole() {
 
       try {
         await action();
+        // A confirmed mutation also invalidates a seed whose panel was never opened.
+        setUsersSeed(undefined);
         setNotice(successMessage);
         if (refresh) {
           try {
@@ -273,35 +280,9 @@ export function AdministrationConsole() {
         </div>
       )}
 
-      {notice && (
-        <div
-          role="status"
-          className="flex items-center justify-between gap-3 rounded-xl border border-[#a6e3c4] bg-[#f2fff8] px-4 py-3 text-sm font-semibold text-[#05603a]"
-        >
-          <span className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden="true" />
-            {notice}
-          </span>
-          <button type="button" aria-label="Fermer" onClick={() => setNotice(null)}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
+      {notice && <Toast message={notice} variant="success" onClose={() => setNotice(null)} />}
 
-      {actionError && (
-        <div
-          role="alert"
-          className="flex items-center justify-between gap-3 rounded-xl border border-[#f4c7c3] bg-[#fff7f6] px-4 py-3 text-sm font-semibold text-[#912018]"
-        >
-          <span className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
-            {actionError}
-          </span>
-          <button type="button" aria-label="Fermer" onClick={() => setActionError(null)}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
+      {actionError && <Toast message={actionError} variant="error" onClose={() => setActionError(null)} />}
 
       {refreshFailure && (
         <div role="alert" className="rounded-xl border border-[#fedf89] bg-[#fffaeb] px-4 py-3 text-sm text-[#93370d]">
@@ -372,6 +353,10 @@ export function AdministrationConsole() {
 
       {activeTab === "users" && (
         <UsersPanel
+          initialPage={usersSeed?.page}
+          initialError={usersSeed?.error}
+          initialSearch={usersSeed ? initialSearch : undefined}
+          onInitialReadConsumed={consumeUsersSeed}
           roles={roles ?? []}
           busyAction={busyAction}
           runAction={runAction}

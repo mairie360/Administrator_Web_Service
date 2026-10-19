@@ -1,18 +1,21 @@
 "use client";
+
+import { EmptyState, Skeleton } from "@mairie360/lib-components/primitives";
+
+import AdministrationMutationForm from "@/components/administration-mutation-form";
 import { subscribePageReturn } from "@/lib/page-return";
 
 import { EMAIL_MAX_LENGTH, NAME_MAX_LENGTH, NO_MARKUP_HINT, NO_MARKUP_PATTERN, PASSWORD_MAX_LENGTH, PHONE_HINT, PHONE_MAX_LENGTH, PHONE_PATTERN } from "@/lib/text-constraints";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { ChevronLeft, ChevronRight, KeyRound, LoaderCircle, Pencil, Plus, Save, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, KeyRound, Pencil, Plus, Save, Search, Trash2 } from "lucide-react";
 import { administrationApi, type AdministrationRole, type AdministrationUser, type AdministrationUsersPage } from "@/lib/administration-api";
 import { administrationErrorMessage } from "@/lib/administration-error";
-import { inputClassName, Field, Panel, ActionButton, EmptyState } from "./controls";
+import { inputClassName, Field, Panel, ActionButton } from "./controls";
 import { ConfirmModal } from "./confirm-modal";
 import { type RunAction } from "./types";
-import { urlPage, urlText } from "@/lib/page-url-state";
+import { usersUrlSchema } from "@/lib/administration-query";
 import { usePageUrlState } from "@/lib/use-page-url-state";
 
-const usersUrlSchema = { usersSearch: urlText(100), usersPage: urlPage };
 
 const emptyUsersPage: AdministrationUsersPage = {
   users: [],
@@ -27,26 +30,32 @@ export function UsersPanel({
   busyAction,
   runAction,
   onTotalChange,
+  initialPage, initialError, initialSearch, onInitialReadConsumed,
 }: {
+  initialPage?: AdministrationUsersPage | null;
+  initialError?: string | null;
+  initialSearch?: string;
+  onInitialReadConsumed?: () => void;
   roles: AdministrationRole[];
   busyAction: string | null;
   runAction: RunAction;
   onTotalChange: (total: number | null) => void;
 }) {
-  const [usersPage, setUsersPage] = useState<AdministrationUsersPage>(emptyUsersPage);
-  const [hasReceivedUsers, setHasReceivedUsers] = useState(false);
-  const pageUrl = usePageUrlState(usersUrlSchema);
+  const [initial] = useState(() => ({ page: initialPage, error: initialError, search: initialSearch }));
+  const [usersPage, setUsersPage] = useState<AdministrationUsersPage>(initial.page ?? emptyUsersPage);
+  const [hasReceivedUsers, setHasReceivedUsers] = useState(Boolean(initial.page));
+  const pageUrl = usePageUrlState(usersUrlSchema, initial.search);
   const page = Number(pageUrl.state.usersPage);
   const search = pageUrl.state.usersSearch;
-  const [searchInput, setSearchInput] = useState("");
+  const [searchInput, setSearchInput] = useState(pageUrl.state.usersSearch);
   const usersReadController = useRef<AbortController | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
     if (pageUrl.ready) setSearchInput(search);
   }, [pageUrl.ready, search]);
-  const [usersLoading, setUsersLoading] = useState(true);
-  const [usersError, setUsersError] = useState<string | null>(null);
+  const [usersLoading, setUsersLoading] = useState(initial.page === undefined);
+  const [usersError, setUsersError] = useState<string | null>(initial.error ?? null);
   const [usersMutationConfirmed, setUsersMutationConfirmed] = useState(false);
   const usersReadRevision = useRef(0);
   const [editorMode, setEditorMode] = useState<"create" | "edit" | null>(null);
@@ -104,11 +113,22 @@ export function UsersPanel({
     }
   }, [onTotalChange, page, search, pageUrl.update]);
 
+  const skipInitialRead = useRef(initial.page !== undefined);
   useEffect(() => {
     if (!pageUrl.ready) return;
+    const initialQuery = new URLSearchParams(initial.search ?? "");
+    if (skipInitialRead.current) {
+      if (page === Number(initialQuery.get("usersPage") ?? 1) && search === (initialQuery.get("usersSearch") ?? "")) {
+        // Replay of the same mount effect still owns this confirmed query.
+        // The parent consumes the seed for a later genuine panel remount.
+        onInitialReadConsumed?.();
+        return;
+      }
+      skipInitialRead.current = false;
+    }
     void loadUsers();
     return () => { usersReadRevision.current += 1; usersReadController.current?.abort(); };
-  }, [loadUsers, pageUrl.ready]);
+  }, [loadUsers, pageUrl.ready, initial, page, search, onInitialReadConsumed]);
 
   useEffect(() => () => { if (searchTimer.current) clearTimeout(searchTimer.current); }, []);
   useEffect(() => {
@@ -369,7 +389,7 @@ export function UsersPanel({
         }
       >
         <div className="space-y-4">
-          <form
+          <AdministrationMutationForm
             onSubmit={handleSearch}
             className="flex flex-col gap-2 sm:flex-row sm:items-center"
             role="search"
@@ -397,7 +417,7 @@ export function UsersPanel({
             <ActionButton type="submit" variant="secondary">
               Rechercher
             </ActionButton>
-          </form>
+          </AdministrationMutationForm>
 
           {usersError && (
             <div role="alert" className="rounded-lg bg-[#fff7f6] p-4 text-sm text-[#912018]">
@@ -416,15 +436,11 @@ export function UsersPanel({
             </div>
           )}
           {usersLoading ? (
-            <div className="grid min-h-64 place-items-center text-[#667085]">
-              <LoaderCircle className="h-6 w-6 animate-spin" aria-label="Chargement" />
-            </div>
+            <Skeleton label="Chargement des utilisateurs…" className="!h-64" />
           ) : usersPage.users.length === 0 ? (usersError ? null : (
-            <EmptyState>
-              {search
-                ? "Aucun utilisateur ne correspond à cette recherche."
-                : "Aucun utilisateur disponible."}
-            </EmptyState>
+            <EmptyState title={search
+              ? "Aucun utilisateur ne correspond à cette recherche."
+              : "Aucun utilisateur disponible."} />
           )) : (
             <div className="overflow-x-auto rounded-lg border border-[#e4e1dc]">
               <table className="w-full min-w-[760px] text-left text-sm">
@@ -567,7 +583,7 @@ export function UsersPanel({
       >
         <div id="user-editor">
           {editorMode === "create" ? (
-            <form onSubmit={handleCreate} className="space-y-4">
+            <AdministrationMutationForm onSubmit={handleCreate} className="space-y-4">
               <Field label="Prénom" htmlFor="create-first-name">
                 <input
                   id="create-first-name"
@@ -637,7 +653,7 @@ export function UsersPanel({
                   Créer
                 </ActionButton>
               </div>
-            </form>
+            </AdministrationMutationForm>
           ) : selectedUser ? (
             <div className="space-y-6">
             {userSaveWarning && (
@@ -647,7 +663,7 @@ export function UsersPanel({
                 <p className="mt-2">La fiche et le tableau conservent les changements confirmés. Vérifiez la sélection puis enregistrez pour reprendre uniquement les changements restants.</p>
               </div>
             )}
-            <form onSubmit={handleUpdate} className="space-y-4">
+            <AdministrationMutationForm onSubmit={handleUpdate} className="space-y-4">
               <Field label="Prénom" htmlFor="edit-first-name">
                 <input
                   id="edit-first-name"
@@ -731,8 +747,8 @@ export function UsersPanel({
                   Enregistrer
                 </ActionButton>
               </div>
-            </form>
-            <form
+            </AdministrationMutationForm>
+            <AdministrationMutationForm
               onSubmit={requestPasswordReset}
               className="space-y-4 border-t border-[#ebe8e3] pt-5"
             >
@@ -802,10 +818,10 @@ export function UsersPanel({
                 <KeyRound className="h-4 w-4" aria-hidden="true" />
                 Réinitialiser le mot de passe
               </ActionButton>
-            </form>
+            </AdministrationMutationForm>
             </div>
           ) : (
-            <EmptyState>Sélectionnez un utilisateur dans le tableau.</EmptyState>
+            <EmptyState title="Sélectionnez un utilisateur dans le tableau." />
           )}
         </div>
       </Panel>

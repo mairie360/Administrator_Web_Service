@@ -4,10 +4,23 @@ const fs = require('node:fs');
 const ts = require('typescript');
 const { NextRequest } = require('next/server');
 const originalLoader = require.extensions['.ts'];
-require.extensions['.ts'] = (module, filename) => module._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, resolveJsonModule: true } }).outputText, filename);
+require.extensions['.ts'] = (module, filename) => module._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { fileName: filename, compilerOptions: { inlineSourceMap: true, inlineSources: true, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, resolveJsonModule: true } }).outputText, filename);
 const { proxyBffRequest, forwardToBff } = require('../src/lib/bff-proxy.ts');
 require.extensions['.ts'] = originalLoader;
 const originalFetch = global.fetch;
+for (const [name, target, headers, expected] of [
+  ['unknown route', '/not-published', {}, 404],
+  ['cross-site mutation', '/admin/users/1', { 'sec-fetch-site': 'cross-site' }, 403],
+  ['oversized declared body', '/admin/users/1', { 'content-length': String(2 * 1024 * 1024) }, 413],
+]) test(`relay rejects ${name} before any unbounded body allocation`, async () => {
+  global.fetch = async () => assert.fail('a rejected request cannot reach the BFF');
+  const request = new NextRequest('http://localhost' + target, {
+    method: 'PATCH', headers: { 'content-type': 'application/json', cookie: 'accessToken=test-session', ...headers }, body: '{}',
+  });
+  request.arrayBuffer = async () => assert.fail('the relay must not prebuffer the complete request');
+  const response = await forwardToBff(request, 'http://bff.example', target);
+  assert.equal(response.status, expected);
+});
 const bffUrlVariables = ['BFF_ADMIN_BASE_URL', 'USER_BFF_URL', 'BFF_USER_API_URL', 'NEXT_PUBLIC_BFF_ADMIN_BASE_URL'];
 const originalBffUrls = Object.fromEntries(bffUrlVariables.map((name) => [name, process.env[name]]));
 afterEach(() => {
@@ -57,7 +70,8 @@ test('a browser bearer without any cookie cannot authenticate the relay', async 
   const result = await forwardToBff(new NextRequest('http://localhost/me', { headers: { Authorization: 'Bearer forged-browser' } }), 'http://bff.example', '/me');
   assert.equal(result.status, 401);
   assert.equal(authorization, null);
-  assert.equal(result.headers.get('X-Mairie360-Login-Required'), 'true');
+  assert.equal(result.headers.get('Location'), null);
+  assert.equal(result.headers.get('Cache-Control'), 'no-store');
   assert.equal(result.headers.get('Set-Cookie'), null);
 });
 

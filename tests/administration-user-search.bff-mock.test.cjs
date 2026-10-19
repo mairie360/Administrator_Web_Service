@@ -108,7 +108,8 @@ test('an earlier refusal cannot clear the latest loading indicator; a fresh retr
     // out-of-contract transport-refusal fixture, never claim schema coverage.
     earlier.resolve(bffError(503, 'Earlier search refused'));
     await view.waitFor(() => completed.some(item => item.search === 'Alice'));
-    assert.match(view.html, /aria-label="Chargement"/);
+    assert.match(view.text(), /Chargement des utilisateurs…/);
+    assert.match(view.html, /role="status" aria-live="polite"/);
     assert.ok(!view.text().includes(unavailable));
     latest.resolve(bffError(503, 'Latest search refused'));
     await view.waitFor(() => view.text().includes(unavailable));

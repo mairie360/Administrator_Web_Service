@@ -195,13 +195,13 @@ describe('protected document navigation', () => {
     assert.equal(location.reloads, 0);
   });
 
-  test('ordinary 401, 403 and 503 failures are not opaque redirects and never reload the document', async (t) => {
+  test('a refused renewal, ordinary 403 and 503 failures are not opaque redirects and never reload the document', async (t) => {
     const location = { origin: FRONT_ORIGIN, pathname: '/', search: '?panel=groups', href: FRONT_ORIGIN + '/?panel=groups', assigned: [], assign(url) { this.assigned.push(url); }, reloads: 0, reload() { this.reloads += 1; } };
     loadTs(['src/lib/front-urls.ts'])[0].setBrowserFrontUrls({ LOGIN_FRONT_URL: 'https://login.mairie360.test', ADMINISTRATION_FRONT_URL: FRONT_ORIGIN });
     global.window = { location };
     let status = 401;
     t.mock.method(global, 'fetch', async () => ({
-      type: 'basic', ok: false, get status() { return status; },
+      type: 'basic', ok: false, headers: new Headers({ 'X-Mairie360-Refresh-Refused': 'true' }), get status() { return status; },
       get text() { throw new Error('error body must not be parsed'); },
     }));
 
