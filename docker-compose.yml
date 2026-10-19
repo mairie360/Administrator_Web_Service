@@ -45,7 +45,7 @@ x-api-env: &api-env
 
 services:
   postgres:
-    image: ${DB_IMAGE:-ghcr.io/mairie360/database:dev-90c22bb}
+    image: ${DB_IMAGE:-ghcr.io/mairie360/database:3.2.0}
     container_name: administrator-front-dev-db
     environment:
       POSTGRES_USER: postgres
@@ -64,7 +64,7 @@ services:
       retries: 10
 
   liquibase:
-    image: ${LIQUIBASE_IMAGE:-ghcr.io/mairie360/liquibase-migrations:dev-90c22bb}
+    image: ${LIQUIBASE_IMAGE:-ghcr.io/mairie360/liquibase-migrations:3.2.0}
     container_name: administrator-front-dev-liquibase
     depends_on:
       postgres:
@@ -114,7 +114,7 @@ services:
       retries: 5
 
   core-api:
-    image: ${CORE_API_IMAGE:-ghcr.io/mairie360/core-api:dev-95531e2}
+    image: ${CORE_API_IMAGE:-ghcr.io/mairie360/core-api:2.1.0}
     container_name: administrator-front-dev-core-api
     depends_on:
       liquibase:
