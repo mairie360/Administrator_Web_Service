@@ -83,7 +83,7 @@ async function administrationDom(t, { serverPage = false, strict = false, config
     front.install();
   }
   root = createRoot(dom.window.document.getElementById('root'));
-  const shell = React.createElement(require('@mairie360/front-kit/react').InstanceProvider, { role: 'Admin', timeZone: 'UTC' }, page);
+  const shell = React.createElement(require('@mairie360/lib-components/react').InstanceProvider, { role: 'Admin', timeZone: 'UTC' }, page);
   await React.act(async () => root.render(strict ? React.createElement(React.StrictMode, null, shell) : shell));
   const loaded = () => dom.window.document.body.textContent.includes(expected) &&
     [...dom.window.document.querySelectorAll('button')].some(button => button.textContent.trim() === 'Actualiser' && !button.disabled);

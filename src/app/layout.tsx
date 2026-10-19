@@ -1,7 +1,7 @@
-import { parseAppearanceCookie, APPEARANCE_COOKIE } from '@mairie360/front-kit/theme';
+import { parseAppearanceCookie, APPEARANCE_COOKIE } from '@mairie360/lib-components/theme';
 import { cookies } from 'next/headers';
-import { jwtDisplayRole, instanceTimeZone } from '@mairie360/front-kit/shared';
-import { InstanceProvider } from '@mairie360/front-kit/react';
+import { jwtDisplayRole, instanceTimeZone } from '@mairie360/lib-components/shared';
+import { InstanceProvider } from '@mairie360/lib-components/react';
 import type { Metadata } from "next";
 import { readFrontUrlsFromEnv } from "@/lib/front-urls";
 import { FrontUrlsProvider } from "@/lib/front-urls-provider";

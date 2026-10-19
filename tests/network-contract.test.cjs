@@ -313,7 +313,7 @@ describe('no network access outside the BFF contract', () => {
   });
 
   test('the browser may only connect to its own origin and Next.js rewrites nothing elsewhere', () => {
-    const { buildContentSecurityPolicy } = require('@mairie360/front-kit/shared');
+    const { buildContentSecurityPolicy } = require('@mairie360/lib-components/shared');
     const nextConfig = loadTs(['next.config.ts'])[0].default;
     const directives = Object.fromEntries(buildContentSecurityPolicy('n').split('; ').map((directive) => [directive.split(' ')[0], directive]));
 

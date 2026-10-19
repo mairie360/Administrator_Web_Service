@@ -1,4 +1,4 @@
-import { normalizeDisplayRole } from "@mairie360/front-kit/shared";
+import { normalizeDisplayRole } from "@mairie360/lib-components/shared";
 
 export const APP_ROLES = [
   "Admin",

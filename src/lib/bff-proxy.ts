@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createSessionLogoutProxy, proxyPublishedBffRequest } from '@mairie360/front-kit/next';
+import { createSessionLogoutProxy, proxyPublishedBffRequest } from '@mairie360/lib-components/next';
 import contract from '../../contracts/openapi.json';
 
 type RouteContext = { params: Promise<{ path: string[] }> };

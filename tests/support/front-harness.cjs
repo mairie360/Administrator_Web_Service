@@ -3,7 +3,7 @@ const path = require('node:path');
 const Module = require('node:module');
 const ts = require('typescript');
 const { AsyncLocalStorage } = require('node:async_hooks');
-const { createSessionRefreshHandler, createSessionLogoutHandler, forgetUserSession } = require('@mairie360/front-kit/next');
+const { createSessionRefreshHandler, createSessionLogoutHandler, forgetUserSession } = require('@mairie360/lib-components/next');
 
 const ROOT = path.join(__dirname, '..', '..');
 const SRC = path.join(ROOT, 'src');

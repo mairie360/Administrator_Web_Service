@@ -1,4 +1,4 @@
-import { sessionFetch } from '@mairie360/front-kit/browser';
+import { sessionFetch } from '@mairie360/lib-components/browser';
 import axios, { type AxiosAdapter } from 'axios';
 import { getBffUser } from '@mairie360/bff-user-openapi/endpoints/bffUser';
 import { navigateToLogin } from './logout';
