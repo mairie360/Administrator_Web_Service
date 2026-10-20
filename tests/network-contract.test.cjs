@@ -10,7 +10,7 @@ const { BFF_URL_VARIABLES, FrontHarness, ROOT, SRC, loadTs } = require('./suppor
 
 // Garde-fou réseau du front : il ne parle qu'à un seul BFF, BFF User, et uniquement par les opérations du
 // contrat publié dans le paquet @mairie360/bff-user-openapi (version exacte de package.json : release X.Y.Z ou
-// paquet dev 0.0.0-dev.<sha> du main du BFF, scripts/contract-version.mjs).
+// paquet dev/staging d'un commit du main du BFF, scripts/contract-version.mjs).
 // contracts/openapi.json, liste blanche du proxy et source des mocks, doit être la reconstruction exacte de
 // ce paquet (scripts/orval-contract.mjs).
 
@@ -72,7 +72,7 @@ afterEach(() => {
 describe('published BFF User contract', () => {
   test(`${BFF_USER_PACKAGE} is pinned to an exact published version, installed as locked`, async () => {
     const { isAcceptedContractVersion } = await import('../scripts/contract-version.mjs');
-    assert.ok(isAcceptedContractVersion(pinned), `${BFF_USER_PACKAGE} doit être épinglé à une version exacte X.Y.Z ou 0.0.0-dev.<sha> (pas de plage ni de pré-version staging)`);
+    assert.ok(isAcceptedContractVersion(pinned), `${BFF_USER_PACKAGE} must be pinned to an exact version X.Y.Z, 0.0.0-dev.<sha> or 0.0.0-staging.<sha> (no range)`);
     assert.equal(readJson(`node_modules/${BFF_USER_PACKAGE}/package.json`).version, pinned);
     assert.equal(readJson('package-lock.json').packages[`node_modules/${BFF_USER_PACKAGE}`].version, pinned);
   });
@@ -100,11 +100,13 @@ describe('published BFF User contract', () => {
     }
   });
 
-  test('the contract version policy accepts releases and dev packages and maps them to image tags', async () => {
+  test('the contract version policy accepts releases, dev and staging packages and maps them to image tags', async () => {
     const { isAcceptedContractVersion, imageTagForContractVersion } = await import('../scripts/contract-version.mjs');
     assert.equal(imageTagForContractVersion('0.5.0'), '0.5.0');
     assert.equal(imageTagForContractVersion('0.0.0-dev.0d80ef4e08e8db73ec2832911f42e75ae990a8d3'), 'dev-0d80ef4');
-    for (const rejected of ['^0.5.0', '0.5', '0.0.0-staging.0d80ef4e08e8db73ec2832911f42e75ae990a8d3', '0.0.0-dev.0d80ef4', 'latest']) {
+    assert.equal(isAcceptedContractVersion('0.0.0-staging.0d80ef4e08e8db73ec2832911f42e75ae990a8d3'), true);
+    assert.equal(imageTagForContractVersion('0.0.0-staging.0d80ef4e08e8db73ec2832911f42e75ae990a8d3'), 'staging-0d80ef4');
+    for (const rejected of ['^0.5.0', '0.5', '0.0.0-staging.0d80ef4', '0.0.0-dev.0d80ef4', 'latest']) {
       assert.equal(isAcceptedContractVersion(rejected), false, rejected);
     }
   });
