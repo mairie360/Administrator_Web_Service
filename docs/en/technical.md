@@ -281,7 +281,7 @@ Every response carries `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff
 
 ## Synchronization and verification
 
-The only contract is BFF User’s, as **published** in `@mairie360/bff-user-openapi`, pinned to an exact version: a release `X.Y.Z`, or, while no release is cut, the `0.0.0-dev.<sha>` package the CICD publishes for the current commit of its `main` (MAIR-509; never a `staging` pre-release, never a copy from a BFF checkout, which can be ahead of what is published). `scripts/contract-version.mjs` holds that policy and maps a dev package to its `dev-<sha7>` image tag for the `docker-compose*.yml` stacks. After a new package version:
+The only contract is BFF User’s, as **published** in `@mairie360/bff-user-openapi`, pinned to an exact version: a release `X.Y.Z`, or, while no release is cut, the `0.0.0-dev.<sha>` package the CICD publishes for the current commit of its `main` (MAIR-509), or, once that commit is released on staging, the `0.0.0-staging.<sha40>` package of the same commit, preferred on a staging release for readability (MAIR-600; never `0.0.0-staging.<short sha>` or a range, never a copy from a BFF checkout, which can be ahead of what is published). `scripts/contract-version.mjs` holds that policy and maps a dev package to its `dev-<sha7>` image tag and a staging package to its `staging-<sha7>` image tag (same digest) for the `docker-compose*.yml` stacks. After a new package version:
 
 ```bash
 npm run contracts:sync
