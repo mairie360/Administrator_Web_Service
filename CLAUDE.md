@@ -42,7 +42,13 @@ npm run contracts:check     # fail if the version isn't an accepted exact versio
 
 These commands run offline. After a bump, move the `bff-user` image tag of the `docker-compose*.yml` files to the image built from the same commit. The stacks also pin dev images of Core API and the database: the dev Liquibase needs `-Dallow_template_admin=true`, the database enforces argon2id hashes in `init-test.sql`, the dev Core API needs `JWT_ALLOW_WEAK_SECRET` for the shared test secret and `RATE_LIMIT_ENABLED=false`, and BFF User needs `AUTH_RATE_LIMIT_ENABLED=false` for the ZAP scan. Nullable orval enums (`typeof X[keyof typeof X] | null`) become `{ type: ['string','null'], enum: [..., null] }`; BFF errors use the shared `ErrorResponse` envelope (`{ error: { code, message, details } }`).
 
+## Figma mockup
+
+Figma is the source of truth: design and agree any UI change on **Mairie360 – Administrator_Web_Service** (https://www.figma.com/design/DexDzPaw4RFep5J9aqb1fE) first, then code it. Shared components come from the lib mockup https://www.figma.com/design/T7vetUfuzPEXk5TxjHRiO2 and are instantiated, never redrawn.
+
 ## Architecture
+
+- **Shell from the lib (MAIR-578)** — `src/components/administration-page.tsx` renders `AccessibleShell` from `@mairie360/lib-components/shell` (the shell stays inert while a local `alertdialog` confirmation is open); `src/lib/front-urls-provider.tsx` uses the lib `configureSidebarCookieDomain`. No local `accessible-shell.tsx`, `desktop-navigation.tsx` or `sidebar-preference.ts` (pinned by `tests/lib-shell-adoption.test.cjs`).
 
 - **Console boundaries (MAIR-406 / issue146)** — `administration-console.tsx`
   owns global reads, revisions and mutation orchestration. Four stable top-level

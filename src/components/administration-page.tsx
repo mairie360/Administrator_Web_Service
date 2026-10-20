@@ -4,7 +4,7 @@ import { Skeleton } from "@mairie360/lib-components/primitives";
 
 import type { InitialAdministration } from "@/lib/administration-response";
 
-import AccessibleShell from "@/components/accessible-shell";
+import { AccessibleShell } from "@mairie360/lib-components/shell";
 
 import { useRef, useState } from "react";
 import { AdministrationConsole } from "@/components/administration-console";
