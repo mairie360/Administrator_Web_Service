@@ -2,10 +2,11 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { ts, parse, nodes, imported, exportedCallable, bindingNames } = require('./support/module-policy.cjs');
 // Structural policy; existing page/form/rerender tests exercise user behavior.
-for (const [component, filename] of [['UsersPanel', 'users-panel'], ['RolesPanel', 'roles-panel'], ['GroupsPanel', 'groups-panel'], ['SessionsPanel', 'sessions-panel']]) {
+// MAIR-608: one folder per tab; the console imports each panel from its own folder.
+for (const [component, filename] of [['UsersPanel', 'users/UsersPanel'], ['RolesPanel', 'roles/RolesPanel'], ['GroupsPanel', 'groups/GroupsPanel'], ['SessionsPanel', 'sessions/SessionsPanel']]) {
   test(`${component} has a stable explicit module boundary, not an inline console definition`, () => {
-    const consoleSource = parse('src/components/administration-console.tsx');
-    const directImport = imported(consoleSource).find(row => row.specifier === `./administration/${filename}`)?.node;
+    const consoleSource = parse('src/components/administration/console/AdministrationConsole.tsx');
+    const directImport = imported(consoleSource).find(row => row.specifier === `../${filename}`)?.node;
     assert.ok(directImport, `${component} must be imported directly`);
     const bindings = directImport.importClause?.namedBindings;
     assert.ok(bindings && ts.isNamedImports(bindings));
@@ -20,9 +21,9 @@ for (const [component, filename] of [['UsersPanel', 'users-panel'], ['RolesPanel
   });
 }
 test('shared field, panel, action and confirmation rendering has no administration data dependency', () => {
-  const ui = parse('src/components/administration/controls.tsx');
+  const ui = parse('src/components/administration/shared/controls.tsx');
   for (const name of ['Field', 'Panel', 'ActionButton']) assert.ok(exportedCallable(ui, name));
-  const confirmation = parse('src/components/administration/confirm-modal.tsx');
+  const confirmation = parse('src/components/administration/shared/confirm-modal.tsx');
   assert.ok(exportedCallable(confirmation, 'ConfirmModal'));
   for (const source of [ui, confirmation]) assert.ok(imported(source).every(row => !/administration-api|bff-client|auth-session|administration-console/.test(row.specifier)));
 });
