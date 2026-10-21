@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 
 import AdministrationPage from './AdministrationPage';
 
-const session = vi.hoisted(() => ({ current: { user: { name: 'Admin' }, isAdmin: false, loading: true, error: null, retry: vi.fn() } }));
+const session = vi.hoisted(() => ({ current: { user: { name: 'Admin' }, isAdmin: false, loading: true, error: null as string | null, retry: vi.fn() } }));
 vi.mock('@/lib/auth-session', () => ({ useAuthSession: () => session.current, logoutAndReload: vi.fn() }));
 vi.mock('@/lib/navigation', () => ({ getActiveFrontHrefs: () => ({}) }));
 
