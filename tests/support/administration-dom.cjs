@@ -69,7 +69,7 @@ async function administrationDom(t, { serverPage = false, strict = false, config
     ELEARNING_FRONT_URL: 'https://training.example/', SETTINGS_FRONT_URL: 'https://settings.example/' });
   configure?.(bff);
   React = require('react');
-  const { createRoot } = require('react-dom/client'), [{ default: Home }] = loadTs(['src/components/administration-page.tsx']);
+  const { createRoot } = require('react-dom/client'), [{ default: Home }] = loadTs(['src/components/AdministrationPage/index.ts']);
   let page = React.createElement(Home);
   if (serverPage) {
     front.uninstall();

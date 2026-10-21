@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { loadTs } = require('./support/front-harness.cjs');
-const [{ administrationSessionState: state, nextSessionExpiryDelay: delay }] = loadTs(['src/lib/administration-session-state.ts']);
+// MAIR-607: the state rules now come from the shared SessionList of the library; the expectations are unchanged.
+const { sessionState: state, nextSessionExpiryDelay: delay } = require('@mairie360/lib-components/primitives');
 const now = Date.parse('2026-10-02T10:00:00Z');
 const session = (expires_at, revoked_at = null) => ({ expires_at, revoked_at });
 

@@ -7,8 +7,8 @@ const { loadTs, FrontHarness, FRONT_ORIGIN } = require('./support/front-harness.
 const { bffUserContract } = require('./support/bff-user-contract.cjs');
 const { ContractMockServer } = require('./support/contract-mock-server.cjs');
 const [{ RolesPanel }, { SessionsPanel }, { GroupsPanel }, { UsersPanel }] = loadTs([
-  'src/components/administration/roles-panel.tsx', 'src/components/administration/sessions-panel.tsx',
-  'src/components/administration/groups-panel.tsx', 'src/components/administration/users-panel.tsx',
+  'src/components/AdministrationPage/components/AdministrationConsole/components/RolesPanel/index.ts', 'src/components/AdministrationPage/components/AdministrationConsole/components/SessionsPanel/index.ts',
+  'src/components/AdministrationPage/components/AdministrationConsole/components/GroupsPanel/index.ts', 'src/components/AdministrationPage/components/AdministrationConsole/components/UsersPanel/index.ts',
 ]);
 const bff = new ContractMockServer('BFF_USER', bffUserContract());
 let front, view;

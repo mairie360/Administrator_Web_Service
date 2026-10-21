@@ -42,11 +42,50 @@ npm run contracts:check     # fail if the version isn't an accepted exact versio
 
 These commands run offline. After a bump, move the `bff-user` image tag of the `docker-compose*.yml` files to the image built from the same commit. The stacks also pin dev images of Core API and the database: the dev Liquibase needs `-Dallow_template_admin=true`, the database enforces argon2id hashes in `init-test.sql`, the dev Core API needs `JWT_ALLOW_WEAK_SECRET` for the shared test secret and `RATE_LIMIT_ENABLED=false`, and BFF User needs `AUTH_RATE_LIMIT_ENABLED=false` for the ZAP scan. Nullable orval enums (`typeof X[keyof typeof X] | null`) become `{ type: ['string','null'], enum: [..., null] }`; BFF errors use the shared `ErrorResponse` envelope (`{ error: { code, message, details } }`).
 
+## Figma mockup
+
+Figma is the source of truth: design and agree any UI change on **Mairie360 – Administrator_Web_Service** (https://www.figma.com/design/DexDzPaw4RFep5J9aqb1fE) first, then code it. Shared components come from the lib mockup https://www.figma.com/design/T7vetUfuzPEXk5TxjHRiO2 and are instantiated, never redrawn.
+
+## Component tree convention
+
+Every component under `src/components/` is a **folder named after it**, and the folder tree
+mirrors the composition tree:
+
+```
+Name/
+  index.ts          # exports the component (and the helpers it owns)
+  Name.tsx          # imports ONLY its direct sub-components, through their index.ts
+  Name.test.tsx     # its tests, co-located (vitest + jsdom)
+  components/       # one such folder per direct sub-component, recursively
+```
+
+- A component needs nothing but the `index.ts` of its direct sub-components: `Name.tsx` imports
+  `./components/Sub`, never `./components/Sub/Sub` nor a sub-sub-component. Leaves are folders
+  too (without `components/`).
+- Helpers a component owns (models, hooks, `*.ts`) sit beside it and are exported by its
+  `index.ts`; a helper shared by two siblings sits in their closest common ancestor.
+- A big component is acceptable only for a technical reason stated in a comment; otherwise
+  split it so that each visible part is a component and what composes it a sub-component.
+- Page and journey tests stay in `tests/`; per-component tests are the co-located
+  `Name.test.tsx`. `tests/component-tree-convention.test.cjs` enforces the folder, the index,
+  the co-located test and the index-only imports.
+
+## Front tickets and the Figma mockup
+
+A front ticket (Jira + GitHub issue + PR) **must link the Figma frame that serves as the
+example** of what is being built or changed. Without that link the ticket cannot be worked
+on, unless the change does not affect the display (tooling, tests, proxy, contracts…). Update
+and agree the mockup first, then code it: the sync direction is Figma → code.
+
 ## Architecture
 
-- **Console boundaries (MAIR-406 / issue146)** — `administration-console.tsx`
+- **One component tree on the normalised lib (MAIR-608)** — `src/components/AdministrationPage/` is the single root (see *Component tree convention*). `AdministrationPage.tsx` renders the lib `AccessibleShell` and, after `useAuthSession`, one of `components/{ProfileChecking,ProfileUnavailable,AccessDenied}/` or `components/AdministrationConsole/`; `components/LogoutFailure/` and the controls shared by the whole page sit beside them: `components/Field/`, `components/Panel/`, `components/ActionButton/` (thin adapters over the lib primitives) and `controls.ts` (`inputClassName`, `textareaClassName`, `formatDate`). `AdministrationConsole/` owns `use-administration-data.ts` (global reads, revisions, mutation orchestration), `types.ts` (`RunAction`) and `components/`: `ConsoleHeader/` (lib `PageHeader`), `ConsoleNotices/`, `ConsoleMetrics/`, `ConsoleTabs/` (+ `console-tabs.ts`, ids `administration-tab-*`), the shared `ConfirmModal/` (`alertdialog`) and `AdministrationMutationForm/`, and the four panels: `UsersPanel/` (+ `use-users-list.ts`; `components/{UsersSearch,UsersTable/components/UserRow,UsersPagination,UserFields,UserCreateForm,UserEditForm,UserPasswordReset,RoleChangeWarning}/`), `RolesPanel/components/{RolesList/components/RoleRow,RoleForm}/`, `GroupsPanel/` (+ `use-member-candidates.ts`; `components/{GroupsList/components/GroupCard,GroupCreateForm,GroupEditForm,GroupMembers,GroupMemberSearch,MemberIdentity}/`), `SessionsPanel/components/SessionsViewSwitch/`. `src/app/page.tsx` imports `@/components/AdministrationPage`; every component has its co-located `Name.test.tsx` (vitest + jsdom, `npm run test:components`), `tests/component-tree-convention.test.cjs` checks the tree and `tests/administration-component-boundaries.test.cjs` the console ↔ panel boundaries.
+- **Sessions through the lib `SessionList` (MAIR-607)** — `src/components/AdministrationPage/components/AdministrationConsole/components/SessionsPanel/SessionsPanel.tsx` keeps the Actives / Historique switch (lib `SegmentedControl`) and the refresh action but renders `SessionList` from `@mairie360/lib-components/primitives` (states computed by the lib `sessionState`, one expiry timer). No local session table or `src/lib/administration-session-state.ts` (pinned by `tests/lib-session-list-adoption.test.cjs`; `tests/administration-session-state.test.cjs` now checks the lib helpers).
+- **Shell from the lib (MAIR-578)** — `src/components/AdministrationPage/AdministrationPage.tsx` renders `AccessibleShell` from `@mairie360/lib-components/shell` (the shell stays inert while a local `alertdialog` confirmation is open); `src/lib/front-urls-provider.tsx` uses the lib `configureSidebarCookieDomain`. No local `accessible-shell.tsx`, `desktop-navigation.tsx` or `sidebar-preference.ts` (pinned by `tests/lib-shell-adoption.test.cjs`).
+
+- **Console boundaries (MAIR-406 / issue146)** — `AdministrationConsole.tsx`
   owns global reads, revisions and mutation orchestration. Four stable top-level
-  panels are imported directly from `src/components/administration/`; local
+  panels are imported through their folder index under `AdministrationConsole/components/`; local
   state/callbacks/mount semantics stay unchanged. Shared `controls.tsx` and
   `confirm-modal.tsx` have no administration data dependency; `types.ts` only
   exports `RunAction`. No barrel/cycle, new effect/fetch or lazy boundary. The
@@ -66,7 +105,7 @@ These commands run offline. After a bump, move the `bff-user` image tag of the `
 - **Session adapters** — `src/app/api/{user/me,auth/me,auth/session,auth/logout}/route.ts` call `userBffRequest` (`src/lib/user-bff-proxy.ts`), i.e. `forwardToBff(request, configuredBffUrl(), path)`. `src/lib/auth-session.ts` (`useAuthSession`) loads `/api/user/me`, normalises roles (`Admin`/`Responsable`/`Maire`/`User`/`Guest`, with FR/EN aliases) and on 401 calls `logoutAndReload()`.
 - **Auth gate** — `src/middleware.ts` redirects every page request (matcher excludes `/api` and the BFF contract roots (their own 401 is relayed), `/_next/*` and paths with a dot) to `LOGIN_FRONT_URL` when the `accessToken` cookie is missing or its JWT `exp` is past, clearing the cookie on `COOKIE_DOMAIN`. It only decodes the payload; signature validation is the BFF/Core's job. For authenticated requests it also sets a per-request nonce `Content-Security-Policy` (built in `src/lib/content-security-policy.ts`, forwarded to Next.js via request headers), which is why `src/app/layout.tsx` forces dynamic rendering: a prerendered page would carry no nonce and its scripts would be blocked. Any new external origin (images, fonts, browser-side API calls) must be added to that policy. The catch-all data routes (e.g. `/health`, `/admin/*`) also pass through it, so a data call without a valid cookie gets a redirect to Login, not a 401.
 - **Client calls** — `requestBff` (`src/lib/bff-client.ts`) calls same-origin paths and adds `Accept`/`Content-Type` JSON headers. It never reads/migrates browser JWT storage to inject Authorization (MAIR-406); the existing proxy owns cookie forwarding. Explicit caller headers remain unchanged. Historical storage helpers remain available for existing cleanup, not automatic data requests. Fetch uses manual redirects; after the caller signal is checked, an opaque redirect reloads the current protected document once per browser Location and throws `BffNavigationRequiredError`, without inspecting its destination/body or replaying writes. Existing middleware owns Login and the page's return path/query. Ordinary non-2xx responses still throw `BffRequestError(status)` without parsing their body; generic network errors do not imply expiration. `administration-api.ts` checks the contract bounds (search ≤ 100, password 8–255, group name 1–64, description ≤ 2000) before calling. This slice does not certify cookie signatures, deployed administrator authorization, token-based session management or real Login authentication.
-- **Page and data** — `/` mounts `src/components/administration-console.tsx` (users/roles/groups/sessions tabs) inside the shared `AppShell` only after unchanged `useAuthSession` resolves Admin. Pending profiles show a status, other resolved roles see an access-reserved state, and profile errors offer document-reload retry without console reads. The page does not enforce server authorization or revalidate stale roles; 401 logout remains in the hook. The local typed client `src/lib/administration-api.ts` calls the existing `/admin/*` contract; the library supplies only navigation and layout, never demonstration data.
+- **Page and data** — `/` mounts `AdministrationConsole` (users/roles/groups/sessions tabs) inside the shared `AppShell` only after unchanged `useAuthSession` resolves Admin. Pending profiles show a status, other resolved roles see an access-reserved state, and profile errors offer document-reload retry without console reads. The page does not enforce server authorization or revalidate stale roles; 401 logout remains in the hook. The local typed client `src/lib/administration-api.ts` calls the existing `/admin/*` contract; the library supplies only navigation and layout, never demonstration data.
 - `src/lib/front-urls.ts` resolves `*_FRONT_URL` destinations when the page renders. The shared shell hides unconfigured modules; E-mails and Files remain archived and are not passed to it.
 - `next.config.ts` sets `output: 'standalone'` (required by the Dockerfile), `poweredByHeader: false` and static security headers on every route (`tests/security-headers.test.cjs` pins them, and the ZAP baseline fails without them), and inlines the `*_FRONT_URL` values at **build time** (defaults `https://<module>.dev.mairie360-eip.fr/`), so changing them requires a rebuild.
 - **Text constraints of the contract (MAIR-514)** — `src/lib/text-constraints.ts` mirrors the published admin rules: `NO_MARKUP_PATTERN` (HTML form of `^[^<>]*$`) with `NO_MARKUP_HINT` as `title`, `PHONE_PATTERN`/`PHONE_HINT` (`^(?:\+?[\d\s.()-]+)?$`), and the lengths (`NAME_MAX_LENGTH` 64, `EMAIL_MAX_LENGTH` 320, `PHONE_MAX_LENGTH` 32, `PASSWORD_MAX_LENGTH` 255, `DESCRIPTION_MAX_LENGTH` 2 000). The user, role and group inputs carry them; textareas (no `pattern`) report `<`/`>` through `reportMarkupValidity` (`setCustomValidity`). `BffRequestError` now reads the ErrorResponse body and exposes `details[]`; `administrationErrorMessage` lists them per field for a 400/422 (`describeValidationDetail`: `body.first_name` → `Prénom : ne doit pas contenir les caractères < ou >`) and keeps its generic wording without details. The HTML test pins the patterns and lengths to `contracts/openapi.json`.

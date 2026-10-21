@@ -157,7 +157,8 @@ test('Administrator dark preserves coloured primary actions, explicit white text
     assert.deepEqual(view.background('danger'), [180, 35, 24]);
     for (const id of ['primary', 'danger', 'white-override']) assert.deepEqual(view.colour(id), [255, 255, 255]);
     assert.equal(view.dom.window.document.getElementById('pagination-summary').className, '');
-    assert.deepEqual(view.colour('pagination-summary'), [203, 213, 225]);
+    // MAIR-608: the summary inherits the charte muted token of the dark theme.
+    assert.deepEqual(view.colour('pagination-summary'), [227, 223, 227]);
   } finally { view.dom.window.close(); }
 });
 test('Administrator light preserves title, labels and badge surfaces with readable metadata', async () => {

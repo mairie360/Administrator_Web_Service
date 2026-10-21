@@ -6,8 +6,8 @@ const { FRONT_ORIGIN, FrontHarness, loadTs } = require('./support/front-harness.
 const { installReactRuntime, mount } = require('./support/server-view.cjs');
 
 // HTML of the administration front rendered with react-dom/server against the mocked BFF User: the real
-// client page (src/components/administration-page.tsx: same-origin profile fallback; async SSR is tested separately) and the real administration console
-// (src/components/administration-console.tsx, driven by src/lib/administration-api.ts) are rendered, the
+// client page (src/components/AdministrationPage/index.ts: same-origin profile fallback; async SSR is tested separately) and the real administration console
+// (src/components/AdministrationPage/components/AdministrationConsole/index.ts, driven by src/lib/administration-api.ts) are rendered, the
 // hook state is kept between render passes (tests/support/server-view.cjs), so the markup reflects what the
 // BFF answered through the middleware and the contract-gated proxy.
 
@@ -36,7 +36,7 @@ function installWindow() {
 before(async () => {
   await bff.start();
   front = new FrontHarness({ bff }).install();
-  [{ default: Home }, { AdministrationConsole }] = loadTs(['src/components/administration-page.tsx', 'src/components/administration-console.tsx']);
+  [{ default: Home }, { AdministrationConsole }] = loadTs(['src/components/AdministrationPage/index.ts', 'src/components/AdministrationPage/components/AdministrationConsole/index.ts']);
 });
 after(async () => {
   front.uninstall();
@@ -303,7 +303,7 @@ test('the console loads roles, groups, sessions and users and renders the counts
   assert.deepEqual(sequence(), ['GET /admin/groups', 'GET /admin/roles', 'GET /admin/sessions', 'GET /admin/sessions/history', 'GET /admin/users']);
   assert.equal(bff.requests[0].headers.authorization, `Bearer ${front.cookie}`);
   assert.match(view.text(), /2 Utilisateurs 2 Rôles 1 Groupes 1 Sessions actives/);
-  assert.match(html, /<button type="button" role="tab" aria-selected="true"[^>]*>[\s\S]*?Utilisateurs/);
+  assert.match(html, /<button id="administration-tab-users" role="tab" type="button" aria-selected="true"[^>]*>[\s\S]*?Utilisateurs/);
   assert.match(html, /<th[^>]*>Utilisateur<\/th><th[^>]*>Contact<\/th><th[^>]*>Rôle<\/th><th[^>]*>Statut<\/th>/);
   assert.match(view.text(), /Alice Dupont/);
   assert.match(view.text(), /Bob Martin/);
@@ -358,7 +358,8 @@ test('long group names stay complete in the scoped responsive console and detail
 
   assert.match(view.html, /<section class="administration-console min-w-0 /);
   assert.match(view.html, /<section class="administration-panel min-w-0 /);
-  assert.match(view.html, /<button[^>]*class="inline-flex h-10 shrink-0 /);
+  // MAIR-608: the actions are lib buttons; they never shrink inside the long-name header.
+  assert.match(view.html, /<button[^>]*class="inline-flex shrink-0 /);
   assert.match(view.html, /<span class="shrink-0 font-mono text-xs [^"]*">#1<\/span>/);
   assert.match(view.html, new RegExp(`<h2[^>]*>${longName}</h2>`));
   assert.match(view.html, new RegExp(`id="edit-group-name"[^>]*value="${longName}"`));
@@ -1023,7 +1024,8 @@ test('profile save freezes fields and mouse/keyboard selection until confirmatio
   const locked = view.html.includes('<fieldset disabled="" aria-busy="true"');
   await selectUserRow(8);
   await selectUserRow(8, 'onKeyDown');
-  const selectedBefore = view.hostElements(props => props['aria-selected'] === true && typeof props.tabIndex === 'number')[0];
+  // MAIR-608: the lib section tabs also carry aria-selected and a tabIndex; the selected user is the table row.
+  const selectedBefore = view.hostElements((props, _text, tag) => tag === 'tr' && props['aria-selected'] === true && typeof props.tabIndex === 'number')[0];
   write.resolve({ status: 204 });
   await pending;
   assert.equal(locked, true, 'profile form must be disabled while its write is pending');
