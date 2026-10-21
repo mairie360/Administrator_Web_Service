@@ -48,6 +48,7 @@ Figma is the source of truth: design and agree any UI change on **Mairie360 – 
 
 ## Architecture
 
+- **Sessions through the lib `SessionList` (MAIR-607)** — `src/components/administration/sessions-panel.tsx` keeps the Actives / Historique switch and the refresh action but renders `SessionList` from `@mairie360/lib-components/primitives` (states computed by the lib `sessionState`, one expiry timer). No local session table or `src/lib/administration-session-state.ts` (pinned by `tests/lib-session-list-adoption.test.cjs`; `tests/administration-session-state.test.cjs` now checks the lib helpers).
 - **Shell from the lib (MAIR-578)** — `src/components/administration-page.tsx` renders `AccessibleShell` from `@mairie360/lib-components/shell` (the shell stays inert while a local `alertdialog` confirmation is open); `src/lib/front-urls-provider.tsx` uses the lib `configureSidebarCookieDomain`. No local `accessible-shell.tsx`, `desktop-navigation.tsx` or `sidebar-preference.ts` (pinned by `tests/lib-shell-adoption.test.cjs`).
 
 - **Console boundaries (MAIR-406 / issue146)** — `administration-console.tsx`
