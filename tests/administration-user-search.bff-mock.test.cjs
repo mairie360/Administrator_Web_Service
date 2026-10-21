@@ -8,7 +8,7 @@ const { FrontHarness, loadTs } = require('./support/front-harness.cjs');
 installReactRuntime();
 const React = require('react');
 const [{ AdministrationConsole }, { administrationApi }] = loadTs([
-  'src/components/administration-console.tsx', 'src/lib/administration-api.ts',
+  'src/components/AdministrationPage/components/AdministrationConsole/index.ts', 'src/lib/administration-api.ts',
 ]);
 const person = (id, first) => ({ id, first_name: first, last_name: 'Recette',
   email: `person${id}@mairie.test`, phone_number: null, status: 'active',

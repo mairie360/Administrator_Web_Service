@@ -34,7 +34,7 @@ function installWindow() {
 before(async () => {
   await bff.start();
   front = new FrontHarness({ bff }).install();
-  [{ AdministrationConsole }] = loadTs(['src/components/administration-console.tsx']);
+  [{ AdministrationConsole }] = loadTs(['src/components/AdministrationPage/components/AdministrationConsole/index.ts']);
 });
 after(async () => {
   front.uninstall();

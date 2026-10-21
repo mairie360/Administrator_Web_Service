@@ -6,7 +6,7 @@ installReactRuntime();
 const React = require('react');
 const { loadTs } = require('./support/front-harness.cjs');
 const [{ AdministrationConsole }, { RolesPanel }, { administrationApi }] = loadTs([
-  'src/components/administration-console.tsx', 'src/components/administration/roles-panel.tsx', 'src/lib/administration-api.ts',
+  'src/components/AdministrationPage/components/AdministrationConsole/index.ts', 'src/components/AdministrationPage/components/AdministrationConsole/components/RolesPanel/index.ts', 'src/lib/administration-api.ts',
 ]);
 
 test('dismissing a confirmed role receipt preserves its failed read recovery and never repeats the role write', async t => {

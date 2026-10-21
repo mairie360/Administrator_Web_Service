@@ -1,5 +1,5 @@
 import { createNonce } from '@mairie360/lib-components/shared';
-import AdministrationPage from '@/components/administration-page';
+import AdministrationPage from '../components/AdministrationPage';
 import { readInitialAdministration } from '@/lib/initial-administration';
 import { administrationSearch } from '@/lib/administration-query';
 

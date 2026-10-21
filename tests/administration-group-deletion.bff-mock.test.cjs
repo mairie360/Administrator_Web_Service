@@ -19,7 +19,7 @@ let view;
 before(async () => {
   await bff.start();
   front = new FrontHarness({ bff }).install();
-  [{ AdministrationConsole }, { administrationApi }] = loadTs(['src/components/administration-console.tsx', 'src/lib/administration-api.ts']);
+  [{ AdministrationConsole }, { administrationApi }] = loadTs(['src/components/AdministrationPage/components/AdministrationConsole/index.ts', 'src/lib/administration-api.ts']);
   getGroup = administrationApi.getGroup;
 });
 after(async () => { front.uninstall(); await bff.stop(); });

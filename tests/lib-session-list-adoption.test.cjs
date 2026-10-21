@@ -9,7 +9,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 // MAIR-607: Administrator and Settings display sessions through the one shared
 // SessionList of the library; no local table or state helper remains.
 test('MAIR-607 the sessions panel renders the library SessionList, not a local table', () => {
-  const panel = read('src/components/administration/sessions/SessionsPanel.tsx');
+  const panel = read('src/components/AdministrationPage/components/AdministrationConsole/components/SessionsPanel/SessionsPanel.tsx');
   assert.match(panel, /import \{[^}]*\bSessionList\b[^}]*\} from "@mairie360\/lib-components\/primitives"/);
   assert.match(panel, /<SessionList\b/);
   assert.doesNotMatch(panel, /<table|function SessionTable|administration-session-state/);

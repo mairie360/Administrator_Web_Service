@@ -6,8 +6,8 @@ const { FRONT_ORIGIN, FrontHarness, loadTs } = require('./support/front-harness.
 const { installReactRuntime, mount } = require('./support/server-view.cjs');
 
 // HTML of the administration front rendered with react-dom/server against the mocked BFF User: the real
-// client page (src/components/administration-page.tsx: same-origin profile fallback; async SSR is tested separately) and the real administration console
-// (src/components/administration-console.tsx, driven by src/lib/administration-api.ts) are rendered, the
+// client page (src/components/AdministrationPage/index.ts: same-origin profile fallback; async SSR is tested separately) and the real administration console
+// (src/components/AdministrationPage/components/AdministrationConsole/index.ts, driven by src/lib/administration-api.ts) are rendered, the
 // hook state is kept between render passes (tests/support/server-view.cjs), so the markup reflects what the
 // BFF answered through the middleware and the contract-gated proxy.
 
@@ -36,7 +36,7 @@ function installWindow() {
 before(async () => {
   await bff.start();
   front = new FrontHarness({ bff }).install();
-  [{ default: Home }, { AdministrationConsole }] = loadTs(['src/components/administration-page.tsx', 'src/components/administration-console.tsx']);
+  [{ default: Home }, { AdministrationConsole }] = loadTs(['src/components/AdministrationPage/index.ts', 'src/components/AdministrationPage/components/AdministrationConsole/index.ts']);
 });
 after(async () => {
   front.uninstall();
