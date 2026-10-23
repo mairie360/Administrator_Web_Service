@@ -1,41 +1,37 @@
 # Journal des releases — Administrator_Web_Service
 
-<!-- release-journal-state {"dev": "45ee11b9bfee1e7368fd2e6aa0da5673f6ab1614", "prod": "bea8f87c96d62cd5c2b1ad0ffcc9cb7f37f30c21", "prod_tag": "v1.2.0", "staging": "bea8f87c96d62cd5c2b1ad0ffcc9cb7f37f30c21", "updated": {"dev": "2026-10-23 13:25 UTC", "prod": "2026-10-21 11:08 UTC", "staging": "2026-10-21 11:00 UTC"}} -->
+<!-- release-journal-state {"dev": "195329a6cd105a10db742c7ec9df6800ea23ac51", "prod": "bea8f87c96d62cd5c2b1ad0ffcc9cb7f37f30c21", "prod_tag": "v1.2.0", "staging": "bea8f87c96d62cd5c2b1ad0ffcc9cb7f37f30c21", "updated": {"dev": "2026-10-23 13:27 UTC", "prod": "2026-10-21 11:08 UTC", "staging": "2026-10-21 11:00 UTC"}} -->
 > Tenu à jour par la CI (`mairie360/CICD`, action `release/release-journal`) à chaque passage en dev, staging et prod. Ne pas modifier à la main : le fichier est réécrit au passage suivant.
 
 | Environnement | Version | Commit | Mis à jour |
 | --- | --- | --- | --- |
 | prod | v1.2.0 | `bea8f87` | 2026-10-21 11:08 UTC |
 | staging | — | `bea8f87` | 2026-10-21 11:00 UTC |
-| dev | — | `45ee11b` | 2026-10-23 13:25 UTC |
+| dev | — | `195329a` | 2026-10-23 13:27 UTC |
 
 ## Ajouté sur main depuis la dernière release prod (v1.2.0)
 
-#### Corrections
-- Correctifs de sécurité Node.js et Next.js : avant, le front tournait sur Node 24.21.0 et Next.js 16.3.8 ; maintenant, Node 24.22.1 (image Docker et CI) et Next.js 16.4.2 (avec eslint-config-next). (sans clé Jira, [#227](https://github.com/mairie360/Administrator_Web_Service/pull/227))
-
 #### Changements de comportement
-- L'onglet Sessions de la console affiche désormais le `SessionList` de la lib (colonnes appareil, IP, création, expiration, état ; mêmes états chargement / vide / indisponible que le front Settings) au lieu du tableau local, supprimé avec `administration-session-state.ts`. (MAIR-607, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
-- La navigation (barre latérale repliable, barre supérieure, pied de page) vient désormais de `AccessibleShell` de `@mairie360/lib-components/shell` ; les composants locaux `accessible-shell`, `desktop-navigation` et `sidebar-preference` sont supprimés. La navigation reste inerte pendant qu'une confirmation `alertdialog` est ouverte. (MAIR-578, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
-- Les onglets de la console ont des identifiants `administration-tab-<clé>`, ce qui casse tout sélecteur ou test qui visait les anciens identifiants. (MAIR-608, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
+- Onglet Sessions de la console : la liste utilise désormais le composant partagé `SessionList` de la lib (colonnes appareil, IP, création, expiration, état ; états chargement, vide et indisponible alignés sur le front Settings). L'ancienne table locale et `administration-session-state.ts` sont supprimés. Le basculement Actives / Historique et le rafraîchissement sont conservés. (MAIR-607, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
+- Console d'administration : les onglets utilisent le composant `Tabs` de la lib, avec les identifiants `administration-tab-<clé>` ; l'en-tête, les alertes, les toasts et les boutons passent aux composants normalisés de la lib (rendu visuel modifié). Un test ou un script qui cible les anciens identifiants d'onglets devra être adapté. (MAIR-608, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
+- Navigation latérale : le shell `AccessibleShell` vient de `@mairie360/lib-components/shell` ; la navigation de bureau et la préférence de barre latérale locales sont retirées, et le shell reste inerte pendant qu'une confirmation `alertdialog` est ouverte. (MAIR-578, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
 
 #### Technique
-- Réorganisation des composants d'administration en un dossier par composant sous `src/components/AdministrationPage/`, tests co-localisés et contrôle par `tests/component-tree-convention.test.cjs` (MAIR-608, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218)).
-- La PR #218 est en brouillon : elle attend la publication de la version majeure de lib-components, et les vérifications « lib installée = version épinglée » échouent volontairement jusque-là.
+- Mise à jour de la référence `mairie360/CICD` de v4.4.3 à v4.5.0 dans les workflows `cicd.yml`, `dev-dependency-exception.yml`, `promote-prod.yml` et `promote-staging.yml` ; la v4.5.0 ajoute des tests d'intégration côté CI. ([#226](https://github.com/mairie360/Administrator_Web_Service/pull/226))
+- Node.js passe de 24.21.0 à 24.22.1 (CI, image Docker avec nouveaux digests, tests de politique CI) et Next.js ainsi qu'eslint-config-next de 16.3.8 à 16.4.2, correctifs de sécurité. L'image Docker livrée change donc de runtime sans changement fonctionnel décrit. ([#227](https://github.com/mairie360/Administrator_Web_Service/pull/227))
+- Réorganisation de la page d'administration sous `src/components/AdministrationPage/` en arborescence de dossiers par composant, avec tests co-localisés, règle de structure (`tests/component-tree-convention.test.cjs`), configuration vitest et documentation Figma. Le diff de `package.json` est tronqué : la montée de version de la lib n'est pas vérifiable ici. ([#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
 
 ## Différence dev → staging (en dev, pas encore en staging)
 
-#### Corrections
-- Correctifs de sécurité Node.js et Next.js : avant, le front tournait sur Node 24.21.0 et Next.js 16.3.8 ; maintenant, Node 24.22.1 (image Docker et CI) et Next.js 16.4.2 (avec eslint-config-next). (sans clé Jira, [#227](https://github.com/mairie360/Administrator_Web_Service/pull/227))
-
 #### Changements de comportement
-- L'onglet Sessions de la console affiche désormais le `SessionList` de la lib (colonnes appareil, IP, création, expiration, état ; mêmes états chargement / vide / indisponible que le front Settings) au lieu du tableau local, supprimé avec `administration-session-state.ts`. (MAIR-607, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
-- La navigation (barre latérale repliable, barre supérieure, pied de page) vient désormais de `AccessibleShell` de `@mairie360/lib-components/shell` ; les composants locaux `accessible-shell`, `desktop-navigation` et `sidebar-preference` sont supprimés. La navigation reste inerte pendant qu'une confirmation `alertdialog` est ouverte. (MAIR-578, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
-- Les onglets de la console ont des identifiants `administration-tab-<clé>`, ce qui casse tout sélecteur ou test qui visait les anciens identifiants. (MAIR-608, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
+- Onglet Sessions de la console : la liste utilise désormais le composant partagé `SessionList` de la lib (colonnes appareil, IP, création, expiration, état ; états chargement, vide et indisponible alignés sur le front Settings). L'ancienne table locale et `administration-session-state.ts` sont supprimés. Le basculement Actives / Historique et le rafraîchissement sont conservés. (MAIR-607, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
+- Console d'administration : les onglets utilisent le composant `Tabs` de la lib, avec les identifiants `administration-tab-<clé>` ; l'en-tête, les alertes, les toasts et les boutons passent aux composants normalisés de la lib (rendu visuel modifié). Un test ou un script qui cible les anciens identifiants d'onglets devra être adapté. (MAIR-608, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
+- Navigation latérale : le shell `AccessibleShell` vient de `@mairie360/lib-components/shell` ; la navigation de bureau et la préférence de barre latérale locales sont retirées, et le shell reste inerte pendant qu'une confirmation `alertdialog` est ouverte. (MAIR-578, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
 
 #### Technique
-- Réorganisation des composants d'administration en un dossier par composant sous `src/components/AdministrationPage/`, tests co-localisés et contrôle par `tests/component-tree-convention.test.cjs` (MAIR-608, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218)).
-- La PR #218 est en brouillon : elle attend la publication de la version majeure de lib-components, et les vérifications « lib installée = version épinglée » échouent volontairement jusque-là.
+- Mise à jour de la référence `mairie360/CICD` de v4.4.3 à v4.5.0 dans les workflows `cicd.yml`, `dev-dependency-exception.yml`, `promote-prod.yml` et `promote-staging.yml` ; la v4.5.0 ajoute des tests d'intégration côté CI. ([#226](https://github.com/mairie360/Administrator_Web_Service/pull/226))
+- Node.js passe de 24.21.0 à 24.22.1 (CI, image Docker avec nouveaux digests, tests de politique CI) et Next.js ainsi qu'eslint-config-next de 16.3.8 à 16.4.2, correctifs de sécurité. L'image Docker livrée change donc de runtime sans changement fonctionnel décrit. ([#227](https://github.com/mairie360/Administrator_Web_Service/pull/227))
+- Réorganisation de la page d'administration sous `src/components/AdministrationPage/` en arborescence de dossiers par composant, avec tests co-localisés, règle de structure (`tests/component-tree-convention.test.cjs`), configuration vitest et documentation Figma. Le diff de `package.json` est tronqué : la montée de version de la lib n'est pas vérifiable ici. ([#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
 
 ## Différence staging → prod (en staging, pas encore en prod)
 
@@ -46,6 +42,7 @@ _Rien._
 <!-- release-journal-history:start -->
 | Date | Environnement | Version | Commit | Run |
 | --- | --- | --- | --- | --- |
+| 2026-10-23 13:27 UTC | dev | — | `195329a` | [run](https://github.com/mairie360/Administrator_Web_Service/actions/runs/39960502537) |
 | 2026-10-23 13:25 UTC | dev | — | `45ee11b` | [run](https://github.com/mairie360/Administrator_Web_Service/actions/runs/39960091914) |
 | 2026-10-21 18:00 UTC | dev | — | `eab10e0` | [run](https://github.com/mairie360/Administrator_Web_Service/actions/runs/39647814229) |
 | 2026-10-21 11:08 UTC | prod | v1.2.0 | `bea8f87` | [run](https://github.com/mairie360/Administrator_Web_Service/actions/runs/39588834937) |
