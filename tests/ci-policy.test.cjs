@@ -117,9 +117,9 @@ test('Docker excludes local environments and scan artifacts but retains tracked 
   assert.ok(!ignored.includes('.npmrc') && !ignored.includes('.npmrc*'));
 });
 
-test('all three Compose files send the existing credential only to the frontend build', () => {
+test('all four Compose files send the existing credential only to the frontend build', () => {
   const yaml = require('js-yaml');
-  for (const file of ['docker-compose.yml', 'docker-compose-security.yml', 'docker-compose-performance.yml']) {
+  for (const file of ['docker-compose.yml', 'docker-compose-security.yml', 'docker-compose-performance.yml', 'docker-compose-e2e.yml']) {
     const compose = yaml.load(read(file));
     assert.deepEqual(compose.secrets, { node_auth_token: { environment: 'NODE_AUTH_TOKEN' } });
     assert.deepEqual(compose.services['administrator-front'].build, {
