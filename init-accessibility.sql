@@ -45,12 +45,15 @@ INSERT INTO user_roles (user_id, role_id)
 SELECT u.id, r.id
 FROM users u
 JOIN roles r ON r.name = CASE
-    WHEN u.id IN (10, 11) THEN 'Admin'
+    -- Admin only for the two seeded accounts: matched by e-mail too, so an existing row at id
+    -- 10 or 11 (kept by ON CONFLICT DO NOTHING above) never gets the role silently.
+    WHEN (u.id, u.email) IN ((10, 'rgaa-admin@mairie360.fr'), (11, 'rgaa-writer@mairie360.fr')) THEN 'Admin'
     WHEN u.id IN (20, 21) THEN 'Maire'
     WHEN u.id IN (22, 23, 24) THEN 'Responsable'
     ELSE 'User'
 END
-WHERE u.id = 10 OR u.id = 11 OR u.id = 12 OR u.id BETWEEN 20 AND 44
+WHERE (u.id, u.email) IN ((10, 'rgaa-admin@mairie360.fr'), (11, 'rgaa-writer@mairie360.fr'))
+   OR u.id = 12 OR u.id BETWEEN 20 AND 44
 ON CONFLICT DO NOTHING;
 
 -- Groups (the owner is added as a member by a trigger).

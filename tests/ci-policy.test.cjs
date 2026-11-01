@@ -235,3 +235,21 @@ test('MAIR-316: a local engine copy is fetched again when the cicd_version pin c
   assert.equal(run((dir) => engine(dir, 'new-sha')).log, '');
   assert.equal(run((dir) => engine(dir, null)).log, '');
 });
+
+test('MAIR-316: the RGAA stack has its own project name and bounded readiness loops', () => {
+  const compose = read('docker-compose-accessibility.yml');
+  // The default project name (the folder) is shared with docker-compose.yml: `down -v` would
+  // delete the dev stack's postgres-data / redis-data volumes.
+  assert.match(compose, /^name: administrator-front-a11y$/m);
+  // An upstream that never starts must fail `up`, not hang it.
+  assert.doesNotMatch(compose, /sh -c 'until curl/);
+  for (const [, loop] of compose.matchAll(/sh -c '(i=0; until curl[\s\S]*?)'\n/g)) {
+    assert.match(loop, /if \[ \$\$i -ge \d+ \]; then echo "[^"]+"; exit 1; fi;/);
+  }
+});
+
+test('MAIR-316: the RGAA seed grants Admin only to the accounts it creates', () => {
+  const seed = read('init-accessibility.sql').replace(/--[^\n]*/g, '');
+  assert.doesNotMatch(seed, /WHEN u\.id IN \(10, 11\) THEN 'Admin'/);
+  assert.match(seed, /WHEN \(u\.id, u\.email\) IN \(\(10, 'rgaa-admin@mairie360\.fr'\), \(11, 'rgaa-writer@mairie360\.fr'\)\) THEN 'Admin'/);
+});
