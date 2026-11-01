@@ -49,11 +49,11 @@ test('the legacy required security name runs real immutable blocking scanners', 
   }
   assert.match(job, /fetch-depth: 0/);
   assert.equal([...job.matchAll(/persist-credentials: false/g)].length, 2);
-  assert.match(job, /repository: mairie360\/CICD\s*\n          ref: 5b7d127d46f95d8951935b6209ca7c2ca857a21d/);
-  assert.match(job, /uses: \.\/cicd-repo\/actions\/frontend-semgrep-pypi/);
+  assert.match(job, /repository: mairie360\/CICD\s*\n          ref: e314bc0c41ed45157cdd928c25358fee82b0c4f6 # v5\.1\.0/);
+  assert.match(job, /uses: \.\/cicd-repo\/actions\/security\/semgrep-pypi/);
   assert.match(job, /config: p\/typescript p\/react p\/owasp-top-ten p\/secrets p\/dockerfile p\/github-actions/);
   assert.match(job, /artifact_name: semgrep-required-check-sarif/);
-  assert.match(job, /uses: \.\/cicd-repo\/actions\/frontend-gitleaks/);
+  assert.match(job, /uses: \.\/cicd-repo\/actions\/security\/gitleaks-binary/);
   assert.equal([...job.matchAll(/fail_on_findings: "true"/g)].length, 2);
 });
 
@@ -111,7 +111,7 @@ test('Docker and both consumer workflows use the same pinned exact Node LTS rele
 
 test('Docker excludes local environments and scan artifacts but retains tracked npm policy', () => {
   const ignored = read('.dockerignore').split(/\r?\n/).map(line => line.trim());
-  for (const pattern of ['node_modules', '.next', '.git', '.env*', '.npmrc.*', 'cicd-repo', 'coverage', 'test-results', 'playwright-report']) {
+  for (const pattern of ['node_modules', '.next', '.git', '.env*', '.npmrc.*', 'cicd-repo', 'rgaa-report', '.rgaa-ai-cache', 'rgaa.yaml', 'accessibility_test.sh', 'init-accessibility.sql', 'coverage', 'test-results', 'playwright-report']) {
     assert.ok(ignored.includes(pattern), `${pattern} must be excluded from the build context`);
   }
   assert.ok(!ignored.includes('.npmrc') && !ignored.includes('.npmrc*'));
@@ -142,4 +142,114 @@ test('runtime keeps Node and healthcheck without unused global package managers 
   assert.doesNotMatch(runtime, /rm[^\n]*\/app|rm[^\n]*\/usr\/local\/bin\/node\b/);
   assert.doesNotMatch(dockerfile.split('FROM runtime-base AS runner\n')[1], /npm|npx|yarn|corepack/);
   assert.doesNotMatch(read('.github/workflows/cicd.yml'), /image_scan_fail_on_findings:|scan_fail_on_findings:|continue-on-error:/);
+});
+
+test('MAIR-316: the RGAA stack runs the image under test and the script builds it with a secret only', () => {
+  const compose = read('docker-compose-accessibility.yml');
+  const frontend = compose.split('  administrator-front:\n')[1]?.split('\n  a11y:')[0];
+  assert.ok(frontend, 'docker-compose-accessibility.yml must keep the frontend service');
+  // promote-prod.yml exports IMAGE_REF=<image>@<staging digest>: the stack never rebuilds it.
+  assert.match(frontend, /image: \$\{IMAGE_REF:\?/);
+  assert.doesNotMatch(frontend, /build:|args:|NODE_AUTH_TOKEN|\/run\/secrets/);
+  const code = compose.split('\n').filter((line) => !line.trimStart().startsWith('#')).join('\n');
+  assert.doesNotMatch(code, /NODE_AUTH_TOKEN|\bbuild-arg\b/);
+  // The ZAP / k6 data stay as they are: the RGAA states get their own seed, loaded after it.
+  assert.match(compose, /- \.\/init-test\.sql:\/init-test\.sql:ro/);
+  assert.match(compose, /- \.\/init-accessibility\.sql:\/init-accessibility\.sql:ro/);
+  for (const file of ['docker-compose-security.yml', 'docker-compose-performance.yml']) {
+    assert.doesNotMatch(read(file), /init-accessibility\.sql|IMAGE_REF/, file);
+  }
+  const shell = read('accessibility_test.sh');
+  assert.match(shell, /docker build -t administrator-front:local --secret id=node_auth_token,env=NODE_AUTH_TOKEN \./);
+  assert.doesNotMatch(shell, /--build-arg|up -d --build/);
+});
+
+test('MAIR-316: the RGAA seed users have no plaintext password (chk_users_password_hashed)', () => {
+  // Comments out, then every `INSERT INTO users (columns) VALUES (...), (...)`: the password column
+  // (wherever it sits) must be NULL or an argon2id hash.
+  const seed = read('init-accessibility.sql').replace(/--[^\n]*/g, '');
+  const inserts = [...seed.matchAll(/INSERT INTO users \(([^)]*)\)\s*VALUES([\s\S]*?)(?:ON CONFLICT|;)/g)];
+  assert.ok(inserts.length > 0, 'init-accessibility.sql must insert its users');
+  for (const [, columns, values] of inserts) {
+    const index = columns.split(',').map((column) => column.trim()).indexOf('password');
+    assert.ok(index >= 0, 'the users insert names the password column');
+    for (const [row] of values.matchAll(/\([^()]*\)/g)) {
+      const password = row.slice(1, -1).split(',')[index]?.trim();
+      assert.ok(password === 'NULL' || /^'\$argon2id\$/.test(password), `password must be NULL or an argon2id hash: ${row}`);
+    }
+  }
+});
+
+test('MAIR-316: accessibility_test.sh fetches the RGAA engine at a pinned commit SHA, not only a tag', () => {
+  const shell = read('accessibility_test.sh');
+  // `git clone --branch` refuses a SHA, and cicd.yml pins mairie360/CICD by SHA.
+  assert.doesNotMatch(shell, /git clone[^\n]*--branch/);
+  assert.match(shell, /git -C "\$CICD_DIR" fetch --quiet --depth 1 https:\/\/github\.com\/mairie360\/CICD "\$CICD_VERSION"/);
+  assert.match(shell, /checkout --quiet FETCH_HEAD/);
+});
+
+test('MAIR-316: promote-prod passes the secrets of the RGAA AI pre-audit by name', () => {
+  const workflow = read('.github/workflows/promote-prod.yml');
+  assert.doesNotMatch(workflow, /secrets:\s*inherit/);
+  assert.match(workflow, /^\s+stack: fronts\s*$/m);
+  for (const name of ['ANTHROPIC_API_KEY', 'ANTHROPIC_WORKSPACE_ID']) {
+    assert.match(workflow, new RegExp(`^ {6}${name}: \\$\\{\\{ secrets\\.${name} \\}\\}\\s*$`, 'm'), name);
+  }
+});
+
+test('MAIR-316: a local engine copy is fetched again when the cicd_version pin changes', () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, readFileSync: readAbs, existsSync, rmSync } = require('node:fs');
+  const { execFileSync } = require('node:child_process');
+  const { tmpdir } = require('node:os');
+  const shell = read('accessibility_test.sh');
+  const block = shell.slice(shell.indexOf('CICD_DIR="cicd-repo"'), shell.indexOf('A11Y_RUNNER_IMAGE="$(cat'));
+  const run = (setup) => {
+    const dir = mkdtempSync(join(tmpdir(), 'rgaa-ref-'));
+    try {
+      mkdirSync(join(dir, '.github/workflows'), { recursive: true });
+      writeFileSync(join(dir, '.github/workflows/cicd.yml'), '      cicd_version: "new-sha" # v9.9.9\n');
+      mkdirSync(join(dir, 'bin'));
+      // Fake git: records the calls; `checkout` lays out the engine like a real fetch would.
+      writeFileSync(join(dir, 'bin/git'), '#!/bin/sh\necho "$*" >> "$LOG"\ncase "$*" in *checkout*) mkdir -p cicd-repo/tests/a11y && touch cicd-repo/tests/a11y/run.sh;; esac\n', { mode: 0o755 });
+      setup(dir);
+      execFileSync('bash', ['-c', block], { cwd: dir, env: { ...process.env, PATH: `${join(dir, 'bin')}:${process.env.PATH}`, LOG: join(dir, 'git.log'), CICD_VERSION: '' } });
+      const log = existsSync(join(dir, 'git.log')) ? readAbs(join(dir, 'git.log'), 'utf8') : '';
+      const ref = existsSync(join(dir, 'cicd-repo/.rgaa-ref')) ? readAbs(join(dir, 'cicd-repo/.rgaa-ref'), 'utf8').trim() : null;
+      return { log, ref };
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const engine = (dir, ref) => {
+    mkdirSync(join(dir, 'cicd-repo/tests/a11y'), { recursive: true });
+    writeFileSync(join(dir, 'cicd-repo/tests/a11y/run.sh'), '');
+    if (ref) writeFileSync(join(dir, 'cicd-repo/.rgaa-ref'), `${ref}\n`);
+  };
+  // No copy: fetched at the pin, which is recorded.
+  assert.deepEqual(run(() => {}).ref, 'new-sha');
+  // A copy fetched for an older pin: fetched again.
+  const stale = run((dir) => engine(dir, 'old-sha'));
+  assert.match(stale.log, /fetch --quiet --depth 1 https:\/\/github\.com\/mairie360\/CICD new-sha/);
+  assert.equal(stale.ref, 'new-sha');
+  // Same pin: reused. The CI's own checkout (no marker): reused.
+  assert.equal(run((dir) => engine(dir, 'new-sha')).log, '');
+  assert.equal(run((dir) => engine(dir, null)).log, '');
+});
+
+test('MAIR-316: the RGAA stack has its own project name and bounded readiness loops', () => {
+  const compose = read('docker-compose-accessibility.yml');
+  // The default project name (the folder) is shared with docker-compose.yml: `down -v` would
+  // delete the dev stack's postgres-data / redis-data volumes.
+  assert.match(compose, /^name: administrator-front-a11y$/m);
+  // An upstream that never starts must fail `up`, not hang it.
+  assert.doesNotMatch(compose, /sh -c 'until curl/);
+  for (const [, loop] of compose.matchAll(/sh -c '(i=0; until curl[\s\S]*?)'\n/g)) {
+    assert.match(loop, /if \[ \$\$i -ge \d+ \]; then echo "[^"]+"; exit 1; fi;/);
+  }
+});
+
+test('MAIR-316: the RGAA seed grants Admin only to the accounts it creates', () => {
+  const seed = read('init-accessibility.sql').replace(/--[^\n]*/g, '');
+  assert.doesNotMatch(seed, /WHEN u\.id IN \(10, 11\) THEN 'Admin'/);
+  assert.match(seed, /WHEN \(u\.id, u\.email\) IN \(\(10, 'rgaa-admin@mairie360\.fr'\), \(11, 'rgaa-writer@mairie360\.fr'\)\) THEN 'Admin'/);
 });
