@@ -1,0 +1,13 @@
+{
+  "source": "https://github.com/mairie360/BFF_user/blob/56dec0d557034637505755f6eacf020168fecbc0/contracts/openapi.json",
+  "sourceCommit": "56dec0d557034637505755f6eacf020168fecbc0",
+  "sourceBlob": "2c3a3cfab68d299757b42163c0612fbb7edbc441",
+  "verifiedAt": "2026-10-10T21:47:14.558546+00:00",
+  "selectedOperations": [
+    "/auth/refresh",
+    "/auth/logout"
+  ],
+  "fixtureSha256": "eaf155546d01b0bf11e77534bec16b3c24e7ff5035a6d7ea9b926420ab4fb65f",
+  "SDK": "@mairie360/bff-user-openapi@0.5.0 unchanged; its older message-only logout schema is used separately",
+  "qualification": "Repository-published OpenAPI source, not an authenticated deployed-dev response; no BFF/API modification"
+}

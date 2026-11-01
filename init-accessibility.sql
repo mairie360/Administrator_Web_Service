@@ -13,13 +13,13 @@ BEGIN;
 INSERT INTO users (id, first_name, last_name, email, password, phone_number, status, created_at, updated_at)
 VALUES
     -- Administrator of every read-only state.
-    (10, 'Camille', 'Administratrice', 'rgaa-admin@mairie360.fr', 'dummy', '0102030405', 'active',
+    (10, 'Camille', 'Administratrice', 'rgaa-admin@mairie360.fr', NULL, '0102030405', 'active',
         '2026-01-05 09:00:00+01', '2026-01-05 09:00:00+01'),
     -- Administrator of the only writing state (user-password-reset): states run in parallel.
-    (11, 'Dominique', 'Gestionnaire', 'rgaa-writer@mairie360.fr', 'dummy', NULL, 'active',
+    (11, 'Dominique', 'Gestionnaire', 'rgaa-writer@mairie360.fr', NULL, NULL, 'active',
         '2026-01-05 09:00:00+01', '2026-01-05 09:00:00+01'),
     -- Target of user-password-reset (first row of the table: sorted by last name).
-    (12, 'Rémi', 'Aubert', 'remi.aubert@mairie360.fr', 'dummy', NULL, 'active',
+    (12, 'Rémi', 'Aubert', 'remi.aubert@mairie360.fr', NULL, NULL, 'active',
         '2026-01-05 09:00:00+01', '2026-01-05 09:00:00+01')
 ON CONFLICT (id) DO NOTHING;
 
@@ -27,7 +27,7 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO users (id, first_name, last_name, email, password, phone_number, status, created_at, updated_at)
 SELECT 19 + n, v.first_name, v.last_name,
        lower(translate(v.first_name || '.' || v.last_name, 'éèçëï ', 'eecei-')) || '@mairie360.fr',
-       'dummy', CASE WHEN n % 3 = 0 THEN '01020304' || lpad(n::text, 2, '0') END,
+       NULL, CASE WHEN n % 3 = 0 THEN '01020304' || lpad(n::text, 2, '0') END,
        CASE WHEN n % 7 = 0 THEN 'inactive' ELSE 'active' END,
        '2026-01-06 10:00:00+01'::timestamptz, '2026-01-06 10:00:00+01'::timestamptz
 FROM (VALUES

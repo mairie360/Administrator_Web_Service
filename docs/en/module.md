@@ -1,6 +1,82 @@
 # Administrator_Web_Service — Module overview
 
+## Unknown collections are not empty — MAIR-470
+
+Roles, groups, active sessions and session history remain unknown until their
+first successful read. Their counters show an em dash; their panels distinguish
+loading from unavailable and retain the existing GET-only refresh controls.
+Only a valid empty response displays the empty-list message and zero count.
+Subsequent read failures preserve the last received collections and drafts.
+This frontend presentation does not certify deployed permissions or persistence.
+
+## Text constraints from the BFF contract — MAIR-514
+
+The user, role and group forms carry the rules of the published contract: names of
+at most 64 characters without `<` or `>`, e-mail up to 320, phone up to 32 characters
+made of digits, spaces, `.`, `-`, `(`, `)` and an optional leading `+`, password of 8 to
+255 characters, descriptions up to 2 000. The browser refuses an invalid value with a
+French hint before any request. A 400 that still arrives with field details is explained
+per field ("Prénom : ne doit pas contenir les caractères < ou >") instead of the generic
+message.
+
+## Read-only session lists — MAIR-406
+
+Active sessions and history remain available with their existing GET-only refresh, counters, expiry/revocation labels and independent failure handling. The token-entry form and its refresh/revoke actions are removed following the explicit decision of 10 October 2026; MAIR-460 token-draft checks are historical. The published User 0.5.0 contract does not define a typed session-ID revocation operation, so no replacement payload or command is invented. Real Dev permissions and session persistence still require a usable account.
+
+## Independent administration panels — MAIR-406
+
+Users, roles and groups retain their existing forms and confirmations; sessions retain their lists,
+errors and readback behavior. Each panel is a stable top-level component in
+`src/components/administration/`; the console keeps shared orchestration.
+The common controls and confirmation dialog do not access administration data.
+Refreshing the console preserves the current panel's unsaved draft or selected
+session-history view; switching tabs retains the existing mount/unmount behavior.
+This design slice is tracked by issue #146. It does not certify token-based
+session commands, deployed permissions, real authentication or main integration.
+
+## Reopening a protected page after a data redirect — MAIR-406
+
+When a data fetch returns an opaque redirect, reopen the current protected page
+once and let its existing middleware navigate to Login with that page's return
+path and query. Do not keep treating this as a generic service failure, infer a
+destination from a network error, or replay a write. Ordinary 401/403/503 failures
+and aborted requests retain their distinct behavior. The disposable local QA
+Login landing is not real authentication; no API/BFF or auth policy is changed.
+
+## Console visibility from the resolved profile — MAIR-406
+
+The existing session hook must finish successfully with an Admin profile before
+the page mounts its console and starts administration reads. Pending profiles
+show a status, while Responsable, Maire, User and Guest profiles retain the shell
+but see an access-reserved message with no administration tables or actions.
+Profile failure is a distinct unavailable state with a document-reload retry;
+the existing 401 logout path is preserved. The old prototype's README reserves
+Administration, although its actual page also mounted the console unconditionally.
+Do not copy that defect or treat this presentation gate as server authorization.
+Token session commands and other mixed-audit criteria remain separate; redirect
+recovery is qualified above, not claimed integrated. No API/BFF, authentication
+helper, contract or product fixture changes.
+
+## Data-request session ownership — MAIR-406
+
+Legacy browser JWT storage no longer overrides the cookie used by the existing
+frontend proxy. Data requests do not read, migrate or erase that storage; explicit
+caller headers and existing logout cleanup remain unchanged. This is a client
+correction, not proof of administrator authorization, server-side revocation or
+an identifier-based replacement for the existing token session commands. Those
+other audit subjects remain open. No API/BFF or demonstration data changes.
+
 ## Active-module navigation
+
+The measured reference sidebar rhythm is restored by this front's consumer CSS
+(MAIR-180 / issue141): 44px minimum navigation targets and the reference shadow.
+Mobile sidebar stacking leaves the published Close button above it; click,
+keyboard navigation and Escape must retain opener focus. The existing red
+Administration marker and permission-based visibility are unchanged. Paired
+desktop/mobile checks cover users search/detail, roles, group detail/members and
+sessions/history without writing real data. Fixtures do not certify deployed
+authorization, password reset, revocation or durable persistence. The old fake
+footer version and reference-only preferences/notifications are not copied.
 
 The shared `AppShell` now owns desktop and mobile navigation. It shows only
 configured active destinations, omits the archived E-mails and Files modules,
@@ -119,3 +195,8 @@ client in `src/lib/administration-api.ts`, inside `@mairie360/lib-components`’
 ## Developing or operating this module
 
 The [technical guide](technical.md) covers architecture, configuration, routes, session handling, persistence, tests and CI/CD. It describes sources of truth and contract synchronization with associated repositories.
+
+
+## Shared visual direction — MAIR-547
+
+Approved light option 1: shared tokens and font, accessible navigation, and preserved business layouts. See the [visual QA](../qa/design-qa.md) for evidence, checks, and RGAA limitations.

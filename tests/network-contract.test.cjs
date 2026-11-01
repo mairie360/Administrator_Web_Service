@@ -1,13 +1,16 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const composePolicy = require('./support/compose-policy.cjs');
 const { after, afterEach, before, describe, test } = require('node:test');
+const policy = require('./support/source-policy.cjs');
 const { BFF_USER_PACKAGE, bffUserContract } = require('./support/bff-user-contract.cjs');
 const { ContractMockServer, METADATA_PATHS, unreachableUrl } = require('./support/contract-mock-server.cjs');
 const { BFF_URL_VARIABLES, FrontHarness, ROOT, SRC, loadTs } = require('./support/front-harness.cjs');
 
 // Garde-fou réseau du front : il ne parle qu'à un seul BFF, BFF User, et uniquement par les opérations du
-// contrat publié dans le paquet @mairie360/bff-user-openapi (version exacte X.Y.Z de package.json).
+// contrat publié dans le paquet @mairie360/bff-user-openapi (version exacte de package.json : release X.Y.Z ou
+// paquet dev/staging d'un commit du main du BFF, scripts/contract-version.mjs).
 // contracts/openapi.json, liste blanche du proxy et source des mocks, doit être la reconstruction exacte de
 // ce paquet (scripts/orval-contract.mjs).
 
@@ -21,11 +24,21 @@ let front;
 // Corps minimaux valides par schéma de requête du contrat.
 const REQUEST_BODIES = {
   LoginView: { email: 'alice@mairie.test', password: 'MotDePasse123', device_info: 'Firefox' },
-  RegisterView: { email: 'alice@mairie.test', first_name: 'Alice', last_name: 'Dupont', password: 'MotDePasse123' },
+  KeycloakLoginView: { code: 'keycloak-code', redirect_uri: 'https://login.mairie.test/callback', device_info: 'Firefox' },
+  RefreshView: {},
+  LogoutView: {},
   ForceChangePasswordView: { new_password: 'NouveauMotDePasse1', token: 'force-token' },
+  AdminUserCreateBody: { email: 'alice@mairie.test', first_name: 'Alice', last_name: 'Dupont', password: 'MotDePasse123' },
+  AdminUserPatchBody: { first_name: 'Alice' },
   AdminUserPasswordResetBody: { new_password: 'NouveauMotDePasse1' },
+  AdminUserRoleBody: { role_id: 3 },
+  AdminRoleWriteBody: { name: 'Élus', description: 'Rôle des élus' },
+  AdminRoleReplaceBody: { name: 'Élus', description: 'Rôle des élus' },
+  AdminRolePatchBody: { name: 'Élus' },
+  AdminGroupCreateBody: { name: 'Élus', description: 'Groupe des élus' },
   AdminGroupPatchBody: { name: 'Élus' },
-  AdminJsonBody: {},
+  AdminGroupUserBody: { user_id: 7 },
+  AdminSessionRevokeBody: { refresh_token: 'opaque-refresh-token' },
 };
 
 function concreteRequest({ method, template }) {
@@ -38,7 +51,7 @@ function concreteRequest({ method, template }) {
 
 /** Répond 200 sans corps à toute opération du contrat publié. */
 function answerEveryOperation() {
-  for (const { method, template } of contract.operations()) bff.on(method, template, { status: 200, outOfContract: true });
+  for (const { method, template } of contract.operations()) bff.on(method, template, { status: 200, outOfContract: true, ...(template === '/auth/logout' ? { body: { message: 'Logged out successfully' } } : {}) });
 }
 
 before(async () => {
@@ -57,8 +70,9 @@ afterEach(() => {
 });
 
 describe('published BFF User contract', () => {
-  test(`${BFF_USER_PACKAGE} is pinned to an exact published X.Y.Z version, installed as locked`, () => {
-    assert.match(pinned ?? '', /^\d+\.\d+\.\d+$/, `${BFF_USER_PACKAGE} doit être épinglé à une version exacte (pas de plage ni de pré-version)`);
+  test(`${BFF_USER_PACKAGE} is pinned to an exact published version, installed as locked`, async () => {
+    const { isAcceptedContractVersion } = await import('../scripts/contract-version.mjs');
+    assert.ok(isAcceptedContractVersion(pinned), `${BFF_USER_PACKAGE} must be pinned to an exact version X.Y.Z, 0.0.0-dev.<sha> or 0.0.0-staging.<sha> (no range)`);
     assert.equal(readJson(`node_modules/${BFF_USER_PACKAGE}/package.json`).version, pinned);
     assert.equal(readJson('package-lock.json').packages[`node_modules/${BFF_USER_PACKAGE}`].version, pinned);
   });
@@ -77,25 +91,38 @@ describe('published BFF User contract', () => {
     assert.deepEqual(snapshot, buildOrvalOpenApi(BFF_USER_PACKAGE, ROOT));
   });
 
-  test('every Docker stack starts BFF User as its only BFF', () => {
+  test('every Docker stack starts BFF User as its only BFF, in the image built from the contract package commit', async () => {
+    const { imageTagForContractVersion } = await import('../scripts/contract-version.mjs');
+    const expected = `ghcr.io/mairie360/bff-user:${imageTagForContractVersion(pinned)}`;
     for (const file of fs.readdirSync(ROOT).filter((name) => /^docker-compose.*\.ya?ml$/.test(name))) {
-      const images = [...fs.readFileSync(path.join(ROOT, file), 'utf8').matchAll(/ghcr\.io\/mairie360\/(bff-[\w-]+):/g)].map(([, name]) => name);
-      assert.ok(images.every((name) => name === 'bff-user'), `${file} : ${images.join(', ')}`);
+      const images = composePolicy.bffImages(composePolicy.compose(file));
+      assert.ok(images.length > 0 && images.every(image => image === expected), `${file}: ${images.join(', ')} (attendu ${expected})`);
+    }
+  });
+
+  test('the contract version policy accepts releases, dev and staging packages and maps them to image tags', async () => {
+    const { isAcceptedContractVersion, imageTagForContractVersion } = await import('../scripts/contract-version.mjs');
+    assert.equal(imageTagForContractVersion('0.5.0'), '0.5.0');
+    assert.equal(imageTagForContractVersion('0.0.0-dev.0d80ef4e08e8db73ec2832911f42e75ae990a8d3'), 'dev-0d80ef4');
+    assert.equal(isAcceptedContractVersion('0.0.0-staging.0d80ef4e08e8db73ec2832911f42e75ae990a8d3'), true);
+    assert.equal(imageTagForContractVersion('0.0.0-staging.0d80ef4e08e8db73ec2832911f42e75ae990a8d3'), 'staging-0d80ef4');
+    for (const rejected of ['^0.5.0', '0.5', '0.0.0-staging.0d80ef4', '0.0.0-dev.0d80ef4', 'latest']) {
+      assert.equal(isAcceptedContractVersion(rejected), false, rejected);
     }
   });
 
   test('the mock reports requests that break the contract', async () => {
-    const response = await fetch(`${bff.url}/bff/admin/users/abc/password?debug=1`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ new_password: 'court' }) });
-    const unknown = await fetch(`${bff.url}/bff/admin/logs`);
+    const response = await fetch(`${bff.url}/admin/users/abc/password?debug=1`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ new_password: 'court' }) });
+    const unknown = await fetch(`${bff.url}/admin/logs`);
 
     assert.equal(response.status, 500);
     assert.equal(unknown.status, 404);
     assert.deepEqual(bff.violations.splice(0), [
-      '[BFF_USER] requête PATCH /bff/admin/users/abc/password?debug=1 : path.userId: type number attendu, reçu string',
-      '[BFF_USER] requête PATCH /bff/admin/users/{userId}/password : paramètre query "debug" non déclaré',
-      '[BFF_USER] requête PATCH /bff/admin/users/{userId}/password $body.new_password: longueur < 8',
-      '[BFF_USER] appel non mocké : PATCH /bff/admin/users/{userId}/password',
-      '[BFF_USER] requête GET /bff/admin/logs : GET /bff/admin/logs n\'existe pas dans le contrat bff_user',
+      '[BFF_USER] requête PATCH /admin/users/abc/password?debug=1 : path.userId: type number attendu, reçu string',
+      '[BFF_USER] requête PATCH /admin/users/{userId}/password : paramètre query "debug" non déclaré',
+      '[BFF_USER] requête PATCH /admin/users/{userId}/password $body.new_password: longueur < 8',
+      '[BFF_USER] appel non mocké : PATCH /admin/users/{userId}/password',
+      '[BFF_USER] requête GET /admin/logs : GET /admin/logs n\'existe pas dans le contrat bff_user',
     ]);
   });
 });
@@ -107,8 +134,8 @@ describe('a single BFF', () => {
     for (const variable of BFF_URL_VARIABLES) {
       front.useBffUrl(bff.url, variable);
       await front.browserFetch('/api/user/me');
-      await front.browserFetch('/api/auth/logout', { method: 'POST' });
-      await front.browserFetch('/bff/admin/roles');
+      await front.browserFetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      await front.browserFetch('/admin/roles');
     }
 
     assert.equal(bff.requests.length, BFF_URL_VARIABLES.length * 3);
@@ -122,10 +149,10 @@ describe('a single BFF', () => {
     process.env.BFF_ADMIN_BASE_URL = other;
 
     await front.browserFetch('/api/user/me');
-    await front.browserFetch('/bff/admin/roles');
+    await front.browserFetch('/admin/roles');
 
     assert.deepEqual(bff.requests, []);
-    assert.deepEqual(front.serverCalls.map(({ url }) => `${url.origin}${url.pathname}`), [`${other}/me`, `${other}/bff/admin/roles`]);
+    assert.deepEqual(front.serverCalls.map(({ url }) => `${url.origin}${url.pathname}`), [`${other}/me`, `${other}/admin/roles`]);
   });
 
   test('only src/lib/bff-proxy.ts reads the BFF URL from the environment', () => {
@@ -146,25 +173,27 @@ describe('catch-all proxy src/app/[...path]', () => {
   test('forwards every contract operation to the same BFF operation', async () => {
     answerEveryOperation();
 
-    for (const operation of contract.operations()) {
+    const retired = new Set(['/admin/sessions/refresh', '/admin/sessions/revoke']);
+    const operations = contract.operations().filter(({ template }) => !template.startsWith('/auth/') && !retired.has(template));
+    for (const operation of operations) {
       const { pathname, body } = concreteRequest(operation);
-      const response = await front.browserFetch(pathname, {
+      const response = await front.browserFetch(''  + pathname, {
         method: operation.method,
-        ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}),
+        ...(body || pathname === '/auth/logout' ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) } : {}),
       });
       assert.ok(response.status < 300, `${operation.method} ${pathname} → ${response.status}`);
     }
 
     assert.deepEqual(
       bff.requests.map(({ method, template }) => `${method} ${template}`),
-      contract.operations().map(({ method, template }) => `${method} ${template}`),
+      operations.map(({ method, template }) => `${method} ${template}`),
     );
   });
 
   test('keeps declared query parameters and strips cookies and middleware headers', async () => {
-    bff.on('get', '/bff/admin/users', { body: { users: [], page: 1, page_size: 5, total: 0, total_pages: 0 } });
+    bff.on('get', '/admin/users', { body: { users: [], page: 1, page_size: 5, total: 0, total_pages: 0 } });
 
-    await front.browserFetch('/bff/admin/users?page=1&page_size=5&search=a%26b');
+    await front.browserFetch('/admin/users?page=1&page_size=5&search=a%26b');
 
     const [request] = bff.requests;
     assert.equal(request.url.search, '?page=1&page_size=5&search=a%26b');
@@ -185,13 +214,13 @@ describe('catch-all proxy src/app/[...path]', () => {
   });
 
   for (const [label, target, method, status] of [
-    ['an undeclared path', '/bff/admin/logs', 'GET', 404],
-    ['an undeclared nested path', '/bff/admin/users/7/archive', 'POST', 404],
+    ['an undeclared path', '/admin/logs', 'GET', 404],
+    ['an undeclared nested path', '/admin/users/7/archive', 'POST', 404],
     ['the Swagger UI', '/docs', 'GET', 404],
-    ['an undeclared method', '/bff/admin/sessions/history', 'DELETE', 405],
-    ['a PUT on a PATCH-only operation', '/bff/admin/users/7', 'PUT', 405],
-    ['a traversal resolved by the URL parser', '/bff/admin/%2E%2E/%2E%2E/me/x', 'GET', 404],
-    ['an encoded slash', '/bff/admin/users/7%2Fpassword', 'PATCH', 400],
+    ['an undeclared method', '/admin/sessions/history', 'DELETE', 405],
+    ['a PUT on a PATCH-only operation', '/admin/users/7', 'PUT', 405],
+    ['a traversal resolved by the URL parser', '/admin/%2E%2E/%2E%2E/me/x', 'GET', 404],
+    ['an encoded slash', '/admin/users/7%2Fpassword', 'PATCH', 400],
     ['an /api path without adapter', '/api/unknown', 'GET', 404],
   ]) {
     test(`rejects ${label} (${method} ${target}) with ${status} before any network call`, async () => {
@@ -215,17 +244,15 @@ describe('catch-all proxy src/app/[...path]', () => {
     assert.deepEqual(front.serverCalls, []);
   });
 
-  test('only the BFF self-description documents are relayed outside the contract', async () => {
+  test('undeclared BFF self-description documents never leave the frontend', async () => {
     for (const documentPath of METADATA_PATHS) {
       const response = await front.browserFetch(documentPath);
-      assert.equal((await response.json()).info.title, 'bff_user');
+      assert.equal(response.status, 404);
     }
     const post = await front.browserFetch('/openapi.json', { method: 'POST', body: '{}' });
-
-    assert.equal(post.status, 405);
-    assert.deepEqual(bff.requests.map(({ method, template, metadata }) => [method, template, metadata]), METADATA_PATHS.map((documentPath) => ['GET', documentPath, true]));
-  });
-});
+    assert.equal(post.status, 404);
+    assert.deepEqual(bff.requests, []);
+  });});
 
 describe('route handlers src/app/api', () => {
   test('every exported handler forwards only to a contract operation', async () => {
@@ -233,13 +260,20 @@ describe('route handlers src/app/api', () => {
     const adapters = front.routes.filter(({ catchAll }) => !catchAll);
     assert.ok(adapters.length > 0);
 
-    for (const { prefix, module } of adapters) {
+    for (const { prefix, module } of adapters.filter(({ prefix }) => !['/api/auth/refresh', '/api/auth/resume'].includes(prefix))) {
       for (const method of Object.keys(module).filter((name) => /^[A-Z]+$/.test(name))) {
         bff.requests.length = 0;
-        const response = await front.browserFetch(prefix, { method });
+        const response = await front.browserFetch(prefix, { method, ...(prefix === '/api/auth/logout' ? { headers: { 'Content-Type': 'application/json' }, body: '{}' } : {}) });
         assert.ok(response.status < 300, `${method} ${prefix} → ${response.status}`);
         assert.equal(bff.requests.length, 1, `${method} ${prefix} doit appeler exactement une opération du contrat`);
       }
+    }
+    for (const target of ['/api/auth/refresh', '/api/auth/resume']) {
+      assert.ok(adapters.some(({ prefix }) => prefix === target));
+      bff.requests.length = 0;
+      const response = await front.browserFetch(target, target.endsWith('refresh') ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' } : {});
+      assert.equal(response.headers.get('cache-control'), 'no-store');
+      assert.equal(bff.requests.length, 0, 'session coordination never masquerades as a business contract operation');
     }
   });
 });
@@ -248,36 +282,40 @@ describe('no network access outside the BFF contract', () => {
   const sources = sourceFiles;
   const relative = (file) => path.relative(ROOT, file);
 
-  test('only the BFF client, the session hook and the proxy call fetch, and no other network API is used', () => {
+  test('only the BFF client, the session hook and explicit logout call fetch, and no other network API is used', () => {
     const offenders = [];
     const fetchers = [];
     for (const file of sources(SRC)) {
-      const code = fs.readFileSync(file, 'utf8');
-      if (/\bfetch\s*\(/.test(code)) fetchers.push(relative(file));
-      for (const api of ['XMLHttpRequest', 'WebSocket', 'EventSource', 'sendBeacon', 'axios', 'navigator.serviceWorker', 'new Worker']) {
-        if (code.includes(api)) offenders.push(`${relative(file)} : ${api}`);
-      }
-      if (/https?:\/\/(?!localhost[:/])[^\s'"`]+/.test(code.replace(/^\s*(\/\/|\*).*$/gm, ''))) offenders.push(`${relative(file)} : URL absolue`);
+      const ast = policy.parse(path.relative(ROOT, file));
+      if ((policy.calls(ast, 'fetch').length || policy.calls(ast, 'sessionFetch').length)) fetchers.push(relative(file));
+      // axios only carries the generated operations through the fetch of the BFF client.
+      for (const api of policy.networkReferences(ast)) if (relative(file) !== 'src/lib/bff-client.ts' || !/axios/.test(api)) offenders.push(`${relative(file)} : ${api}`);
+      for (const node of policy.nodes(ast, node => (policy.ts.isNewExpression(node) && policy.callName(node.expression) === 'Worker') || (policy.ts.isPropertyAccessExpression(node) && policy.ts.isIdentifier(node.expression) && node.expression.text === 'navigator' && node.name.text === 'serviceWorker'))) offenders.push(`${relative(file)} : worker`);
+      if (policy.absoluteUrls(ast).some(url => !/^https?:\/\/localhost[:/]/.test(url))) offenders.push(`${relative(file)} : URL absolue`);
     }
     assert.deepEqual(offenders, []);
-    assert.deepEqual(fetchers.sort(), ['src/lib/auth-session.ts', 'src/lib/bff-client.ts', 'src/lib/bff-proxy.ts']);
+    assert.deepEqual(fetchers.sort(), ['src/lib/auth-session.ts', 'src/lib/bff-client.ts', 'src/lib/logout.ts']);
   });
 
-  test('browser-side fetch targets are same-origin adapters and admin calls use the declared /bff/admin prefix', () => {
-    const session = fs.readFileSync(path.join(SRC, 'lib', 'auth-session.ts'), 'utf8');
-    const targets = [...session.matchAll(/\bfetch\s*\(\s*(['"`])([^'"`]+)\1/g)].map((match) => match[2]);
+  test('browser-side fetch targets are same-origin adapters and admin calls use the declared /admin prefix', () => {
+    const targets = ['src/lib/auth-session.ts', 'src/lib/logout.ts'].flatMap(file => policy.calls(policy.parse(file), 'fetch')).map(node => { assert.ok(policy.ts.isStringLiteralLike(node.arguments[0])); return node.arguments[0].text; });
     const adapters = front.routes.filter(({ catchAll }) => !catchAll).map(({ prefix }) => prefix);
     assert.deepEqual(targets, ['/api/user/me', '/api/auth/logout']);
     targets.forEach((target) => assert.ok(adapters.includes(target), `${target} n'a pas de route handler`));
 
-    const admin = fs.readFileSync(path.join(SRC, 'lib', 'administration-api.ts'), 'utf8');
-    assert.match(admin, /const ADMIN_BASE_PATH = "\/bff\/admin";/);
-    const callers = sources(SRC).filter((file) => /\brequestBff\s*[<(]/.test(fs.readFileSync(file, 'utf8'))).map(relative);
-    assert.deepEqual(callers.sort(), ['src/lib/administration-api.ts', 'src/lib/bff-client.ts']);
+    // Only the generated operations are called: no path string, no base path, no hand-written request.
+    const adminSource = fs.readFileSync(path.join(ROOT, 'src/lib/administration-api.ts'), 'utf8');
+    assert.doesNotMatch(adminSource, /ADMIN_BASE_PATH|requestAdmin|requestBff|["`]\/(?:admin|api|bff)\b/);
+    const operations = [...adminSource.matchAll(/client\.(\w+)\(/g)].map(([, name]) => name);
+    assert.ok(operations.length > 0);
+    const generated = fs.readFileSync(require.resolve('@mairie360/bff-user-openapi/endpoints/bffUser'), 'utf8');
+    operations.forEach((name) => assert.match(generated, new RegExp(`const ${name} = \\(`), `${name} n'est pas une opération générée`));
+    const callers = sources(SRC).filter(file => policy.requestOwners(policy.parse(path.relative(ROOT, file)))).map(relative);
+    assert.deepEqual(callers.sort(), ['src/lib/bff-client.ts']);
   });
 
   test('the browser may only connect to its own origin and Next.js rewrites nothing elsewhere', () => {
-    const [{ buildContentSecurityPolicy }] = loadTs(['src/lib/content-security-policy.ts']);
+    const { buildContentSecurityPolicy } = require('@mairie360/lib-components/shared');
     const nextConfig = loadTs(['next.config.ts'])[0].default;
     const directives = Object.fromEntries(buildContentSecurityPolicy('n').split('; ').map((directive) => [directive.split(' ')[0], directive]));
 
@@ -289,6 +327,8 @@ describe('no network access outside the BFF contract', () => {
 
   test('the published @mairie360/lib-components bundle performs no network call of its own', () => {
     const bundle = fs.readFileSync(require.resolve('@mairie360/lib-components'), 'utf8');
-    for (const api of [/\bfetch\s*\(/, /XMLHttpRequest/, /WebSocket/, /EventSource/, /sendBeacon/]) assert.doesNotMatch(bundle, api);
+    const ast = policy.ts.createSourceFile('shared-ui.js', bundle, policy.ts.ScriptTarget.Latest, true, policy.ts.ScriptKind.JS);
+    assert.equal(policy.calls(ast, 'fetch').length, 0);
+    assert.deepEqual(policy.networkReferences(ast), []);
   });
 });

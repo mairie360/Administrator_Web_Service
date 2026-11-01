@@ -1,25 +1,10 @@
-"use client";
+import { createNonce } from '@mairie360/lib-components/shared';
+import AdministrationPage from '../components/AdministrationPage';
+import { readInitialAdministration } from '@/lib/initial-administration';
+import { administrationSearch } from '@/lib/administration-query';
 
-import { AppShell } from "@mairie360/lib-components";
-import { AdministrationConsole } from "@/components/administration-console";
-import { logoutAndReload, useAuthSession } from "@/lib/auth-session";
-import { getActiveFrontHrefs } from "@/lib/navigation";
-
-export default function Home() {
-  const session = useAuthSession();
-  const hrefs = getActiveFrontHrefs();
-
-  return (
-    <AppShell
-      activeItem="admin"
-      isAdmin={session.isAdmin}
-      user={session.user}
-      onLogout={() => void logoutAndReload()}
-      hrefs={hrefs}
-    >
-      <div className="min-w-0 w-full">
-        <AdministrationConsole />
-      </div>
-    </AppShell>
-  );
+export default async function Home(props: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
+  const { searchParams } = props ?? {};
+  const search = administrationSearch(await searchParams ?? {});
+  return <AdministrationPage key={createNonce()} initialState={await readInitialAdministration(search)} initialSearch={search} />;
 }

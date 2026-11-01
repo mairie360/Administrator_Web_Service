@@ -1,5 +1,69 @@
 # Administrator_Web_Service — Technical documentation
 
+## Partial session reads — MAIR-460 / MAIR-470
+
+`refreshSessions` starts both existing GETs concurrently and awaits
+`Promise.allSettled`. The current resource revision applies each fulfilled
+result independently before rethrowing the original first rejected source
+(active, then history). Failed lists remain unchanged, including an unread
+`null`. Superseded or unmounted reads apply nothing and propagate no failure.
+Waiting for both sources keeps the existing `runAction` busy guard in force
+through partial readback; its warning/retry remains GET-only.
+The earlier MAIR-460 token-command regressions are historical following the explicit retirement decision on 10 October 2026. The frontend refreshSession/revokeSession helpers and token form are removed; retained read-only behavior is verified against the real consumer and unchanged published contract. The generic proxy still validates and relays published operations; this change does not alter the contract, API/BFF, cookie policy, scanners or approvals.
+
+## Console component boundaries — MAIR-406
+
+`administration-console.tsx` retains global reads, request revisions and the
+synchronous mutation guard. It imports `users-panel`, `roles-panel`,
+`groups-panel` and `sessions-panel` directly from `components/administration`.
+Users, roles and groups keep their local state and callbacks; sessions retain only their selected list view after token-form retirement. `controls.tsx` shares fields,
+panels, buttons, empty states and date formatting; `confirm-modal.tsx` keeps the
+existing focus/busy handling. `types.ts` shares only the `RunAction` type.
+No cyclic dependency, barrel export, new fetch, effect, lazy-loading boundary or
+API/BFF change is introduced. Component-boundary tests and the real HTTP/HTML
+refresh regression complement the existing request/confirmation suites.
+
+## Opaque redirect recovery in the data client — MAIR-406
+
+`requestBff` sets `redirect: 'manual'` after caller options. After fetch, the
+caller signal is checked before response handling. `opaqueredirect` is recognized
+before reading status, headers or body: the browser reopens its current document
+once per `Location` (weak ownership), then rejects with
+`BffNavigationRequiredError`. SSR rejects without accessing `window`; concurrent
+reads cannot cause repeated navigation and no write is replayed. The unchanged
+middleware owns Login and its validated return URL. Ordinary errors still throw
+`BffRequestError`; a generic network failure is not evidence of expiration.
+Six client regressions cover opaque concurrency, mutation, abort, ordinary
+401/403/503, network failure and SSR. No routes, proxy, auth hook, contract,
+security policy, dependency, API/BFF or deployment change.
+
+## Profile-first page rendering — MAIR-406
+
+`src/app/page.tsx` derives four explicit branches from the unchanged
+`useAuthSession`: loading, error, Admin console, other-role denial. No extra
+effect, cached permission state, role parser or network call is introduced.
+Only the Admin branch mounts `AdministrationConsole`, so pending, failed and
+non-admin profiles cannot initiate its five initial administration reads.
+The error button reloads the document to retry the existing profile hook; no
+mutation is replayed. The existing hook handles 401 logout before resolution.
+Real-page/route/HTTP tests cover deferred resolution, four non-admin roles,
+403/503 profile failures, retry, 401 and unchanged authorized console loading.
+This is not signature, deployed authorization, revocation or stale-role
+revalidation certification. API/BFF, middleware, proxy and User0.5.0 stay intact.
+
+## Cookie forwarding without stored JWT injection — MAIR-406
+
+`src/lib/bff-client.ts` builds headers from `RequestInit` and supplies missing
+JSON defaults only. It no longer imports `getStoredAuthorizationHeader`; old
+storage keys cannot supply an automatic bearer header or be migrated by a data
+request. Explicit Authorization is preserved, while the unchanged frontend
+proxy uses the cookie when no header is supplied. Cleanup helpers, middleware,
+auth adapters, session management and the published User0.5.0 contract are
+unchanged. Four regressions cover cookie precedence, legacy-key preservation,
+zero storage accesses (including denied access) and storage without a cookie.
+HTTP fixtures exercise real routes/proxy; they do not prove native storage,
+deployed rights, signature validation or server-side revocation.
+
 ## Shared footer — MAIR-180
 
 The unchanged CI audit exposed the transitive tooling dependency
@@ -160,30 +224,29 @@ These data paths are exposed at the same origin through the proxy; Next.js pages
 | POST | `/auth/login` | application/json | 2XX, 412 |
 | POST | `/auth/logout` | — | 2XX |
 | POST | `/auth/register` | application/json | 2XX |
-| GET | `/bff/admin/groups` | — | 2XX |
-| POST | `/bff/admin/groups` | application/json | 2XX |
-| GET | `/bff/admin/groups/{groupId}` | — | 2XX |
-| PATCH | `/bff/admin/groups/{groupId}` | application/json | 2XX |
-| DELETE | `/bff/admin/groups/{groupId}` | — | 2XX |
-| GET | `/bff/admin/groups/{groupId}/users` | — | 2XX |
-| POST | `/bff/admin/groups/{groupId}/users` | application/json | 2XX |
-| DELETE | `/bff/admin/groups/{groupId}/users/{userId}` | — | 2XX |
-| GET | `/bff/admin/roles` | — | 2XX |
-| POST | `/bff/admin/roles` | application/json | 2XX |
-| PUT | `/bff/admin/roles/{roleId}` | application/json | 2XX |
-| PATCH | `/bff/admin/roles/{roleId}` | application/json | 2XX |
-| DELETE | `/bff/admin/roles/{roleId}` | — | 2XX |
-| GET | `/bff/admin/sessions` | — | 2XX |
-| GET | `/bff/admin/sessions/history` | — | 2XX |
-| POST | `/bff/admin/sessions/refresh` | application/json | 2XX |
-| POST | `/bff/admin/sessions/revoke` | application/json | 2XX |
-| GET | `/bff/admin/users` | — | 2XX |
-| POST | `/bff/admin/users` | application/json | 2XX |
-| PATCH | `/bff/admin/users/{userId}` | application/json | 2XX |
-| DELETE | `/bff/admin/users/{userId}` | — | 2XX |
-| PATCH | `/bff/admin/users/{userId}/password` | application/json | 2XX |
-| POST | `/bff/admin/users/{userId}/roles` | application/json | 2XX |
-| DELETE | `/bff/admin/users/{userId}/roles/{roleId}` | — | 2XX |
+| GET | `/admin/groups` | — | 2XX |
+| POST | `/admin/groups` | application/json | 2XX |
+| GET | `/admin/groups/{groupId}` | — | 2XX |
+| PATCH | `/admin/groups/{groupId}` | application/json | 2XX |
+| DELETE | `/admin/groups/{groupId}` | — | 2XX |
+| GET | `/admin/groups/{groupId}/users` | — | 2XX |
+| POST | `/admin/groups/{groupId}/users` | application/json | 2XX |
+| DELETE | `/admin/groups/{groupId}/users/{userId}` | — | 2XX |
+| GET | `/admin/roles` | — | 2XX |
+| POST | `/admin/roles` | application/json | 2XX |
+| PUT | `/admin/roles/{roleId}` | application/json | 2XX |
+| PATCH | `/admin/roles/{roleId}` | application/json | 2XX |
+| DELETE | `/admin/roles/{roleId}` | — | 2XX |
+| GET | `/admin/sessions` | — | 2XX |
+| GET | `/admin/sessions/history` | — | 2XX |
+| POST | `/admin/sessions/revoke` | application/json | 2XX |
+| GET | `/admin/users` | — | 2XX |
+| POST | `/admin/users` | application/json | 2XX |
+| PATCH | `/admin/users/{userId}` | application/json | 2XX |
+| DELETE | `/admin/users/{userId}` | — | 2XX |
+| PATCH | `/admin/users/{userId}/password` | application/json | 2XX |
+| POST | `/admin/users/{userId}/roles` | application/json | 2XX |
+| DELETE | `/admin/users/{userId}/roles/{roleId}` | — | 2XX |
 | GET | `/check_apis` | — | 2XX |
 | GET | `/health` | — | 2XX |
 | GET | `/me` | — | 2XX |
@@ -218,7 +281,7 @@ Every response carries `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff
 
 ## Synchronization and verification
 
-The only contract is BFF User’s, as **published** in `@mairie360/bff-user-openapi`, pinned to an exact `X.Y.Z` version (never a `0.0.0-dev`/`staging` pre-release, never a copy from a BFF checkout, which can be ahead of the release). Renovate bumps the version; after a new package version:
+The only contract is BFF User’s, as **published** in `@mairie360/bff-user-openapi`, pinned to an exact version: a release `X.Y.Z`, or, while no release is cut, the `0.0.0-dev.<sha>` package the CICD publishes for the current commit of its `main` (MAIR-509), or, once that commit is released on staging, the `0.0.0-staging.<sha40>` package of the same commit, preferred on a staging release for readability (MAIR-600; never `0.0.0-staging.<short sha>` or a range, never a copy from a BFF checkout, which can be ahead of what is published). `scripts/contract-version.mjs` holds that policy and maps a dev package to its `dev-<sha7>` image tag and a staging package to its `staging-<sha7>` image tag (same digest) for the `docker-compose*.yml` stacks. After a new package version:
 
 ```bash
 npm run contracts:sync
@@ -230,17 +293,17 @@ npm run build
 
 The package contains orval TypeScript, not `openapi.json`: [scripts/orval-contract.mjs](../../scripts/orval-contract.mjs) rebuilds the OpenAPI document from it and `contracts:sync` writes it to `contracts/openapi.json` (read by the proxy and the tests). `contracts:check` fails if the version is not exact, if the installed package differs from `package.json`, if a second `@mairie360/bff-*-openapi` package appears or if the snapshot is stale. `src/lib/administration-api.ts` imports its types from `@mairie360/bff-user-openapi/model`. `npm test` runs the Node tests and fails below 60% line, branch or function coverage of the `src/` modules loaded by the tests (`test:contracts` runs the same tests without coverage); React components (`.tsx`) are not measured.
 
-The `tests/*.bff-mock.test.cjs` and `tests/network-contract.test.cjs` tests run the real front code against a fake BFF User served over local HTTP and driven by `contracts/openapi.json` ([tests/support/contract-mock-server.cjs](../../tests/support/contract-mock-server.cjs), same validator as the BFF tests). The `tests/support/front-harness.cjs` harness simulates the browser: a relative `fetch` goes through `src/middleware.ts` and then the matching `src/app` route handler, and a server-side `fetch` is only allowed towards the fake BFF. Every received request (path, method, parameters, query, JSON body) and every mocked success response is validated against the contract; error responses, which the package does not type, are declared out of contract. Any mismatch, unmocked call or network call to another host fails the test. `tests/network-contract.test.cjs` also checks the exact package version, that BFF User is the only BFF (only `bff-*-openapi` package, only BFF image of the Docker stacks, same URL for the proxy and the adapters), that `contracts/openapi.json` is the exact rebuild of the package, that every contract operation is relayed by the proxy, that paths and methods outside the contract never reach the BFF and that only `bff-client.ts`, `auth-session.ts` and `bff-proxy.ts` call `fetch`. Only `/openapi.json` and `/swagger.json` are relayed outside the contract. `tests/administration-api.bff-mock.test.cjs` fails if a `/bff/admin/*` contract operation is not exercised.
+The `tests/*.bff-mock.test.cjs` and `tests/network-contract.test.cjs` tests run the real front code against a fake BFF User served over local HTTP and driven by `contracts/openapi.json` ([tests/support/contract-mock-server.cjs](../../tests/support/contract-mock-server.cjs), same validator as the BFF tests). The `tests/support/front-harness.cjs` harness simulates the browser: a relative `fetch` goes through `src/middleware.ts` and then the matching `src/app` route handler, and a server-side `fetch` is only allowed towards the fake BFF. Every received request (path, method, parameters, query, JSON body) and every mocked success response is validated against the contract; error responses, which the package does not type, are declared out of contract. Any mismatch, unmocked call or network call to another host fails the test. `tests/network-contract.test.cjs` also checks the exact package version, that BFF User is the only BFF (only `bff-*-openapi` package, only BFF image of the Docker stacks, same URL for the proxy and the adapters), that `contracts/openapi.json` is the exact rebuild of the package, that every contract operation is relayed by the proxy, that paths and methods outside the contract never reach the BFF and that only `bff-client.ts`, `auth-session.ts` and `bff-proxy.ts` call `fetch`. Only `/openapi.json` and `/swagger.json` are relayed outside the contract. `tests/administration-api.bff-mock.test.cjs` fails if a `/admin/*` contract operation is not exercised.
 
 For documentation-only changes, check links, accuracy in both languages and `git diff --check`; do not regenerate contracts without changing the package version.
 
 ## CI/CD and Docker execution
 
-The `contracts.yml` job uses Node.js 24 and commit-pinned checkout/setup-node actions (v7). It runs on pushes, pull requests and manual dispatch; it installs with `npm ci`, checks contracts and runs the associated tests.
+The `contracts.yml` job uses Node.js 24.21.0 and commit-pinned checkout/setup-node actions (v7). It runs on pull requests, manual dispatch and pushes to `main` only (MAIR-436); it installs with `npm ci`, checks contracts and runs the associated tests.
 
-`cicd.yml` calls `mairie360/CICD/.github/workflows/frontend-cicd.yml@v3.1.1`, with `cicd_version: v3.1.1` and `node_version: "24"`. Only CODECOV_TOKEN and N8N_WEBHOOK_SECRET are passed explicitly. Reusable steps and GitHub environments determine actual checks, publications and deployments.
+`cicd.yml` calls `mairie360/CICD/.github/workflows/frontend-cicd.yml` pinned to a CICD commit, with the same `cicd_version` and `node_version: "24.21.0"`. It runs on pull requests, on manual dispatch and on pushes to `main` only; its token is read-only by default and only the job calling the release pipeline gets `contents`, `packages` and `id-token` write scopes (MAIR-436, `tests/workflow-permissions.test.cjs`). Only CODECOV_TOKEN and N8N_WEBHOOK_SECRET are passed explicitly. Reusable steps and GitHub environments determine actual checks, publications and deployments.
 
-The Dockerfile defaults to `NODE_VERSION=23.1.0` and the Next.js `standalone` build; the image command is `["node", "server.js"]`. Image ports and Compose mappings can differ from the local port suggested above.
+The Dockerfile pins `NODE_VERSION=24.21.0` (official bookworm-slim image pinned by digest) and the Next.js `standalone` build; the image command is `["node", "server.js"]`. Image ports and Compose mappings can differ from the local port suggested above.
 
 Before running Docker, check service variables, build secrets and networks in the repository files. Green CI validates its jobs; it does not prove business-service availability in a remote environment.
 
@@ -269,3 +332,5 @@ For a proxy error, compare the path and method with the inventory, then check th
 - [docker-compose.yml](../../docker-compose.yml)
 
 Historical supplements: [BFF.md](../../BFF.md), [BACKEND.md](../../BACKEND.md). Proposed requirements must remain distinct from implemented behavior.
+
+Administration styling now mounts the actual page with real React hooks, published UI 0.6.12 and contract-gated User 0.5.0 HTTP fixtures. Computed checks cover typography, sidebar rows/shadow, opening/closing the drawer, console panel shadows and long-label/grid preparation. A parsed policy preserves the Tailwind font token and global-size rules. These checks accept equivalent CSS spellings and reject later overrides. Development-only JSDOM 30.1.1 does not compile Tailwind, evaluate media queries or prove native geometry, scrolling or RGAA compliance; retain the native responsive recipes and deployed-service validation separately.

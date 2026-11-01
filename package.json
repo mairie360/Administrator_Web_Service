@@ -11,13 +11,19 @@
     "contracts:check": "node scripts/contracts.mjs --check",
     "contracts:sync": "node scripts/contracts.mjs --sync",
     "test:contracts": "node --test tests/*.test.cjs",
-    "test": "mkdir -p coverage && node --enable-source-maps --test --experimental-test-coverage --test-coverage-branches=60 --test-coverage-functions=60 --test-coverage-lines=60 --test-coverage-include='src/**' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info tests/*.test.cjs"
+    "test": "npm run test:node && npm run test:components",
+    "performance:report": "node scripts/frontend-performance.mjs",
+    "test:node:native": "mkdir -p coverage && node --enable-source-maps --test --test-concurrency=1 --experimental-test-coverage --test-coverage-branches=60 --test-coverage-functions=60 --test-coverage-lines=60 --test-coverage-include='src/**' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info tests/*.test.cjs",
+    "test:node": "node scripts/test-node-coverage.cjs",
+    "test:bundle": "node --test tests/bundle/*.test.cjs",
+    "test:components": "vitest run"
   },
   "dependencies": {
-    "@mairie360/bff-user-openapi": "0.5.0",
-    "@mairie360/lib-components": "0.6.8",
+    "@mairie360/bff-user-openapi": "1.1.0",
+    "@mairie360/lib-components": "1.0.3",
+    "axios": "1.20.0",
     "lucide-react": "^1.0.0",
-    "next": "16.3.6",
+    "next": "16.4.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -26,12 +32,28 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "braces": "file:./vendor/braces",
+    "c8": "12.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.3.6",
+    "eslint-config-next": "16.4.2",
+    "jsdom": "30.1.1",
+    "playwright-core": "1.64.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@vitest/coverage-v8": "5.0.2",
+    "jest-axe": "11.0.0",
+    "vitest": "5.0.2"
   },
   "overrides": {
-    "postcss": "8.5.28"
+    "braces": "$braces",
+    "postcss": "8.5.28",
+    "next": {
+      ".": "$next",
+      "sharp": "^0.35.5"
+    }
   }
 }
