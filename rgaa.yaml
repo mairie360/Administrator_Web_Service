@@ -231,7 +231,7 @@ states:
     route: /
     steps:
       - click: { role: tab, name: Sessions }
-      - click: { role: button, name: Historique }
+      - click: { role: radio, name: Historique (3) }
       - wait_for: { text: Chrome 131 sur Windows 11 }
 # No state for a user without the Admin role: the page renders its error message, but the
 # navigation never reaches network idle (page.goto timeout, see the MAIR-316 report).
