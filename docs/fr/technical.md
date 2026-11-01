@@ -1,5 +1,71 @@
 # Administrator_Web_Service — Documentation technique
 
+## Lectures partielles des sessions — MAIR-460 / MAIR-470
+
+`refreshSessions` lance les deux GET existants en parallèle et attend
+`Promise.allSettled`. La révision courante applique chaque résultat réussi
+indépendamment avant de relancer l’erreur originale de la première source refusée
+(actives, puis historique). Les listes refusées restent inchangées, y compris
+un `null` encore inconnu. Une lecture dépassée ou terminée après démontage ne
+modifie rien et ne propage pas de refus. Attendre les deux sources conserve le
+verrou `runAction` jusqu’à la fin de la relecture partielle ; la reprise de son
+avertissement reste GET seule.
+Les régressions antérieures des commandes par jeton MAIR-460 sont historiques après la décision explicite de retrait du 10 octobre 2026. Le formulaire et les helpers frontend refreshSession/revokeSession sont retirés ; les lectures conservées sont vérifiées sur le vrai consommateur avec le contrat publié inchangé. Le proxy générique valide et relaie toujours les opérations publiées ; contrat, API/BFF, politique de cookies, scanners et approbations ne sont pas modifiés.
+
+## Frontières des composants de console — MAIR-406
+
+`administration-console.tsx` conserve lectures globales, révisions de requêtes et
+garde synchrone de mutations. Elle importe directement `users-panel`,
+`roles-panel`, `groups-panel` et `sessions-panel` depuis `components/administration`.
+Utilisateurs, rôles et groupes gardent leur état local et leurs callbacks ; les sessions ne conservent que la vue de liste sélectionnée après retrait du formulaire à jeton. `controls.tsx` partage
+champs, panneaux, boutons, états vides et formatage des dates ; `confirm-modal.tsx`
+conserve la gestion de focus/busy. `types.ts` ne partage que le type `RunAction`.
+Aucun cycle, barrel, fetch, effet, chargement différé ou changement API/BFF ajouté.
+Les contrôles de frontières et la régression HTTP/HTML d'actualisation complètent
+les suites existantes de requêtes et confirmations.
+
+## Reprise d'une redirection opaque dans le client — MAIR-406
+
+`requestBff` impose `redirect: 'manual'` après les options de l'appelant. Après
+fetch, le signal est vérifié avant de traiter la réponse. `opaqueredirect` est
+identifié avant lecture du statut, des headers ou du corps : le navigateur
+recharge son document courant une seule fois par `Location` (propriété faible),
+puis rejette avec `BffNavigationRequiredError`. Le SSR rejette sans accéder à
+`window` ; les lectures concurrentes ne multiplient pas les navigations et aucune
+écriture n'est répétée. Le middleware inchangé gère Login et le retour validé.
+Les erreurs ordinaires gardent `BffRequestError` ; une panne réseau seule ne
+prouve pas une expiration. Six régressions couvrent concurrence opaque, mutation,
+annulation, 401/403/503 ordinaires, panne réseau et SSR. Routes, proxy, hook auth,
+contrat, politique de sécurité, dépendances, API/BFF et déploiement inchangés.
+
+## Affichage après vérification du profil — MAIR-406
+
+`src/app/page.tsx` dérive quatre branches explicites de `useAuthSession` inchangé :
+attente, erreur, console Admin, accès réservé pour les autres rôles. Aucun nouvel
+effet, état de permission mémorisé, parseur de rôles ou appel réseau ajouté.
+Seule la branche Admin monte `AdministrationConsole` : les profils en attente,
+en erreur ou non-admin ne lancent pas ses cinq lectures initiales. Le bouton de
+reprise recharge le document pour relancer le hook existant, sans répéter une
+mutation. Le hook garde sa déconnexion sur 401 avant résolution. Les tests du
+vrai composant/routes/HTTP couvrent résolution différée, quatre rôles non-admin,
+erreurs profil 403/503, reprise, 401 et chargement autorisé conservé. Ce n'est pas
+une preuve de signature, droits déployés, révocation ou revalidation d'un rôle
+devenu obsolète. API/BFF, middleware, proxy et contrat User0.5.0 restent inchangés.
+
+## Cookie sans injection de JWT stocké — MAIR-406
+
+`src/lib/bff-client.ts` construit les headers depuis `RequestInit` et ajoute
+seulement les valeurs JSON manquantes. Il n'importe plus
+`getStoredAuthorizationHeader` : les anciennes clés ne fournissent pas de bearer
+automatique et ne sont pas migrées pendant les appels. Authorization explicite
+reste conservé ; le proxy frontend inchangé utilise le cookie sans ce header.
+Helpers de nettoyage, middleware, adaptateurs d'authentification, gestion des
+sessions et contrat publié User0.5.0 inchangés. Quatre régressions vérifient la
+priorité du cookie, la conservation de la clé historique, zéro accès au stockage
+(y compris refusé) et le stockage seul sans cookie. Le harnais HTTP exécute les
+routes/proxy réels, pas le stockage natif ni les droits, signatures ou révocation
+serveur déployés.
+
 ## Résultats de la dernière recherche utilisateurs — MAIR-448
 
 Un compteur de lecture React protège la liste utilisateurs. Seule la dernière
@@ -174,30 +240,29 @@ Ces chemins de données sont exposés à la même origine par le proxy; les page
 | POST | `/auth/login` | application/json | 2XX, 412 |
 | POST | `/auth/logout` | — | 2XX |
 | POST | `/auth/register` | application/json | 2XX |
-| GET | `/bff/admin/groups` | — | 2XX |
-| POST | `/bff/admin/groups` | application/json | 2XX |
-| GET | `/bff/admin/groups/{groupId}` | — | 2XX |
-| PATCH | `/bff/admin/groups/{groupId}` | application/json | 2XX |
-| DELETE | `/bff/admin/groups/{groupId}` | — | 2XX |
-| GET | `/bff/admin/groups/{groupId}/users` | — | 2XX |
-| POST | `/bff/admin/groups/{groupId}/users` | application/json | 2XX |
-| DELETE | `/bff/admin/groups/{groupId}/users/{userId}` | — | 2XX |
-| GET | `/bff/admin/roles` | — | 2XX |
-| POST | `/bff/admin/roles` | application/json | 2XX |
-| PUT | `/bff/admin/roles/{roleId}` | application/json | 2XX |
-| PATCH | `/bff/admin/roles/{roleId}` | application/json | 2XX |
-| DELETE | `/bff/admin/roles/{roleId}` | — | 2XX |
-| GET | `/bff/admin/sessions` | — | 2XX |
-| GET | `/bff/admin/sessions/history` | — | 2XX |
-| POST | `/bff/admin/sessions/refresh` | application/json | 2XX |
-| POST | `/bff/admin/sessions/revoke` | application/json | 2XX |
-| GET | `/bff/admin/users` | — | 2XX |
-| POST | `/bff/admin/users` | application/json | 2XX |
-| PATCH | `/bff/admin/users/{userId}` | application/json | 2XX |
-| DELETE | `/bff/admin/users/{userId}` | — | 2XX |
-| PATCH | `/bff/admin/users/{userId}/password` | application/json | 2XX |
-| POST | `/bff/admin/users/{userId}/roles` | application/json | 2XX |
-| DELETE | `/bff/admin/users/{userId}/roles/{roleId}` | — | 2XX |
+| GET | `/admin/groups` | — | 2XX |
+| POST | `/admin/groups` | application/json | 2XX |
+| GET | `/admin/groups/{groupId}` | — | 2XX |
+| PATCH | `/admin/groups/{groupId}` | application/json | 2XX |
+| DELETE | `/admin/groups/{groupId}` | — | 2XX |
+| GET | `/admin/groups/{groupId}/users` | — | 2XX |
+| POST | `/admin/groups/{groupId}/users` | application/json | 2XX |
+| DELETE | `/admin/groups/{groupId}/users/{userId}` | — | 2XX |
+| GET | `/admin/roles` | — | 2XX |
+| POST | `/admin/roles` | application/json | 2XX |
+| PUT | `/admin/roles/{roleId}` | application/json | 2XX |
+| PATCH | `/admin/roles/{roleId}` | application/json | 2XX |
+| DELETE | `/admin/roles/{roleId}` | — | 2XX |
+| GET | `/admin/sessions` | — | 2XX |
+| GET | `/admin/sessions/history` | — | 2XX |
+| POST | `/admin/sessions/revoke` | application/json | 2XX |
+| GET | `/admin/users` | — | 2XX |
+| POST | `/admin/users` | application/json | 2XX |
+| PATCH | `/admin/users/{userId}` | application/json | 2XX |
+| DELETE | `/admin/users/{userId}` | — | 2XX |
+| PATCH | `/admin/users/{userId}/password` | application/json | 2XX |
+| POST | `/admin/users/{userId}/roles` | application/json | 2XX |
+| DELETE | `/admin/users/{userId}/roles/{roleId}` | — | 2XX |
 | GET | `/check_apis` | — | 2XX |
 | GET | `/health` | — | 2XX |
 | GET | `/me` | — | 2XX |
@@ -232,7 +297,7 @@ Toutes les réponses portent `X-Frame-Options: DENY`, `X-Content-Type-Options: n
 
 ## Synchronisation et vérifications
 
-Le seul contrat est celui de BFF User **publié** dans `@mairie360/bff-user-openapi`, épinglé à une version exacte `X.Y.Z` (jamais une pré-version `0.0.0-dev`/`staging`, jamais une copie d’un checkout du BFF, qui peut être en avance sur la release). Renovate monte la version; après une nouvelle version du paquet :
+Le seul contrat est celui de BFF User **publié** dans `@mairie360/bff-user-openapi`, épinglé à une version exacte : une release `X.Y.Z`, ou, tant qu’aucune release n’est coupée, le paquet `0.0.0-dev.<sha>` publié par la CICD pour le commit courant de son `main` (MAIR-509), ou, une fois ce commit livré en staging, le paquet `0.0.0-staging.<sha40>` du même commit, préféré lors d’une release staging pour la lisibilité (MAIR-600 ; jamais `0.0.0-staging.<sha court>` ni une plage, jamais une copie d’un checkout du BFF, qui peut être en avance sur ce qui est publié). `scripts/contract-version.mjs` porte cette règle et associe un paquet dev au tag d’image `dev-<sha7>` et un paquet staging au tag d’image `staging-<sha7>` (même digest) des stacks `docker-compose*.yml`. Après une nouvelle version du paquet :
 
 ```bash
 npm run contracts:sync
@@ -244,17 +309,17 @@ npm run build
 
 Le paquet contient du TypeScript orval, pas de `openapi.json` : [scripts/orval-contract.mjs](../../scripts/orval-contract.mjs) en reconstruit le document OpenAPI et `contracts:sync` l’écrit dans `contracts/openapi.json` (lu par le proxy et les tests). `contracts:check` échoue si la version n’est pas exacte, si le paquet installé diffère de `package.json`, si un second paquet `@mairie360/bff-*-openapi` apparaît ou si la copie est périmée. `src/lib/administration-api.ts` importe ses types depuis `@mairie360/bff-user-openapi/model`. `npm test` exécute les tests Node et échoue sous 60 % de couverture des lignes, branches ou fonctions des modules de `src/` chargés par les tests (`test:contracts` lance les mêmes tests sans couverture); les composants React (`.tsx`) ne sont pas mesurés.
 
-Les tests `tests/*.bff-mock.test.cjs` et `tests/network-contract.test.cjs` exécutent le vrai code du front contre un faux BFF User servi en HTTP local et piloté par `contracts/openapi.json` ([tests/support/contract-mock-server.cjs](../../tests/support/contract-mock-server.cjs), même validateur que les tests des BFFs). Le harnais `tests/support/front-harness.cjs` simule le navigateur : un `fetch` relatif passe par `src/middleware.ts` puis par le route handler de `src/app` correspondant, et un `fetch` serveur n'est autorisé que vers le faux BFF. Chaque requête reçue (chemin, méthode, paramètres, query, corps JSON) et chaque réponse de succès simulée est validée contre le contrat; les réponses d’erreur, que le paquet ne type pas, sont déclarées hors contrat. Tout écart, appel non mocké ou appel réseau vers un autre hôte fait échouer le test. `tests/network-contract.test.cjs` vérifie aussi la version exacte du paquet, que BFF User est le seul BFF (seul paquet `bff-*-openapi`, seule image BFF des stacks Docker, même URL pour le proxy et les adaptateurs), que `contracts/openapi.json` est la reconstruction exacte du paquet, que chaque opération du contrat est relayée par le proxy, que les chemins et méthodes hors contrat n'atteignent jamais le BFF et que seuls `bff-client.ts`, `auth-session.ts` et `bff-proxy.ts` appellent `fetch`. Seuls `/openapi.json` et `/swagger.json` sont relayés hors contrat. `tests/administration-api.bff-mock.test.cjs` échoue si une opération `/bff/admin/*` du contrat n’est pas exercée.
+Les tests `tests/*.bff-mock.test.cjs` et `tests/network-contract.test.cjs` exécutent le vrai code du front contre un faux BFF User servi en HTTP local et piloté par `contracts/openapi.json` ([tests/support/contract-mock-server.cjs](../../tests/support/contract-mock-server.cjs), même validateur que les tests des BFFs). Le harnais `tests/support/front-harness.cjs` simule le navigateur : un `fetch` relatif passe par `src/middleware.ts` puis par le route handler de `src/app` correspondant, et un `fetch` serveur n'est autorisé que vers le faux BFF. Chaque requête reçue (chemin, méthode, paramètres, query, corps JSON) et chaque réponse de succès simulée est validée contre le contrat; les réponses d’erreur, que le paquet ne type pas, sont déclarées hors contrat. Tout écart, appel non mocké ou appel réseau vers un autre hôte fait échouer le test. `tests/network-contract.test.cjs` vérifie aussi la version exacte du paquet, que BFF User est le seul BFF (seul paquet `bff-*-openapi`, seule image BFF des stacks Docker, même URL pour le proxy et les adaptateurs), que `contracts/openapi.json` est la reconstruction exacte du paquet, que chaque opération du contrat est relayée par le proxy, que les chemins et méthodes hors contrat n'atteignent jamais le BFF et que seuls `bff-client.ts`, `auth-session.ts` et `bff-proxy.ts` appellent `fetch`. Seuls `/openapi.json` et `/swagger.json` sont relayés hors contrat. `tests/administration-api.bff-mock.test.cjs` échoue si une opération `/admin/*` du contrat n’est pas exercée.
 
 Pour une modification uniquement documentaire, vérifier les liens, l’exactitude des deux langues et `git diff --check`; ne pas régénérer les contrats sans changer la version du paquet.
 
 ## CI/CD et exécution Docker
 
-Le job `contracts.yml` utilise Node.js 24 et checkout/setup-node figés sur leurs commits v7. Il s’exécute sur push, pull request et lancement manuel ; il installe avec `npm ci`, contrôle les contrats et lance les tests dédiés.
+Le job `contracts.yml` utilise Node.js 24.21.0 et checkout/setup-node figés sur leurs commits v7. Il s’exécute sur pull request, lancement manuel et push vers `main` uniquement (MAIR-436) ; il installe avec `npm ci`, contrôle les contrats et lance les tests dédiés.
 
-`cicd.yml` appelle `mairie360/CICD/.github/workflows/frontend-cicd.yml@v3.1.1`, avec `cicd_version: v3.1.1` et `node_version: "24"`. Seuls CODECOV_TOKEN et N8N_WEBHOOK_SECRET sont transmis explicitement. Les étapes réutilisables et les environnements GitHub déterminent les contrôles, publications et déploiements effectifs.
+`cicd.yml` appelle `mairie360/CICD/.github/workflows/frontend-cicd.yml` épinglé sur un commit CICD, avec le même `cicd_version` et `node_version: "24.21.0"`. Il s’exécute sur les pull requests, au déclenchement manuel et sur les push vers `main` uniquement ; son jeton est en lecture seule par défaut et seul le job qui appelle le pipeline de release reçoit les droits d’écriture `contents`, `packages` et `id-token` (MAIR-436, `tests/workflow-permissions.test.cjs`). Seuls CODECOV_TOKEN et N8N_WEBHOOK_SECRET sont transmis explicitement. Les étapes réutilisables et les environnements GitHub déterminent les contrôles, publications et déploiements effectifs.
 
-Le Dockerfile utilise par défaut `NODE_VERSION=23.1.0` et le build Next.js `standalone`; la commande de l’image est `["node", "server.js"]`. Le port de l’image et les mappings Compose peuvent différer du port local proposé plus haut.
+Le Dockerfile épingle `NODE_VERSION=24.21.0` (image officielle bookworm-slim épinglée par digest) et le build Next.js `standalone` ; la commande de l’image est `["node", "server.js"]`. Le port de l’image et les mappings Compose peuvent différer du port local proposé plus haut.
 
 Avant un lancement Docker, vérifier les variables de service, les secrets de build et les réseaux dans les fichiers du dépôt. Une CI verte valide ses jobs; elle ne prouve pas la disponibilité des services métier dans un environnement distant.
 
@@ -283,3 +348,5 @@ En cas d’erreur de proxy, comparer la route et la méthode à l’inventaire, 
 - [docker-compose.yml](../../docker-compose.yml)
 
 Compléments historiques: [BFF.md](../../BFF.md), [BACKEND.md](../../BACKEND.md). Les besoins proposés doivent rester distincts du comportement effectivement implémenté.
+
+Les contrôles de présentation Administration montent la vraie page avec les hooks React, UI publiée 0.6.12 et les réponses HTTP contrôlées par le contrat User 0.5.0. Ils vérifient les styles calculés, la navigation et son tiroir, les ombres des panneaux et la préparation des grilles/textes longs. La politique analysée conserve le token de police Tailwind et les règles de tailles globales. JSDOM 30.1.1 est réservé aux tests : il ne compile pas Tailwind, ne calcule pas les media queries et ne prouve ni géométrie native, défilement ni conformité RGAA. Les recettes navigateur et la validation des services déployés restent distinctes.

@@ -1,5 +1,84 @@
 # Administrator_Web_Service — Présentation du module
 
+## Une liste inconnue n’est pas vide — MAIR-470
+
+Rôles, groupes, sessions actives et historique restent inconnus jusqu’à leur
+première lecture réussie. Les compteurs affichent un tiret ; les panneaux
+distinguent attente et indisponibilité, avec les commandes de reprise GET
+existantes. Seule une réponse vide valide affiche zéro et le message de liste
+vide. Un refus ultérieur conserve les dernières listes reçues et les brouillons.
+Ce contrôle d’affichage ne certifie ni droits ni persistance déployés.
+
+## Contraintes de texte du contrat BFF — MAIR-514
+
+Les formulaires utilisateur, rôle et groupe portent les règles du contrat publié : noms de
+64 caractères au plus sans `<` ni `>`, e-mail de 320 au plus, téléphone de 32 caractères au
+plus composé de chiffres, espaces, `.`, `-`, `(`, `)` et d’un `+` initial facultatif, mot de
+passe de 8 à 255 caractères, descriptions de 2 000 au plus. Le navigateur refuse une valeur
+invalide avec une aide en français avant toute requête. Un 400 qui arriverait malgré tout
+avec le détail des champs est expliqué champ par champ (« Prénom : ne doit pas contenir les
+caractères < ou > ») au lieu du message générique.
+
+## Listes de sessions en lecture — MAIR-406
+
+Les sessions actives et leur historique restent disponibles avec leur actualisation GET, compteurs, états d’expiration/révocation et erreurs indépendantes existants. Le formulaire à jeton et ses actions Rafraîchir/Révoquer sont retirés selon la décision explicite du 10 octobre 2026 ; les vérifications du brouillon MAIR-460 sont historiques. Le contrat publié User 0.5.0 ne définit pas d’opération typée de révocation par identifiant : aucun payload ni commande de remplacement n’est inventé. Les droits et la persistance réels en Dev restent à vérifier avec un compte utilisable.
+
+## Panneaux Administration indépendants — MAIR-406
+
+Utilisateurs, rôles et groupes conservent leurs formulaires ; les sessions gardent leurs listes,
+confirmations, erreurs et relectures. Chaque panneau est un composant top-level
+stable dans `src/components/administration/` ; la console garde l'orchestration.
+Les contrôles et la confirmation partagés n'accèdent pas aux données métier.
+Actualiser la console conserve le brouillon du panneau actif ou la vue historique
+des sessions ; changer d'onglet garde le montage/démontage existant.
+L'issue #146 suit cette tranche de conception, sans certifier commandes par token,
+droits déployés, authentification réelle ou intégration dans main.
+
+## Reprendre le document protégé après une redirection de données — MAIR-406
+
+Une redirection opaque pendant une requête de données recharge une seule fois
+la page protégée courante. Son middleware existant ouvre Login avec le chemin
+et la query de cette page, pas ceux d'un endpoint. Ne pas assimiler ce cas à une
+panne générique, déduire une destination d'une erreur réseau ou répéter une
+écriture. Les erreurs ordinaires 401/403/503 et les requêtes annulées restent
+distinctes. La destination Login de recette jetable ne constitue pas une vraie
+authentification ; aucun API/BFF ni politique d'authentification modifié.
+
+## Console réservée au profil résolu — MAIR-406
+
+Le hook de session existant doit résoudre un profil Admin avant que la page monte
+la console et lance les lectures Administration. L'attente affiche un statut ;
+Responsable, Maire, User et Guest gardent l'AppShell mais voient un message d'accès
+réservé, sans tableaux ni actions d'administration. Une erreur de profil donne
+un état indisponible distinct, avec reprise par rechargement du document ; le
+parcours de déconnexion sur 401 est conservé. Le README du prototype réserve cet
+accès, mais sa page montait également la console sans condition : ne pas recopier
+ce défaut. Ce contrôle d'affichage ne remplace pas l'autorisation serveur. Les
+commandes de session par token et les autres critères de l'audit restent
+distincts ; la reprise de navigation est qualifiée ci-dessus, sans intégration
+revendiquée. Aucun API/BFF, helper d'authentification, contrat ou donnée de
+démonstration modifié.
+
+## Session des requêtes de données — MAIR-406
+
+Les anciens jetons du stockage navigateur ne remplacent plus le cookie utilisé
+par le proxy frontend existant. Une requête ne lit, ne migre ni n'efface ce
+stockage ; les headers explicites et le nettoyage de déconnexion restent
+inchangés. Ce correctif client ne certifie ni droits administrateur, ni révocation
+serveur, ni remplacement des commandes de session par identifiant. Ces autres
+sujets d'audit restent ouverts. Aucun API/BFF ni donnée de démonstration modifié.
+
+## Sidebar mesurée de référence — MAIR-180 / issue141
+
+Le CSS consommateur rétablit des cibles de navigation de 44px minimum et l'ombre
+de référence. Sur mobile, le bouton Fermer publié reste au-dessus de la sidebar ;
+clic, clavier et Échap conservent le retour de focus. Le repère rouge Administration
+et le masquage selon les droits ne changent pas. La comparaison desktop/mobile
+couvre recherche/fiche utilisateur, rôles, groupe/membres et sessions/historique
+sans écrire de données réelles. Les fixtures ne certifient ni droits déployés,
+réinitialisation de mot de passe, révocation ni persistance durable. La version
+fictive du footer et les préférences/notifications du prototype ne sont pas copiées.
+
 ## Navigation des modules actifs
 
 L'`AppShell` partagé gère désormais les menus ordinateur et mobile. Il affiche
@@ -115,3 +194,8 @@ pas les données métier.
 ## Pour développer ou exploiter ce module
 
 Le [guide technique](technical.md) détaille architecture, configuration, routes, session, persistance, tests et CI/CD. Il décrit les sources de vérité et les étapes de synchronisation des contrats avec les dépôts associés.
+
+
+## Direction visuelle commune — MAIR-547
+
+DA claire option 1 : tokens et police communs, navigation accessible et contenu métier conservé. Voir la [recette visuelle](../qa/design-qa.md) pour les preuves, vérifications et limites RGAA.
