@@ -197,13 +197,13 @@ test('MAIR-316: promote-prod passes the secrets of the RGAA AI pre-audit by name
   }
 });
 
-test('MAIR-316: a local engine copy is fetched again when the cicd_version pin changes', () => {
+test('MAIR-316 / MAIR-768: a local engine copy is fetched again when the cicd_version pin changes', () => {
   const { mkdtempSync, mkdirSync, writeFileSync, readFileSync: readAbs, existsSync, rmSync } = require('node:fs');
   const { execFileSync } = require('node:child_process');
   const { tmpdir } = require('node:os');
   const shell = read('accessibility_test.sh');
   const block = shell.slice(shell.indexOf('CICD_DIR="cicd-repo"'), shell.indexOf('A11Y_RUNNER_IMAGE="$(cat'));
-  const run = (setup) => {
+  const run = (setup, githubActions = '') => {
     const dir = mkdtempSync(join(tmpdir(), 'rgaa-ref-'));
     try {
       mkdirSync(join(dir, '.github/workflows'), { recursive: true });
@@ -212,10 +212,16 @@ test('MAIR-316: a local engine copy is fetched again when the cicd_version pin c
       // Fake git: records the calls; `checkout` lays out the engine like a real fetch would.
       writeFileSync(join(dir, 'bin/git'), '#!/bin/sh\necho "$*" >> "$LOG"\ncase "$*" in *checkout*) mkdir -p cicd-repo/tests/a11y && touch cicd-repo/tests/a11y/run.sh;; esac\n', { mode: 0o755 });
       setup(dir);
-      execFileSync('bash', ['-c', block], { cwd: dir, env: { ...process.env, PATH: `${join(dir, 'bin')}:${process.env.PATH}`, LOG: join(dir, 'git.log'), CICD_VERSION: '' } });
+      let error = '';
+      try {
+        execFileSync('bash', ['-c', block], { cwd: dir, stdio: 'pipe', env: { ...process.env, PATH: `${join(dir, 'bin')}:${process.env.PATH}`, LOG: join(dir, 'git.log'), CICD_VERSION: '', GITHUB_ACTIONS: githubActions } });
+      } catch (failure) {
+        error = String(failure.stderr);
+      }
       const log = existsSync(join(dir, 'git.log')) ? readAbs(join(dir, 'git.log'), 'utf8') : '';
       const ref = existsSync(join(dir, 'cicd-repo/.rgaa-ref')) ? readAbs(join(dir, 'cicd-repo/.rgaa-ref'), 'utf8').trim() : null;
-      return { log, ref };
+      const kept = existsSync(join(dir, 'cicd-repo/tests/a11y/run.sh'));
+      return { log, ref, error, kept };
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -231,9 +237,15 @@ test('MAIR-316: a local engine copy is fetched again when the cicd_version pin c
   const stale = run((dir) => engine(dir, 'old-sha'));
   assert.match(stale.log, /fetch --quiet --depth 1 https:\/\/github\.com\/mairie360\/CICD new-sha/);
   assert.equal(stale.ref, 'new-sha');
-  // Same pin: reused. The CI's own checkout (no marker): reused.
+  // Same pin: reused.
   assert.equal(run((dir) => engine(dir, 'new-sha')).log, '');
-  assert.equal(run((dir) => engine(dir, null)).log, '');
+  // No marker: the CI's own checkout is reused in GitHub Actions; locally the script stops and
+  // keeps the copy, which may be a clone holding local work (MAIR-768).
+  assert.equal(run((dir) => engine(dir, null), 'true').log, '');
+  const unmarked = run((dir) => engine(dir, null));
+  assert.match(unmarked.error, /may hold local work/);
+  assert.equal(unmarked.log, '');
+  assert.ok(unmarked.kept, 'the unmarked copy is not deleted');
 });
 
 test('MAIR-316: the RGAA stack has its own project name and bounded readiness loops', () => {
@@ -252,4 +264,33 @@ test('MAIR-316: the RGAA seed grants Admin only to the accounts it creates', () 
   const seed = read('init-accessibility.sql').replace(/--[^\n]*/g, '');
   assert.doesNotMatch(seed, /WHEN u\.id IN \(10, 11\) THEN 'Admin'/);
   assert.match(seed, /WHEN \(u\.id, u\.email\) IN \(\(10, 'rgaa-admin@mairie360\.fr'\), \(11, 'rgaa-writer@mairie360\.fr'\)\) THEN 'Admin'/);
+});
+
+test('MAIR-768: each accessibility run starts from an empty report, before anything can fail', () => {
+  const shell = read('accessibility_test.sh');
+  const clear = shell.indexOf('{ rm -rf rgaa-report && mkdir -p rgaa-report .rgaa-ai-cache; } || {');
+  assert.ok(clear >= 0, 'accessibility_test.sh clears rgaa-report/ and stops when it cannot');
+  // A failed image build or engine fetch must not leave the previous summary.md behind.
+  assert.ok(clear < shell.indexOf('docker build'), 'before the image build');
+  assert.ok(clear < shell.indexOf('CICD_DIR="cicd-repo"'), 'before the engine fetch');
+});
+
+test('MAIR-768: one accessibility run at a time per checkout', () => {
+  const shell = read('accessibility_test.sh');
+  const lock = shell.indexOf('flock -n 9');
+  assert.ok(lock >= 0, 'accessibility_test.sh takes .rgaa-run.lock');
+  assert.match(shell, /exec 9>"\.rgaa-run\.lock"/);
+  assert.ok(lock < shell.indexOf('rm -rf rgaa-report'), 'before emptying the report');
+  for (const file of ['.gitignore', '.dockerignore']) assert.match(read(file), /^\/?\.rgaa-run\.lock$/m, file);
+});
+
+test('MAIR-768: every readiness probe of the RGAA stack is bounded in time', () => {
+  const compose = read('docker-compose-accessibility.yml');
+  const probes = [...compose.matchAll(/until curl ([^\n]*?) >\/dev\/null/g)].map(([, args]) => args);
+  const loops = [...compose.matchAll(/sh -c 'i=0; until curl[\s\S]*?'\n/g)].map(([loop]) => loop);
+  assert.ok(probes.length > 0, 'the stack waits for its upstreams');
+  // Every probe sits in a counted loop, and one hung request cannot stall it.
+  assert.equal(loops.length, probes.length);
+  for (const loop of loops) assert.match(loop, /if \[ \$\$i -ge \d+ \]; then echo "[^"]+"; exit 1; fi;/);
+  for (const args of probes) assert.match(args, /--max-time \d+/, args);
 });
