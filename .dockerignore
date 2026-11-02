@@ -22,4 +22,5 @@ accessibility_test.sh
 rgaa.yaml
 rgaa-report
 .rgaa-ai-cache
+.rgaa-run.lock
 init-accessibility.sql
