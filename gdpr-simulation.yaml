@@ -16,7 +16,7 @@ erased: 1
 erase:
   - name: archive the persona's account
     request: {method: DELETE, path: "/admin/users/{{user_id}}", headers: &session {Cookie: "accessToken={{env.ADMIN_JWT}}", Origin: "http://administrator-front:5000"}}
-    expect: [204, 404]
+    expect: [204]
 browser:
   target: http://administrator-front:5000
   # Session of the journey: the front relays it to its BFF as a Bearer token.
