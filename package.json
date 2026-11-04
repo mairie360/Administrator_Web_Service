@@ -17,6 +17,9 @@
     "test:node": "node scripts/test-node-coverage.cjs",
     "test:bundle": "node --test tests/bundle/*.test.cjs",
     "test:components": "vitest run",
+    "postinstall": "node vendor/verify-security-backports.mjs --installed",
+    "prebuild": "node vendor/verify-security-backports.mjs --installed",
+    "pretest": "node vendor/verify-security-backports.mjs --installed",
     "e2e:install": "npm --prefix e2e ci && npx --prefix e2e playwright install --with-deps chromium",
     "e2e": "npm --prefix e2e test"
   },
@@ -25,7 +28,7 @@
     "@mairie360/lib-components": "1.0.3",
     "axios": "1.20.0",
     "lucide-react": "^1.0.0",
-    "next": "16.3.8",
+    "next": "16.4.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -37,7 +40,7 @@
     "braces": "file:./vendor/braces",
     "c8": "12.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.3.8",
+    "eslint-config-next": "16.4.2",
     "jsdom": "30.1.1",
     "playwright-core": "1.64.0",
     "tailwindcss": "^4",
@@ -48,7 +51,9 @@
     "@testing-library/user-event": "14.6.7",
     "@vitest/coverage-v8": "5.0.2",
     "jest-axe": "11.0.0",
-    "vitest": "5.0.2"
+    "vitest": "5.0.2",
+    "zod": "file:vendor/zod",
+    "@jridgewell/trace-mapping": "0.3.31"
   },
   "overrides": {
     "braces": "$braces",
@@ -56,6 +61,7 @@
     "next": {
       ".": "$next",
       "sharp": "^0.35.5"
-    }
+    },
+    "zod": "$zod"
   }
 }

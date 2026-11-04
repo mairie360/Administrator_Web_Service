@@ -1,0 +1,30 @@
+# GDPR usage simulation of the administrator front (MAIR-497), played by mairie360/CICD
+# tests/gdpr/simulation on the test stack only (docker-compose-gdpr-simulation.yml,
+# gdpr_simulation_test.sh; format: CICD README, "GDPR simulation").
+#
+# Fictitious personas with unique values go through gdpr-journey.yaml (the admin part of BFF_user's
+# journey) on the front's origin: an account is created, searched, updated and its password reset
+# with their names, e-mails and phone numbers, with deliberate errors. The users tab is then opened
+# in the browser, searched for them: the browser console and storage, the requests and cookies of the
+# pages, the logs of every container, the Redis keys and the database after the purge are then
+# checked and reviewed (CICD analyze.mjs). The erased persona's account is archived after its pages,
+# until the anonymization of MAIR-289.
+version: 1
+journey: gdpr-journey.yaml
+personas: 4
+erased: 1
+erase:
+  - name: archive the persona's account
+    request: {method: DELETE, path: "/admin/users/{{user_id}}", headers: &session {Cookie: "accessToken={{env.ADMIN_JWT}}", Origin: "http://administrator-front:5000"}}
+    expect: [204]
+browser:
+  target: http://administrator-front:5000
+  # Session of the journey: the front relays it to its BFF as a Bearer token.
+  cookies: {accessToken: "{{env.ADMIN_JWT}}"}
+  pages:
+    - name: users searching the persona's e-mail
+      path: "/?tab=users&usersSearch={{marker.email}}"
+    - name: users searching the persona
+      path: "/?tab=users&usersSearch={{marker.last_name}}"
+    - name: sessions
+      path: "/?tab=sessions"
