@@ -49,7 +49,7 @@ test('the legacy required security name runs real immutable blocking scanners', 
   }
   assert.match(job, /fetch-depth: 0/);
   assert.equal([...job.matchAll(/persist-credentials: false/g)].length, 2);
-  assert.match(job, /repository: mairie360\/CICD\s*\n          ref: 34889930cf42b20020d2e2f702a566ef7ebca1ec # v5\.3\.1/);
+  assert.match(job, /repository: mairie360\/CICD\s*\n          ref: ccf7d3acc8c6fb9d5f57b95347e6aceb94df6f69 # v5\.5\.0/);
   assert.match(job, /uses: \.\/cicd-repo\/actions\/security\/semgrep-pypi/);
   assert.match(job, /config: p\/typescript p\/react p\/owasp-top-ten p\/secrets p\/dockerfile p\/github-actions/);
   assert.match(job, /artifact_name: semgrep-required-check-sarif/);
@@ -117,9 +117,9 @@ test('Docker excludes local environments and scan artifacts but retains tracked 
   assert.ok(!ignored.includes('.npmrc') && !ignored.includes('.npmrc*'));
 });
 
-test('all three Compose files send the existing credential only to the frontend build', () => {
+test('all four Compose files send the existing credential only to the frontend build', () => {
   const yaml = require('js-yaml');
-  for (const file of ['docker-compose.yml', 'docker-compose-security.yml', 'docker-compose-performance.yml']) {
+  for (const file of ['docker-compose.yml', 'docker-compose-security.yml', 'docker-compose-performance.yml', 'docker-compose-e2e.yml']) {
     const compose = yaml.load(read(file));
     assert.deepEqual(compose.secrets, { node_auth_token: { environment: 'NODE_AUTH_TOKEN' } });
     assert.deepEqual(compose.services['administrator-front'].build, {
