@@ -1,63 +1,62 @@
 # Journal des releases — Administrator_Web_Service
 
-<!-- release-journal-state {"dev": "376b819c6a9d0600fbf20792169eefa9fa370258", "prod": "bea8f87c96d62cd5c2b1ad0ffcc9cb7f37f30c21", "prod_tag": "v1.2.0", "staging": "bea8f87c96d62cd5c2b1ad0ffcc9cb7f37f30c21", "updated": {"dev": "2026-11-04 21:27 UTC", "prod": "2026-10-21 11:08 UTC", "staging": "2026-10-21 11:00 UTC"}} -->
+<!-- release-journal-state {"dev": "2eee7643454636522027726c336bd940abb2beb8", "prod": "bea8f87c96d62cd5c2b1ad0ffcc9cb7f37f30c21", "prod_tag": "v1.2.0", "staging": "bea8f87c96d62cd5c2b1ad0ffcc9cb7f37f30c21", "updated": {"dev": "2026-11-12 17:06 UTC", "prod": "2026-10-21 11:08 UTC", "staging": "2026-10-21 11:00 UTC"}} -->
 > Tenu à jour par la CI (`mairie360/CICD`, action `release/release-journal`) à chaque passage en dev, staging et prod. Ne pas modifier à la main : le fichier est réécrit au passage suivant.
 
 | Environnement | Version | Commit | Mis à jour |
 | --- | --- | --- | --- |
 | prod | v1.2.0 | `bea8f87` | 2026-10-21 11:08 UTC |
 | staging | — | `bea8f87` | 2026-10-21 11:00 UTC |
-| dev | — | `376b819` | 2026-11-04 21:27 UTC |
+| dev | — | `2eee764` | 2026-11-12 17:06 UTC |
 
 ## Ajouté sur main depuis la dernière release prod (v1.2.0)
 
-#### Changements de comportement
-- Les onglets de la console utilisent des identifiants `administration-tab-<clé>`. (MAIR-608, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
-- L'onglet Sessions affiche le `SessionList` de la lib, avec les mêmes colonnes (appareil, IP, création, expiration, état) et les mêmes états chargement, vide et indisponible. La table locale est supprimée. (MAIR-608, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
-- La barre latérale et l'en-tête viennent de `AccessibleShell` de la lib ; les modules dont l'URL `*_FRONT_URL` n'est pas configurée sont masqués. (MAIR-608, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
-- Les écrans de la console utilisent les composants normalisés de la lib (en-tête, onglets, boutons, alertes, toasts, pagination). (MAIR-608, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
-
-#### Technique
-- Parcours E2E Playwright (administration, refus pour un utilisateur sans droits) avec `docker-compose-e2e.yml`, `e2e_test.sh` et le job `e2e_tests` de la promotion prod. (MAIR-603, [#225](https://github.com/mairie360/Administrator_Web_Service/pull/225))
-- Gitleaks : allowlist limitée aux digests SHA-256 de `vendor/security-patches.json`, test de politique et manifeste canonique. (MAIR-743, [#243](https://github.com/mairie360/Administrator_Web_Service/pull/243))
-- Backport zod vendu (`file:vendor/zod`), vérifications d'intégrité hors ligne en `postinstall`, `prebuild` et `pretest`, preuve de bundle par source maps en CI. (MAIR-770, [#236](https://github.com/mairie360/Administrator_Web_Service/pull/236))
-- Dépendances : `follow-redirects` 1.16.2 (GHSA-mrwp-f3q8-3g9p) et test de politique associé. (sans ticket, [#234](https://github.com/mairie360/Administrator_Web_Service/pull/234))
-- Dépendances : Next.js et `eslint-config-next` en 16.4.2, Node 24.22.1 avec image de base patchée. (sans ticket, [#227](https://github.com/mairie360/Administrator_Web_Service/pull/227))
-- Simulation d'usage RGPD (`docker-compose-gdpr-simulation.yml`, `gdpr_simulation_test.sh`, `gdpr-simulation.yaml`) et correctifs du script. (MAIR-497, [#240](https://github.com/mairie360/Administrator_Web_Service/pull/240), [#241](https://github.com/mairie360/Administrator_Web_Service/pull/241))
-- Stack d'accessibilité RGAA (`accessibility_test.sh`, `docker-compose-accessibility.yml`, `init-accessibility.sql`, `rgaa.yaml`), répertoire de rapport vidé à chaque run et verrou de run. (MAIR-316, [#153](https://github.com/mairie360/Administrator_Web_Service/pull/153) ; MAIR-768, [#232](https://github.com/mairie360/Administrator_Web_Service/pull/232))
-- Checklist RGPD des pull requests (`gdpr-pr.yml`). (MAIR-295, [#158](https://github.com/mairie360/Administrator_Web_Service/pull/158))
-- Pins de mairie360/CICD : v5.2.2, puis v5.3.0, v5.3.1 et v5.5.0 dans les workflows. (MAIR-771, [#238](https://github.com/mairie360/Administrator_Web_Service/pull/238) ; [#240](https://github.com/mairie360/Administrator_Web_Service/pull/240) ; [#241](https://github.com/mairie360/Administrator_Web_Service/pull/241) ; [#225](https://github.com/mairie360/Administrator_Web_Service/pull/225))
-- Renovate : mise à jour de mairie360/CICD v4.4.3 vers v4.5.0, remplacée ensuite par les pins suivants. ([#226](https://github.com/mairie360/Administrator_Web_Service/pull/226))
+- fix: MAIR-816 Release dev: align internal versions and deploy ([#247](https://github.com/mairie360/Administrator_Web_Service/pull/247))
+- chore(deps): update dependency mairie360/cicd to v5.6.0 (#245) ([#245](https://github.com/mairie360/Administrator_Web_Service/pull/245))
+- feat: MAIR-603 E2E - Parcours utilisateurs Playwright des fronts (#225) ([#225](https://github.com/mairie360/Administrator_Web_Service/pull/225))
+- fix: MAIR-743 [Audit 30/10] Login, Calendars, Elearning, Projects: branch Gitleaks fingerprints invalid after squash, main likely red (N1) (#243) ([#243](https://github.com/mairie360/Administrator_Web_Service/pull/243))
+- fix: MAIR-497 GDPR - Usage simulation and AI review of logs and database before prod ([#241](https://github.com/mairie360/Administrator_Web_Service/pull/241))
+- feat: MAIR-497 RGPD - Simulation d'usage et revue IA des logs et de la base avant la prod ([#240](https://github.com/mairie360/Administrator_Web_Service/pull/240))
+- ci: MAIR-771 APIs, BFFs, Database : monter CICD en v5.2.2 pour activer les contrôles RGPD (#238) ([#238](https://github.com/mairie360/Administrator_Web_Service/pull/238))
+- fix(security): MAIR-770 Administrator, Dashboard, Messages, Settings : porter le correctif zod et la preuve de bundle par source maps ([#236](https://github.com/mairie360/Administrator_Web_Service/pull/236))
+- fix(deps): bump follow-redirects to 1.16.2 (GHSA-mrwp-f3q8-3g9p) ([#234](https://github.com/mairie360/Administrator_Web_Service/pull/234))
+- fix: MAIR-768 RGAA - Aligner les stacks d'accessibilité des fronts mergés en premier ([#232](https://github.com/mairie360/Administrator_Web_Service/pull/232))
+- feat: MAIR-316 RGAA - Périmètre et états des pages par front (#153) ([#153](https://github.com/mairie360/Administrator_Web_Service/pull/153))
+- ci: MAIR-295 Ajouter une checklist RGPD aux PR et des rappels d'échéances automatiques (#158) ([#158](https://github.com/mairie360/Administrator_Web_Service/pull/158))
+- chore(deps): update dependency mairie360/cicd to v4.5.0 (#226) ([#226](https://github.com/mairie360/Administrator_Web_Service/pull/226))
+- fix(security): patch Node.js and Next.js (#227) ([#227](https://github.com/mairie360/Administrator_Web_Service/pull/227))
+- feat!: MAIR-608 Lib UI - Normaliser la charte, les tailles et les composants partagés des fronts ([#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
 
 ## Différence dev → staging (en dev, pas encore en staging)
 
-#### Changements de comportement
-- Les onglets de la console utilisent des identifiants `administration-tab-<clé>`. (MAIR-608, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
-- L'onglet Sessions affiche le `SessionList` de la lib, avec les mêmes colonnes (appareil, IP, création, expiration, état) et les mêmes états chargement, vide et indisponible. La table locale est supprimée. (MAIR-608, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
-- La barre latérale et l'en-tête viennent de `AccessibleShell` de la lib ; les modules dont l'URL `*_FRONT_URL` n'est pas configurée sont masqués. (MAIR-608, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
-- Les écrans de la console utilisent les composants normalisés de la lib (en-tête, onglets, boutons, alertes, toasts, pagination). (MAIR-608, [#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
-
-#### Technique
-- Parcours E2E Playwright (administration, refus pour un utilisateur sans droits) avec `docker-compose-e2e.yml`, `e2e_test.sh` et le job `e2e_tests` de la promotion prod. (MAIR-603, [#225](https://github.com/mairie360/Administrator_Web_Service/pull/225))
-- Gitleaks : allowlist limitée aux digests SHA-256 de `vendor/security-patches.json`, test de politique et manifeste canonique. (MAIR-743, [#243](https://github.com/mairie360/Administrator_Web_Service/pull/243))
-- Backport zod vendu (`file:vendor/zod`), vérifications d'intégrité hors ligne en `postinstall`, `prebuild` et `pretest`, preuve de bundle par source maps en CI. (MAIR-770, [#236](https://github.com/mairie360/Administrator_Web_Service/pull/236))
-- Dépendances : `follow-redirects` 1.16.2 (GHSA-mrwp-f3q8-3g9p) et test de politique associé. (sans ticket, [#234](https://github.com/mairie360/Administrator_Web_Service/pull/234))
-- Dépendances : Next.js et `eslint-config-next` en 16.4.2, Node 24.22.1 avec image de base patchée. (sans ticket, [#227](https://github.com/mairie360/Administrator_Web_Service/pull/227))
-- Simulation d'usage RGPD (`docker-compose-gdpr-simulation.yml`, `gdpr_simulation_test.sh`, `gdpr-simulation.yaml`) et correctifs du script. (MAIR-497, [#240](https://github.com/mairie360/Administrator_Web_Service/pull/240), [#241](https://github.com/mairie360/Administrator_Web_Service/pull/241))
-- Stack d'accessibilité RGAA (`accessibility_test.sh`, `docker-compose-accessibility.yml`, `init-accessibility.sql`, `rgaa.yaml`), répertoire de rapport vidé à chaque run et verrou de run. (MAIR-316, [#153](https://github.com/mairie360/Administrator_Web_Service/pull/153) ; MAIR-768, [#232](https://github.com/mairie360/Administrator_Web_Service/pull/232))
-- Checklist RGPD des pull requests (`gdpr-pr.yml`). (MAIR-295, [#158](https://github.com/mairie360/Administrator_Web_Service/pull/158))
-- Pins de mairie360/CICD : v5.2.2, puis v5.3.0, v5.3.1 et v5.5.0 dans les workflows. (MAIR-771, [#238](https://github.com/mairie360/Administrator_Web_Service/pull/238) ; [#240](https://github.com/mairie360/Administrator_Web_Service/pull/240) ; [#241](https://github.com/mairie360/Administrator_Web_Service/pull/241) ; [#225](https://github.com/mairie360/Administrator_Web_Service/pull/225))
-- Renovate : mise à jour de mairie360/CICD v4.4.3 vers v4.5.0, remplacée ensuite par les pins suivants. ([#226](https://github.com/mairie360/Administrator_Web_Service/pull/226))
+- fix: MAIR-816 Release dev: align internal versions and deploy ([#247](https://github.com/mairie360/Administrator_Web_Service/pull/247))
+- chore(deps): update dependency mairie360/cicd to v5.6.0 (#245) ([#245](https://github.com/mairie360/Administrator_Web_Service/pull/245))
+- feat: MAIR-603 E2E - Parcours utilisateurs Playwright des fronts (#225) ([#225](https://github.com/mairie360/Administrator_Web_Service/pull/225))
+- fix: MAIR-743 [Audit 30/10] Login, Calendars, Elearning, Projects: branch Gitleaks fingerprints invalid after squash, main likely red (N1) (#243) ([#243](https://github.com/mairie360/Administrator_Web_Service/pull/243))
+- fix: MAIR-497 GDPR - Usage simulation and AI review of logs and database before prod ([#241](https://github.com/mairie360/Administrator_Web_Service/pull/241))
+- feat: MAIR-497 RGPD - Simulation d'usage et revue IA des logs et de la base avant la prod ([#240](https://github.com/mairie360/Administrator_Web_Service/pull/240))
+- ci: MAIR-771 APIs, BFFs, Database : monter CICD en v5.2.2 pour activer les contrôles RGPD (#238) ([#238](https://github.com/mairie360/Administrator_Web_Service/pull/238))
+- fix(security): MAIR-770 Administrator, Dashboard, Messages, Settings : porter le correctif zod et la preuve de bundle par source maps ([#236](https://github.com/mairie360/Administrator_Web_Service/pull/236))
+- fix(deps): bump follow-redirects to 1.16.2 (GHSA-mrwp-f3q8-3g9p) ([#234](https://github.com/mairie360/Administrator_Web_Service/pull/234))
+- fix: MAIR-768 RGAA - Aligner les stacks d'accessibilité des fronts mergés en premier ([#232](https://github.com/mairie360/Administrator_Web_Service/pull/232))
+- feat: MAIR-316 RGAA - Périmètre et états des pages par front (#153) ([#153](https://github.com/mairie360/Administrator_Web_Service/pull/153))
+- ci: MAIR-295 Ajouter une checklist RGPD aux PR et des rappels d'échéances automatiques (#158) ([#158](https://github.com/mairie360/Administrator_Web_Service/pull/158))
+- chore(deps): update dependency mairie360/cicd to v4.5.0 (#226) ([#226](https://github.com/mairie360/Administrator_Web_Service/pull/226))
+- fix(security): patch Node.js and Next.js (#227) ([#227](https://github.com/mairie360/Administrator_Web_Service/pull/227))
+- feat!: MAIR-608 Lib UI - Normaliser la charte, les tailles et les composants partagés des fronts ([#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
 
 ## Différence staging → prod (en staging, pas encore en prod)
 
 _Rien._
+
+> Résumé Claude indisponible pour ce passage : listes brutes des commits.
 
 ## Historique des passages
 
 <!-- release-journal-history:start -->
 | Date | Environnement | Version | Commit | Run |
 | --- | --- | --- | --- | --- |
+| 2026-11-12 17:06 UTC | dev | — | `2eee764` | [run](https://github.com/mairie360/Administrator_Web_Service/actions/runs/43264127284) |
 | 2026-11-04 21:27 UTC | dev | — | `376b819` | [run](https://github.com/mairie360/Administrator_Web_Service/actions/runs/41914656130) |
 | 2026-11-04 18:38 UTC | dev | — | `6d839f4` | [run](https://github.com/mairie360/Administrator_Web_Service/actions/runs/41887966406) |
 | 2026-11-04 18:19 UTC | dev | — | `2daa38f` | [run](https://github.com/mairie360/Administrator_Web_Service/actions/runs/41882871131) |
