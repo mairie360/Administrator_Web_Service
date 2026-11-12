@@ -1,12 +1,12 @@
 # Journal des releases — Administrator_Web_Service
 
-<!-- release-journal-state {"dev": "2eee7643454636522027726c336bd940abb2beb8", "prod": "bea8f87c96d62cd5c2b1ad0ffcc9cb7f37f30c21", "prod_tag": "v1.2.0", "staging": "bea8f87c96d62cd5c2b1ad0ffcc9cb7f37f30c21", "updated": {"dev": "2026-11-12 17:06 UTC", "prod": "2026-10-21 11:08 UTC", "staging": "2026-10-21 11:00 UTC"}} -->
+<!-- release-journal-state {"dev": "2eee7643454636522027726c336bd940abb2beb8", "prod": "bea8f87c96d62cd5c2b1ad0ffcc9cb7f37f30c21", "prod_tag": "v1.2.0", "staging": "2eee7643454636522027726c336bd940abb2beb8", "updated": {"dev": "2026-11-12 17:06 UTC", "prod": "2026-10-21 11:08 UTC", "staging": "2026-11-12 19:05 UTC"}} -->
 > Tenu à jour par la CI (`mairie360/CICD`, action `release/release-journal`) à chaque passage en dev, staging et prod. Ne pas modifier à la main : le fichier est réécrit au passage suivant.
 
 | Environnement | Version | Commit | Mis à jour |
 | --- | --- | --- | --- |
 | prod | v1.2.0 | `bea8f87` | 2026-10-21 11:08 UTC |
-| staging | — | `bea8f87` | 2026-10-21 11:00 UTC |
+| staging | — | `2eee764` | 2026-11-12 19:05 UTC |
 | dev | — | `2eee764` | 2026-11-12 17:06 UTC |
 
 ## Ajouté sur main depuis la dernière release prod (v1.2.0)
@@ -29,6 +29,10 @@
 
 ## Différence dev → staging (en dev, pas encore en staging)
 
+_Rien._
+
+## Différence staging → prod (en staging, pas encore en prod)
+
 - fix: MAIR-816 Release dev: align internal versions and deploy ([#247](https://github.com/mairie360/Administrator_Web_Service/pull/247))
 - chore(deps): update dependency mairie360/cicd to v5.6.0 (#245) ([#245](https://github.com/mairie360/Administrator_Web_Service/pull/245))
 - feat: MAIR-603 E2E - Parcours utilisateurs Playwright des fronts (#225) ([#225](https://github.com/mairie360/Administrator_Web_Service/pull/225))
@@ -45,10 +49,6 @@
 - fix(security): patch Node.js and Next.js (#227) ([#227](https://github.com/mairie360/Administrator_Web_Service/pull/227))
 - feat!: MAIR-608 Lib UI - Normaliser la charte, les tailles et les composants partagés des fronts ([#218](https://github.com/mairie360/Administrator_Web_Service/pull/218))
 
-## Différence staging → prod (en staging, pas encore en prod)
-
-_Rien._
-
 > Résumé Claude indisponible pour ce passage : listes brutes des commits.
 
 ## Historique des passages
@@ -56,6 +56,7 @@ _Rien._
 <!-- release-journal-history:start -->
 | Date | Environnement | Version | Commit | Run |
 | --- | --- | --- | --- | --- |
+| 2026-11-12 19:05 UTC | staging | — | `2eee764` | [run](https://github.com/mairie360/Administrator_Web_Service/actions/runs/43285853601) |
 | 2026-11-12 17:06 UTC | dev | — | `2eee764` | [run](https://github.com/mairie360/Administrator_Web_Service/actions/runs/43264127284) |
 | 2026-11-04 21:27 UTC | dev | — | `376b819` | [run](https://github.com/mairie360/Administrator_Web_Service/actions/runs/41914656130) |
 | 2026-11-04 18:38 UTC | dev | — | `6d839f4` | [run](https://github.com/mairie360/Administrator_Web_Service/actions/runs/41887966406) |
