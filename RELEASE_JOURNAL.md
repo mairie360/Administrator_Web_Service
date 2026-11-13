@@ -1,31 +1,34 @@
 # Journal des releases — Administrator_Web_Service
 
-<!-- release-journal-state {"dev": "2eee7643454636522027726c336bd940abb2beb8", "prod": "2eee7643454636522027726c336bd940abb2beb8", "prod_tag": "v1.3.0", "staging": "2eee7643454636522027726c336bd940abb2beb8", "updated": {"dev": "2026-11-12 17:06 UTC", "prod": "2026-11-13 01:40 UTC", "staging": "2026-11-12 19:05 UTC"}} -->
+<!-- release-journal-state {"dev": "ac2fbdcdb9d147dcab71840a55dd40f6c9e9e56a", "prod": "2eee7643454636522027726c336bd940abb2beb8", "prod_tag": "v1.3.0", "staging": "2eee7643454636522027726c336bd940abb2beb8", "updated": {"dev": "2026-11-13 05:22 UTC", "prod": "2026-11-13 01:40 UTC", "staging": "2026-11-12 19:05 UTC"}} -->
 > Tenu à jour par la CI (`mairie360/CICD`, action `release/release-journal`) à chaque passage en dev, staging et prod. Ne pas modifier à la main : le fichier est réécrit au passage suivant.
 
 | Environnement | Version | Commit | Mis à jour |
 | --- | --- | --- | --- |
 | prod | v1.3.0 | `2eee764` | 2026-11-13 01:40 UTC |
 | staging | — | `2eee764` | 2026-11-12 19:05 UTC |
-| dev | — | `2eee764` | 2026-11-12 17:06 UTC |
+| dev | — | `ac2fbdc` | 2026-11-13 05:22 UTC |
 
 ## Ajouté sur main depuis la dernière release prod (v1.3.0)
 
-_Rien._
+- chore(deps): update ghcr.io/mairie360/core-api docker tag to v2.3.0 (#249) ([#249](https://github.com/mairie360/Administrator_Web_Service/pull/249))
 
 ## Différence dev → staging (en dev, pas encore en staging)
 
-_Rien._
+- chore(deps): update ghcr.io/mairie360/core-api docker tag to v2.3.0 (#249) ([#249](https://github.com/mairie360/Administrator_Web_Service/pull/249))
 
 ## Différence staging → prod (en staging, pas encore en prod)
 
 _Rien._
+
+> Résumé Claude indisponible pour ce passage : listes brutes des commits.
 
 ## Historique des passages
 
 <!-- release-journal-history:start -->
 | Date | Environnement | Version | Commit | Run |
 | --- | --- | --- | --- | --- |
+| 2026-11-13 05:22 UTC | dev | — | `ac2fbdc` | [run](https://github.com/mairie360/Administrator_Web_Service/actions/runs/43370239537) |
 | 2026-11-13 01:40 UTC | prod | v1.3.0 | `2eee764` | [run](https://github.com/mairie360/Administrator_Web_Service/actions/runs/43340537983) |
 | 2026-11-12 19:05 UTC | staging | — | `2eee764` | [run](https://github.com/mairie360/Administrator_Web_Service/actions/runs/43285853601) |
 | 2026-11-12 17:06 UTC | dev | — | `2eee764` | [run](https://github.com/mairie360/Administrator_Web_Service/actions/runs/43264127284) |
