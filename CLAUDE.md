@@ -15,12 +15,15 @@ npm ci
 npm run dev -- --port 5000         # needs the BFF(s) reachable, see "BFF URL" below
 npm run build && npm run start -- --port 5000
 npm run lint                             # next lint (next/core-web-vitals + next/typescript)
-npm test                                 # node:test on tests/*.test.cjs + lcov in coverage/lcov.info (what CI runs)
-npm run test:contracts                   # same tests, no coverage
+npm test                                 # node:test on tests/*.test.cjs, then the Vitest component tests + lcov in coverage/lcov.info (what CI runs)
+npm run test:contracts                   # node:test files only, no coverage
+npm run test:components                  # Vitest + jsdom component tests only
 node --test --test-name-pattern="<name>" tests/proxy.test.cjs   # single test
 ```
 
-Tests are plain CommonJS `node:test` files matching `tests/*.test.cjs` (no Jest/Vitest, no DOM). `npm test` fails below 60% lines/branches/functions, but node only measures `src/` modules a test actually loads (`src/app/page.tsx` and `administration-console.tsx` are loaded by `administration-page-html.bff-mock.test.cjs` only).
+Tests are plain CommonJS `node:test` files matching `tests/*.test.cjs` (no Jest, no DOM in these files). `npm test` fails below 60% lines/branches/functions, but node only measures `src/` modules a test actually loads (`src/app/page.tsx` and `administration-console.tsx` are loaded by `administration-page-html.bff-mock.test.cjs` only).
+
+Component tests are separate and run by `npm test` after the node tests (`npm run test:components`): Vitest + jsdom + Testing Library (`vitest run`), co-located `Name.test.tsx` files under `src/` (see *Component tree convention*), configured by `vitest.config.mjs` with `tests/component/setup.js`.
 
 - `proxy.test.cjs` / `security-headers.test.cjs` use a minimal inline `require.extensions['.ts']` hook that does **not** resolve `@/*`, and stub `global.fetch`.
 - `*.bff-mock.test.cjs` and `network-contract.test.cjs` use `tests/support/`: `loadTs()` (transpiles TS, resolves `@/*`, can stub modules such as `react` to run `useAuthSession` without a DOM), `ContractMockServer` (a real HTTP fake BFF User driven by `contracts/openapi.json` via `bff-user-contract.cjs`, same validator as `BFF_user/tests/support`) and `FrontHarness` (replaces `global.fetch`: relative URLs go through `middleware.ts` then the matching `src/app/**/route.ts`, absolute URLs are allowed only to the mock; `useBffUrl()` sets exactly one BFF URL variable). Each test asserts `bff.violations` and `front.violations` are empty, so an out-of-contract request/response, an unmocked call or a call to another host fails it. The package contract only types `2XX` (plus `412` on login), so every error reply must use `bffError(status)` (`outOfContract: true`); success replies must match their schema (204/205/304 bodies are not checked).
