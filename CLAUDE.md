@@ -15,13 +15,13 @@ npm ci
 npm run dev -- --port 5000         # needs the BFF(s) reachable, see "BFF URL" below
 npm run build && npm run start -- --port 5000
 npm run lint                             # next lint (next/core-web-vitals + next/typescript)
-npm test                                 # node:test on tests/*.test.cjs, then the Vitest component tests + lcov in coverage/lcov.info (what CI runs)
+npm test                                 # node:test on tests/*.test.cjs (lcov in coverage/lcov.info), then the Vitest component tests (what CI runs)
 npm run test:contracts                   # node:test files only, no coverage
 npm run test:components                  # Vitest + jsdom component tests only
 node --test --test-name-pattern="<name>" tests/proxy.test.cjs   # single test
 ```
 
-Tests are plain CommonJS `node:test` files matching `tests/*.test.cjs` (no Jest, no DOM in these files). `npm test` fails below 60% lines/branches/functions, but node only measures `src/` modules a test actually loads (`src/app/page.tsx` and `administration-console.tsx` are loaded by `administration-page-html.bff-mock.test.cjs` only).
+Tests are plain CommonJS `node:test` files matching `tests/*.test.cjs` (no Jest, no DOM in these files). `npm test` fails below 60% lines/branches/functions, and the node coverage report must list every `src/**/*.ts(x)` source: a file no test loads is reported missing and fails, as does a file under 60% lines (`scripts/source-coverage.cjs`). `src/app/page.tsx` and `administration-console.tsx` are loaded by `administration-page-html.bff-mock.test.cjs` only.
 
 Component tests are separate and run by `npm test` after the node tests (`npm run test:components`): Vitest + jsdom + Testing Library (`vitest run`), co-located `Name.test.tsx` files under `src/` (see *Component tree convention*), configured by `vitest.config.mjs` with `tests/component/setup.js`.
 
