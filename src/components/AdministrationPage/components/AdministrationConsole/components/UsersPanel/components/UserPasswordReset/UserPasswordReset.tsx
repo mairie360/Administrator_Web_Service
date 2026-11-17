@@ -7,6 +7,7 @@ import AdministrationMutationForm from '@/components/AdministrationPage/componen
 import { ActionButton } from '@/components/AdministrationPage/components/ActionButton';
 import { Field } from '@/components/AdministrationPage/components/Field';
 import { inputClassName } from '@/components/AdministrationPage/controls';
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PASSWORD_POLICY_HINT } from '@/lib/text-constraints';
 
 export interface PasswordDraft { password: string; confirmation: string }
 
@@ -19,14 +20,14 @@ export const UserPasswordReset = ({ form, busy, onChange, onSubmit }: { form: Pa
         <PanelTitle className="flex items-center gap-2"><Icon icon={KeyRound} size="s" className="text-[var(--mairie-accent)]" />Réinitialiser le mot de passe</PanelTitle>
         <Help size="xs" className="mt-1.5">Définissez le nouveau mot de passe. Toutes les sessions actives seront déconnectées et l’utilisateur devra se reconnecter avec celui-ci.</Help>
       </div>
-      <Field label="Nouveau mot de passe" htmlFor="reset-password">
-        <input id="reset-password" type="password" minLength={8} maxLength={255} required autoComplete="new-password" className={inputClassName} value={form.password} onChange={(event) => onChange({ ...form, password: event.target.value })} />
+      <Field label="Nouveau mot de passe" htmlFor="reset-password" hint={PASSWORD_POLICY_HINT}>
+        <input id="reset-password" type="password" minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} required autoComplete="new-password" className={inputClassName} value={form.password} onChange={(event) => onChange({ ...form, password: event.target.value })} />
       </Field>
       <Field label="Confirmer le mot de passe" htmlFor="reset-password-confirmation">
-        <input id="reset-password-confirmation" type="password" minLength={8} maxLength={255} required autoComplete="new-password" aria-invalid={mismatch} aria-describedby={mismatch ? "password-mismatch" : undefined} className={inputClassName} value={form.confirmation} onChange={(event) => onChange({ ...form, confirmation: event.target.value })} />
+        <input id="reset-password-confirmation" type="password" minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} required autoComplete="new-password" aria-invalid={mismatch} aria-describedby={mismatch ? "password-mismatch" : undefined} className={inputClassName} value={form.confirmation} onChange={(event) => onChange({ ...form, confirmation: event.target.value })} />
       </Field>
       {mismatch && <ErrorText id="password-mismatch" role="alert" size="xs">Les deux mots de passe ne correspondent pas.</ErrorText>}
-      <ActionButton type="submit" variant="secondary" fullWidth icon={KeyRound} disabled={form.password.length < 8 || form.password !== form.confirmation} busy={busy}>Réinitialiser le mot de passe</ActionButton>
+      <ActionButton type="submit" variant="secondary" fullWidth icon={KeyRound} disabled={Array.from(form.password).length < PASSWORD_MIN_LENGTH || form.password !== form.confirmation} busy={busy}>Réinitialiser le mot de passe</ActionButton>
     </AdministrationMutationForm>
   );
 };

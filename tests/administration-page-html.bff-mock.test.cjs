@@ -1346,7 +1346,9 @@ test('user, role and group inputs carry the contract constraints with French hin
   }
   assert.equal(field('create-email').maxLength, 320);
   assert.deepEqual([field('create-phone').maxLength, field('create-phone').pattern, field('create-phone').title], [32, constraints.PHONE_PATTERN, constraints.PHONE_HINT]);
-  assert.deepEqual([field('create-password').minLength, field('create-password').maxLength], [8, 255]);
+  assert.deepEqual([field('create-password').minLength, field('create-password').maxLength], [12, 255]);
+  // MAIR-757: the policy of Core API is shown under the field.
+  assert.match(view.text(), /12 caractères minimum\. Pas de mot de passe courant, ni l’adresse e-mail, le prénom ou le nom de l’utilisateur\./);
   assert.match(view.html, /<input id="create-first-name"[^>]*maxLength="64"[^>]*pattern="\[\^&lt;&gt;\]\*"[^>]*title="Les caractères &lt; et &gt; ne sont pas autorisés\."/);
 
   await view.click((props, text) => props.role === 'tab' && text === 'Rôles');

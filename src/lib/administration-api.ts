@@ -8,7 +8,9 @@ import type {
 } from "@mairie360/bff-user-openapi/model";
 import type { GetAdminUsersParams } from "@mairie360/bff-user-openapi/model";
 import { parseUsersPage, parseRoles, parseGroups, parseSessions } from "./administration-response";
-import { bffUser } from "./bff-client";
+import { BffRequestError, bffUser } from "./bff-client";
+import { PasswordPolicyError } from "./administration-error";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "./text-constraints";
 
 // Modèles du contrat publié de BFF User (@mairie360/bff-user-openapi, version exacte de package.json).
 export type {
@@ -50,10 +52,21 @@ export type GroupInput = {
 // Bornes imposées par le contrat BFF User (AdminUserListQuery, AdminUserPasswordResetBody,
 // AdminGroupPatchBody) : vérifiées avant l'appel pour éviter un 400 sans message exploitable.
 const SEARCH_MAX_LENGTH = 100;
-const PASSWORD_MIN_LENGTH = 8;
-const PASSWORD_MAX_LENGTH = 255;
 const GROUP_NAME_MAX_LENGTH = 64;
 const GROUP_DESCRIPTION_MAX_LENGTH = 2000;
+
+/**
+ * MAIR-757: a 400 without field details on a password write is Core API refusing the password (common one, or holding
+ * the user's e-mail or names): the BFF keeps the status but not Core's text, so the whole policy is shown.
+ */
+async function passwordWrite(call: Promise<unknown>, alsoCheck?: string): Promise<void> {
+  try {
+    await call;
+  } catch (error) {
+    if (error instanceof BffRequestError && error.status === 400 && error.details.length === 0) throw new PasswordPolicyError(alsoCheck);
+    throw error;
+  }
+}
 
 /** Awaits a generated operation whose response carries no body. */
 async function done(call: Promise<unknown>): Promise<void> {
@@ -218,7 +231,9 @@ export function createAdministrationApi(client: typeof bffUser = bffUser) {
     },
 
     createUser(input: CreateUserInput) {
-      return done(client.postAdminUsers(input));
+      boundedText(input.password, "Le mot de passe", { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH });
+      // Core API also answers a detail-less 400 for a phone number invalid for its country.
+      return passwordWrite(client.postAdminUsers(input), input.phone_number ? "le numéro de téléphone" : undefined);
     },
 
     updateUser(userId: number, input: UpdateUserInput) {
@@ -228,7 +243,7 @@ export function createAdministrationApi(client: typeof bffUser = bffUser) {
     resetUserPassword(userId: number, newPassword: string) {
       const resolvedUserId = positiveInteger(userId, "L’identifiant utilisateur");
       boundedText(newPassword, "Le mot de passe", { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH });
-      return done(client.patchAdminUsersUserIdPassword(resolvedUserId, { new_password: newPassword }));
+      return passwordWrite(client.patchAdminUsersUserIdPassword(resolvedUserId, { new_password: newPassword }));
     },
 
     deleteUser(userId: number) {
