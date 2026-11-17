@@ -91,21 +91,17 @@ describe('published BFF User contract', () => {
     assert.deepEqual(snapshot, buildOrvalOpenApi(BFF_USER_PACKAGE, ROOT));
   });
 
-  test('every Docker stack starts BFF User as its only BFF, in the image built from the contract package commit', async () => {
-    const { imageTagForContractVersion } = await import('../scripts/contract-version.mjs');
-    const expected = `ghcr.io/mairie360/bff-user:${imageTagForContractVersion(pinned)}`;
+  test('MAIR-998 every Docker stack starts BFF User as its only BFF, on the moving tag of the stage', () => {
+    const expected = 'ghcr.io/mairie360/bff-user:${UPSTREAM_TAG:-dev}';
     for (const file of fs.readdirSync(ROOT).filter((name) => /^docker-compose.*\.ya?ml$/.test(name))) {
-      const images = composePolicy.bffImages(composePolicy.compose(file));
+      const images = composePolicy.bffImageRefs(composePolicy.compose(file));
       assert.ok(images.length > 0 && images.every(image => image === expected), `${file}: ${images.join(', ')} (attendu ${expected})`);
     }
   });
 
-  test('the contract version policy accepts releases, dev and staging packages and maps them to image tags', async () => {
-    const { isAcceptedContractVersion, imageTagForContractVersion } = await import('../scripts/contract-version.mjs');
-    assert.equal(imageTagForContractVersion('0.5.0'), '0.5.0');
-    assert.equal(imageTagForContractVersion('0.0.0-dev.0d80ef4e08e8db73ec2832911f42e75ae990a8d3'), 'dev-0d80ef4');
+  test('the contract version policy accepts releases, dev and staging packages', async () => {
+    const { isAcceptedContractVersion } = await import('../scripts/contract-version.mjs');
     assert.equal(isAcceptedContractVersion('0.0.0-staging.0d80ef4e08e8db73ec2832911f42e75ae990a8d3'), true);
-    assert.equal(imageTagForContractVersion('0.0.0-staging.0d80ef4e08e8db73ec2832911f42e75ae990a8d3'), 'staging-0d80ef4');
     for (const rejected of ['^0.5.0', '0.5', '0.0.0-staging.0d80ef4', '0.0.0-dev.0d80ef4', 'latest']) {
       assert.equal(isAcceptedContractVersion(rejected), false, rejected);
     }
