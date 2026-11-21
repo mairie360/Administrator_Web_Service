@@ -35,9 +35,20 @@ export function describeValidationDetail({ path, message }: BffErrorDetail): str
   return field ? `${FIELD_LABELS[field] ?? field} : ${text}` : text;
 }
 
+/** Core API refused the password (MAIR-757); `alsoCheck` names another field Core may have refused without details. */
+export class PasswordPolicyError extends Error {
+  constructor(alsoCheck?: string) {
+    super(
+      "Le mot de passe n’est pas accepté : utilisez au moins 12 caractères, évitez les mots de passe courants et n’y mettez ni l’adresse e-mail, ni le prénom, ni le nom de l’utilisateur."
+        + (alsoCheck ? ` Vérifiez aussi ${alsoCheck}.` : ""),
+    );
+    this.name = "PasswordPolicyError";
+  }
+}
+
 /** Keep service diagnostics out of the administrator-facing interface. */
 export function administrationErrorMessage(error: unknown): string {
-  if (error instanceof InvalidAdministrationResponseError) return error.message;
+  if (error instanceof InvalidAdministrationResponseError || error instanceof PasswordPolicyError) return error.message;
   if (error instanceof BffRequestError) {
     switch (error.status) {
       case 401:
