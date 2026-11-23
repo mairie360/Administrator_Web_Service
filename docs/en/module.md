@@ -48,8 +48,9 @@ This frontend presentation does not certify deployed permissions or persistence.
 
 The user, role and group forms carry the rules of the published contract: names of
 at most 64 characters without `<` or `>`, e-mail up to 320, phone up to 32 characters
-made of digits, spaces, `.`, `-`, `(`, `)` and an optional leading `+`, password of 8 to
-255 characters, descriptions up to 2 000. The browser refuses an invalid value with a
+made of digits, spaces, `.`, `-`, `(`, `)` and an optional leading `+`, temporary
+password of a new account of 12 to 255 characters (an administrator never changes the
+password of an existing account: the agent uses « Mot de passe oublié »), descriptions up to 2 000. The browser refuses an invalid value with a
 French hint before any request. A 400 that still arrives with field details is explained
 per field ("Prénom : ne doit pas contenir les caractères < ou >") instead of the generic
 message.

@@ -15,10 +15,6 @@ users:
   admin:
     id: 10
     role: admin
-  # Only for user-password-reset, the only writing state: the states run in parallel.
-  writer:
-    id: 11
-    role: admin
 
 criteria:
   # Images: the logo and the icons of the shell, the tabs and the buttons.
@@ -68,7 +64,7 @@ criteria:
   - "10.10"
   - "10.11"
   - "10.12"
-  # Forms: search, user, password, role, group and second factor policy forms.
+  # Forms: search, user, role, group and second factor policy forms.
   - "11.1"
   - "11.2"
   - "11.3"
@@ -129,23 +125,13 @@ states:
       - click: { text: remi.aubert@mairie360.fr }
       - wait_for: { role: dialog, name: Fiche utilisateur }
   - id: user-edit
-    description: The edit modal and its password reset form
+    description: The edit modal (no password section: an administrator never changes a password)
     as: admin
     route: /
     steps:
       - wait_for: { text: remi.aubert@mairie360.fr }
       - click: { role: button, name: Modifier Rémi Aubert }
       - wait_for: { role: dialog, name: Modifier l’utilisateur }
-  - id: user-password-mismatch
-    description: Password confirmation that does not match (role="alert")
-    as: admin
-    route: /
-    steps:
-      - wait_for: { text: remi.aubert@mairie360.fr }
-      - click: { role: button, name: Modifier Rémi Aubert }
-      - fill: { label: Nouveau mot de passe, value: Rgaa-2026-Pass }
-      - fill: { label: Confirmer le mot de passe, value: Rgaa-2026-Other }
-      - wait_for: { text: Les deux mots de passe ne correspondent pas. }
   - id: user-suspend-confirm
     description: Suspension confirmation dialog (cancelled by the end of the state, nothing written)
     as: admin
@@ -162,19 +148,6 @@ states:
       - wait_for: { text: remi.aubert@mairie360.fr }
       - click: { role: button, name: Supprimer Rémi Aubert }
       - wait_for: { role: alertdialog }
-  - id: user-password-reset
-    description: Password reset confirmed (role="status"); writes the password of the seed user 12 only
-    as: writer
-    route: /
-    steps:
-      - wait_for: { text: remi.aubert@mairie360.fr }
-      - click: { role: button, name: Modifier Rémi Aubert }
-      - fill: { label: Nouveau mot de passe, value: Rgaa-2026-Pass }
-      - fill: { label: Confirmer le mot de passe, value: Rgaa-2026-Pass }
-      - click: { role: button, name: Réinitialiser le mot de passe }
-      - wait_for: { role: alertdialog }
-      - click: { role: button, name: Réinitialiser, exact: true }
-      - wait_for: { text: Mot de passe modifié. }
   # Roles tab.
   - id: roles
     as: admin

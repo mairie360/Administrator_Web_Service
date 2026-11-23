@@ -3,9 +3,8 @@ import { render, screen } from '@testing-library/react';
 
 import { UserFormModal, emptyUserCreateDraft } from '.';
 
-const props = () => ({ roles: [], services: [], createForm: emptyUserCreateDraft, editForm: { first_name: 'A', last_name: 'B', email: 'a@b.fr', phone_number: '', serviceId: '', roleId: '' },
-  passwordForm: { password: '', confirmation: '' }, saving: false, resetting: false, warning: null, onCreateChange: vi.fn(), onEditChange: vi.fn(),
-  onPasswordChange: vi.fn(), onCreate: vi.fn(), onUpdate: vi.fn(), onResetPassword: vi.fn(), onClose: vi.fn() });
+const props = () => ({ roles: [], services: [], createForm: emptyUserCreateDraft, editForm: { first_name: 'A', last_name: 'B', email: 'a@b.fr', phone_number: '', serviceId: '', roleId: '' }, saving: false, warning: null, onCreateChange: vi.fn(), onEditChange: vi.fn(), onCreate: vi.fn(),
+  onUpdate: vi.fn(), onClose: vi.fn() });
 
 describe('UserFormModal', () => {
   it('F06 / F09: « Nouvel utilisateur » and « Modifier l’utilisateur » in a modal, nothing when closed', () => {

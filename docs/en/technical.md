@@ -269,7 +269,6 @@ These data paths are exposed at the same origin through the proxy; Next.js pages
 | POST | `/admin/users` | application/json | 2XX |
 | PATCH | `/admin/users/{userId}` | application/json | 2XX |
 | DELETE | `/admin/users/{userId}` | — | 2XX |
-| PATCH | `/admin/users/{userId}/password` | application/json | 2XX |
 | POST | `/admin/users/{userId}/roles` | application/json | 2XX |
 | DELETE | `/admin/users/{userId}/roles/{roleId}` | — | 2XX |
 | PUT | `/admin/users/{userId}/service` | application/json | 2XX |
@@ -299,7 +298,7 @@ not by a local page.
 
 The `/api/auth/me`, `/api/auth/session` and `/api/user/me` adapters use BFF User for session access; `/api/auth/logout` forwards logout. They target the same BFF URL as the generic proxy. The proxy uses an explicit Bearer header or, when absent, the `accessToken` cookie. Business permissions remain those of the BFF and its sources.
 
-The `src/lib/administration-api.ts` client types its data with the `@mairie360/bff-user-openapi/model` package models and rejects inputs outside the contract bounds before any call (search longer than 100 characters, password outside 8 to 255 characters, empty group name or longer than 64 characters, description longer than 2000 characters).
+The `src/lib/administration-api.ts` client types its data with the `@mairie360/bff-user-openapi/model` package models and rejects inputs outside the contract bounds before any call (search longer than 100 characters, empty group name or longer than 64 characters, description longer than 2000 characters).
 
 The generic proxy returns 400 for an invalid path, 404 for a path outside the contract, 405 for a disallowed method and 502 when the service is unreachable or times out. Upstream responses are preserved, including empty 204/205/304 bodies.
 

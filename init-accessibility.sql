@@ -15,10 +15,10 @@ VALUES
     -- Administrator of every read-only state.
     (10, 'Camille', 'Administratrice', 'rgaa-admin@mairie360.fr', NULL, '0102030405', 'active',
         '2026-01-05 09:00:00+01', '2026-01-05 09:00:00+01'),
-    -- Administrator of the only writing state (user-password-reset): states run in parallel.
+    -- Second administrator, kept for a writing state (none since the password reset was removed).
     (11, 'Dominique', 'Gestionnaire', 'rgaa-writer@mairie360.fr', NULL, NULL, 'active',
         '2026-01-05 09:00:00+01', '2026-01-05 09:00:00+01'),
-    -- Target of user-password-reset (first row of the table: sorted by last name).
+    -- First row of the table (sorted by last name): the user the edit, suspension and deletion states open.
     (12, 'Rémi', 'Aubert', 'remi.aubert@mairie360.fr', NULL, NULL, 'active',
         '2026-01-05 09:00:00+01', '2026-01-05 09:00:00+01')
 ON CONFLICT (id) DO NOTHING;

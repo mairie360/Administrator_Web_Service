@@ -9,9 +9,8 @@ import { fullName } from './users-model';
 import { UsersToolbar } from './components/UsersToolbar';
 import { UsersTable } from './components/UsersTable';
 import { UserRecordModal } from './components/UserRecordModal';
-import { UserFormModal, emptyUserCreateDraft, type PasswordDraft, type UserCreateDraft, type UserEditDraft } from './components/UserFormModal';
+import { UserFormModal, emptyUserCreateDraft, type UserCreateDraft, type UserEditDraft } from './components/UserFormModal';
 
-const emptyPassword: PasswordDraft = { password: "", confirmation: "" };
 
 /**
  * Users tab, V2 (MAIR-885, MAIR-894, MAIR-904, MAIR-923): search, filters and order over the whole list,
@@ -43,7 +42,6 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, curren
   const [roleChangePending, setRoleChangePending] = useState(false);
   const [userToDelete, setUserToDelete] = useState<AdministrationUser | null>(null);
   const [userToSuspend, setUserToSuspend] = useState<AdministrationUser | null>(null);
-  const [passwordResetTarget, setPasswordResetTarget] = useState<{ user: AdministrationUser; password: string } | null>(null);
   const [createForm, setCreateForm] = useState<UserCreateDraft>(emptyUserCreateDraft);
   const [editForm, setEditForm] = useState<UserEditDraft>({ first_name: "", last_name: "", email: "", phone_number: "", serviceId: "", roleId: "" });
   // MAIR-923: the services offered by the user form, read when it opens; a failed read only leaves « Aucun service ».
@@ -54,7 +52,6 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, curren
     administrationApi.listServices().then((received) => { if (current) setServices(received); }, () => undefined);
     return () => { current = false; };
   }, [formMode]);
-  const [passwordForm, setPasswordForm] = useState<PasswordDraft>(emptyPassword);
   const record = usersPage.users.find((user) => user.id === recordId) ?? null;
 
   const replaceRow = (userId: number, change: Partial<AdministrationUser>) =>
@@ -65,8 +62,6 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, curren
     setEditedUser(user);
     setRoleChangePending(false);
     setUserSaveWarning(null);
-    setPasswordForm(emptyPassword);
-    setPasswordResetTarget(null);
     setEditForm({ first_name: user.first_name, last_name: user.last_name, email: user.email, phone_number: user.phone_number ?? "", serviceId: user.service ? String(user.service.id) : "", roleId: user.roles[0] ? String(user.roles[0].id) : "" });
     setFormMode("edit");
   };
@@ -161,20 +156,6 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, curren
     if (success) closeForm();
   };
 
-  const requestPasswordReset = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!editedUser || passwordForm.password !== passwordForm.confirmation) return;
-    setPasswordResetTarget({ user: editedUser, password: passwordForm.password });
-  };
-  const confirmPasswordReset = () => {
-    if (!passwordResetTarget) return;
-    const { user, password } = passwordResetTarget;
-    void runAction("reset-user-password-" + user.id, "Mot de passe modifié. Les sessions ont été révoquées.", async () => {
-      await administrationApi.resetUserPassword(user.id, password);
-      replaceRow(user.id, { active_sessions: 0 });
-    }).then((success) => { if (!success) return; setPasswordForm(emptyPassword); setPasswordResetTarget(null); });
-  };
-
   const confirmUserDeletion = () => {
     if (!userToDelete) return;
     const user = userToDelete;
@@ -239,11 +220,11 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, curren
         onRevoke={(action, message) => runAction("revoke-sessions-" + (record?.id ?? 0), message, action)}
         onActiveCountChange={(userId, count) => replaceRow(userId, { active_sessions: count })} />
       <UserFormModal mode={formMode} name={editedUser ? fullName(editedUser) : undefined} roles={roles} services={services} createForm={createForm} editForm={editForm}
-        passwordForm={passwordForm} saving={busyAction === "create-user" || (editedUser !== null && busyAction === "update-user-" + editedUser.id)}
-        resetting={editedUser !== null && busyAction === "reset-user-password-" + editedUser.id} warning={userSaveWarning}
+        saving={busyAction === "create-user" || (editedUser !== null && busyAction === "update-user-" + editedUser.id)}
+        warning={userSaveWarning}
         onCreateChange={(field, value) => setCreateForm((current) => ({ ...current, [field]: value }))}
         onEditChange={(field, value) => setEditForm((current) => ({ ...current, [field]: value }))}
-        onPasswordChange={setPasswordForm} onCreate={handleCreate} onUpdate={handleUpdate} onResetPassword={requestPasswordReset} onClose={closeForm} />
+        onCreate={handleCreate} onUpdate={handleUpdate} onClose={closeForm} />
 
       <ConfirmModal role="alertdialog" open={userToDelete !== null} title="Supprimer le compte ?"
         message={userToDelete ? `Le compte de « ${fullName(userToDelete)} » (${userToDelete.email}) sera supprimé et ses sessions fermées.` : ""}
@@ -253,10 +234,6 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, curren
         message={userToSuspend ? `${fullName(userToSuspend)} sera déconnecté de tous ses appareils et ne pourra plus se connecter jusqu’à sa réactivation.` : ""}
         confirmLabel="Suspendre" busy={userToSuspend !== null && busyAction === "suspend-user-" + userToSuspend.id}
         onCancel={() => setUserToSuspend(null)} onConfirm={confirmSuspension} />
-      <ConfirmModal role="alertdialog" open={passwordResetTarget !== null} destructive={false} title="Confirmer la réinitialisation ?"
-        message={passwordResetTarget ? `Le mot de passe de « ${fullName(passwordResetTarget.user)} » sera remplacé. Toutes ses sessions actives seront déconnectées.` : ""}
-        confirmLabel="Réinitialiser" busy={passwordResetTarget !== null && busyAction === "reset-user-password-" + passwordResetTarget.user.id}
-        onCancel={() => setPasswordResetTarget(null)} onConfirm={confirmPasswordReset} />
     </div>
   );
 }

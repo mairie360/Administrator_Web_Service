@@ -286,7 +286,6 @@ Ces chemins de données sont exposés à la même origine par le proxy; les page
 | POST | `/admin/users` | application/json | 2XX |
 | PATCH | `/admin/users/{userId}` | application/json | 2XX |
 | DELETE | `/admin/users/{userId}` | — | 2XX |
-| PATCH | `/admin/users/{userId}/password` | application/json | 2XX |
 | POST | `/admin/users/{userId}/roles` | application/json | 2XX |
 | DELETE | `/admin/users/{userId}/roles/{roleId}` | — | 2XX |
 | PUT | `/admin/users/{userId}/service` | application/json | 2XX |
@@ -316,7 +315,7 @@ Les anciennes demandes `/profile` sont traitées par
 
 Les adaptateurs `/api/auth/me`, `/api/auth/session` et `/api/user/me` utilisent BFF User pour la session; `/api/auth/logout` relaie la déconnexion. Ils visent la même URL de BFF que le proxy générique. Le proxy utilise le Bearer explicite ou, en son absence, le cookie `accessToken`. Les permissions métier restent celles du BFF et de ses sources.
 
-Le client `src/lib/administration-api.ts` type ses données avec les modèles du paquet `@mairie360/bff-user-openapi/model` et rejette avant tout appel les saisies hors des bornes du contrat (recherche de plus de 100 caractères, mot de passe hors 8 à 255 caractères, nom de groupe vide ou de plus de 64 caractères, description de plus de 2000 caractères).
+Le client `src/lib/administration-api.ts` type ses données avec les modèles du paquet `@mairie360/bff-user-openapi/model` et rejette avant tout appel les saisies hors des bornes du contrat (recherche de plus de 100 caractères, nom de groupe vide ou de plus de 64 caractères, description de plus de 2000 caractères).
 
 Le proxy générique répond 400 pour un chemin invalide, 404 pour un chemin hors contrat, 405 pour une méthode interdite et 502 si le service est injoignable ou dépasse le délai. Les réponses amont sont conservées, y compris les corps vides 204/205/304.
 

@@ -144,8 +144,6 @@ describe('administration API client against a contract-driven BFF User mock', ()
 
     test('rejects inputs outside the BFF contract bounds before any network call', async () => {
       await assert.rejects(administrationApi.listUsers({ search: 'a'.repeat(101) }), /La recherche ne doit pas dépasser 100 caractères/);
-      assert.throws(() => administrationApi.resetUserPassword(7, 'court12'), /Le mot de passe doit contenir au moins 12 caractères/);
-      assert.throws(() => administrationApi.resetUserPassword(7, 'a'.repeat(256)), /Le mot de passe ne doit pas dépasser 255 caractères/);
       await assert.rejects(administrationApi.updateGroup(5, { name: '', description: '' }), /Le nom du groupe est obligatoire/);
       await assert.rejects(administrationApi.updateGroup(5, { name: 'a'.repeat(65), description: '' }), /Le nom du groupe ne doit pas dépasser 64 caractères/);
       await assert.rejects(administrationApi.updateGroup(5, { name: 'Élus', description: 'a'.repeat(2001) }), /La description du groupe ne doit pas dépasser 2000 caractères/);
@@ -191,7 +189,6 @@ describe('administration API client against a contract-driven BFF User mock', ()
   describe('writes', () => {
     const cases = [
       ['updateUser', () => administrationApi.updateUser(7, { first_name: 'Robert' }), 'PATCH', '/admin/users/7', { first_name: 'Robert' }],
-      ['resetUserPassword', () => administrationApi.resetUserPassword(7, 'NouveauMotDePasse1'), 'PATCH', '/admin/users/7/password', { new_password: 'NouveauMotDePasse1' }],
       ['deleteUser', () => administrationApi.deleteUser(7), 'DELETE', '/admin/users/7', undefined],
       ['addRoleToUser', () => administrationApi.addRoleToUser(7, 3), 'POST', '/admin/users/7/roles', { user_id: 7, role_id: 3 }],
       ['removeRoleFromUser', () => administrationApi.removeRoleFromUser(7, 3), 'DELETE', '/admin/users/7/roles/3', undefined],
