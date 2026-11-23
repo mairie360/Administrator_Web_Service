@@ -17,7 +17,7 @@ type GroupDeletionTarget =
   | { kind: "member"; group: AdministrationGroup; user: AdministrationGroupMember }
   | { kind: "group"; group: AdministrationGroup };
 
-const emptyDraft: GroupDraft = { name: "", description: "" };
+const emptyDraft: GroupDraft = { name: "", description: "", color: null };
 
 /**
  * Groups tab, V2 (MAIR-923): the projects left without a group (F21), the group cards, « Nouveau groupe » in
@@ -67,7 +67,7 @@ export function GroupsPanel({ groups, loading, busyAction, runAction, refreshGro
       groupDetailSelection.current.selectedId = group?.id ?? null;
       setSelectedGroup(group);
       setGroupUsers(users);
-      setEditForm({ name: group?.name ?? "", description: group?.description ?? "" });
+      setEditForm({ name: group?.name ?? "", description: group?.description ?? "", color: group?.color ?? null });
     } catch (error) {
       if (revision === groupDetailRevision.current) setGroupDetailError(administrationErrorMessage(error));
     } finally {
@@ -89,7 +89,7 @@ export function GroupsPanel({ groups, loading, busyAction, runAction, refreshGro
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const success = await runAction("create-group", "Groupe créé", () => administrationApi.createGroup({ name: createForm.name.trim(), description: createForm.description.trim() }), refreshGroups);
+    const success = await runAction("create-group", "Groupe créé", () => administrationApi.createGroup({ name: createForm.name.trim(), description: createForm.description.trim(), color: createForm.color }), refreshGroups);
     if (success) { setCreateForm(emptyDraft); setCreating(false); }
   };
 
@@ -98,14 +98,14 @@ export function GroupsPanel({ groups, loading, busyAction, runAction, refreshGro
     if (!selectedGroup) return;
     let updatedGroup: AdministrationGroup | null = null;
     const success = await runAction("update-group-" + selectedGroup.id, "Groupe enregistré", async () => {
-      updatedGroup = await administrationApi.updateGroup(selectedGroup.id, { name: editForm.name.trim(), description: editForm.description.trim() });
+      updatedGroup = await administrationApi.updateGroup(selectedGroup.id, { name: editForm.name.trim(), description: editForm.description.trim(), color: editForm.color });
     }, refreshGroups);
     if (success && updatedGroup) {
       selectedGroupRef.current = updatedGroup;
       setSelectedGroup(updatedGroup);
       const confirmedGroup = updatedGroup as AdministrationGroup;
       groupDetailSelection.current.selectedId = confirmedGroup.id;
-      setEditForm({ name: confirmedGroup.name, description: confirmedGroup.description ?? "" });
+      setEditForm({ name: confirmedGroup.name, description: confirmedGroup.description ?? "", color: confirmedGroup.color ?? null });
     }
   };
 
@@ -208,7 +208,9 @@ export function GroupsPanel({ groups, loading, busyAction, runAction, refreshGro
         title={deletionTarget?.kind === "member" ? "Retirer ce membre du groupe ?" : "Supprimer le groupe ?"}
         message={deletionTarget?.kind === "member"
           ? `« ${deletionTarget.user.first_name} ${deletionTarget.user.last_name} » sera retiré du groupe « ${deletionTarget.group.name} ». Son compte ne sera pas supprimé.`
-          : deletionTarget ? `Le groupe « ${deletionTarget.group.name} » sera supprimé. Ses projets perdront leur groupe et passeront dans « Projets sans groupe ».` : ""}
+          : deletionTarget ? (deletionTarget.group.project_count
+            ? `Le groupe « ${deletionTarget.group.name} » sera supprimé. Ses ${deletionTarget.group.project_count} projet${deletionTarget.group.project_count > 1 ? "s" : ""} perdront leur groupe et passeront dans « Projets sans groupe ».`
+            : `Le groupe « ${deletionTarget.group.name} » sera supprimé. Il n’est lié à aucun projet.`) : ""}
         confirmLabel={deletionTarget?.kind === "member" ? "Retirer du groupe" : "Supprimer"}
         busy={deletionActionKey !== null && busyAction === deletionActionKey}
         onCancel={() => setDeletionTarget(null)}

@@ -6,18 +6,21 @@ import AdministrationMutationForm from '@/components/AdministrationPage/componen
 import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH, NO_MARKUP_HINT, NO_MARKUP_PATTERN } from '@/lib/text-constraints';
 import { Field } from '@/components/AdministrationPage/components/Field';
 import { inputClassName } from '@/components/AdministrationPage/controls';
+import type { GroupColor } from '@/lib/administration-api';
+import { GroupColorField } from '@/components/AdministrationPage/components/AdministrationConsole/components/GroupsPanel/components/GroupColorField';
 
-export interface GroupDraft { name: string; description: string }
+export interface GroupDraft { name: string; description: string; color: GroupColor | null }
 
-/** Name + description of a new group. */
+/** Name, description and colour (MAIR-923) of a new group. */
 export const GroupCreateForm = ({ form, saving, onChange, onSubmit }: { form: GroupDraft; saving: boolean; onChange: (form: GroupDraft) => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) => (
-  <AdministrationMutationForm onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-[1fr_1.5fr_auto] sm:items-end">
+  <AdministrationMutationForm onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-[1fr_1.5fr_auto_auto] sm:items-end">
     <Field label="Nom" htmlFor="group-name">
       <input id="group-name" required maxLength={NAME_MAX_LENGTH} pattern={NO_MARKUP_PATTERN} title={NO_MARKUP_HINT} className={inputClassName} value={form.name} onChange={(event) => onChange({ ...form, name: event.target.value })} />
     </Field>
     <Field label="Description" htmlFor="group-description">
       <input id="group-description" required maxLength={DESCRIPTION_MAX_LENGTH} pattern={NO_MARKUP_PATTERN} title={NO_MARKUP_HINT} className={inputClassName} value={form.description} onChange={(event) => onChange({ ...form, description: event.target.value })} />
     </Field>
+    <GroupColorField id="group-color" value={form.color} onChange={(color) => onChange({ ...form, color })} />
     <CreateButton type="submit" label="Créer" loading={saving} />
   </AdministrationMutationForm>
 );

@@ -8,6 +8,7 @@ import { UsersPanel } from './components/UsersPanel';
 import { RolesPanel } from './components/RolesPanel';
 import { GroupsPanel } from './components/GroupsPanel';
 import { SecurityPanel } from './components/SecurityPanel';
+import { ServicesPanel } from './components/ServicesPanel';
 import { ConsoleHeader } from './components/ConsoleHeader';
 import { ConsoleNotices } from './components/ConsoleNotices';
 import { ConsoleMetrics } from './components/ConsoleMetrics';
@@ -44,6 +45,7 @@ export function AdministrationConsole({ initialState, initialSearch, currentUser
           roles={data.roles ?? []} busyAction={busyAction} runAction={runAction} onTotalChange={setUsersTotal} currentUserId={currentUserId} refreshSignal={usersRefresh} />
       )}
       {activeTab === "roles" && <RolesPanel roles={data.roles} loading={loading || busyAction === "refresh-roles"} busyAction={busyAction} runAction={runAction} refreshRoles={data.refreshRoles} onRoleDeleted={data.confirmRoleDeletion} />}
+      {activeTab === "services" && <ServicesPanel busyAction={busyAction} runAction={runAction} />}
       {activeTab === "security" && <SecurityPanel busyAction={busyAction} runAction={runAction} />}
       {activeTab === "groups" && <GroupsPanel groups={data.groups} loading={loading || busyAction === "refresh-groups"} busyAction={busyAction} runAction={runAction} refreshGroups={data.refreshGroups} onGroupDeleted={data.applyGroupDeletion} />}
     </section>

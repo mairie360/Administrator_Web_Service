@@ -3,7 +3,7 @@ const { test } = require('node:test');
 const { administrationDom } = require('./support/administration-dom.cjs');
 const bob = { id: 7, first_name: 'Bob', last_name: 'Martin', email: 'bob@mairie.test', phone_number: null, status: 'active', is_archived: false, roles: [], account_status: 'active', active_sessions: 0, last_login_at: null, two_factor: { methods: [], last_verified_at: null } };
 const page = users => ({ users, page: 1, page_size: 6, total: users.length, total_pages: users.length ? 1 : 0 });
-function configure(bff) { bff.on('get', '/admin/users', { body: page([bob]) }); }
+function configure(bff) { bff.on('get', '/admin/users', { body: page([bob]) }).on('get', '/admin/services', { body: { services: [] } }); }
 test('a local deletion alertdialog inerts the sole shared skip link and cancellation restores its main without a write', async t => {
   const dom = await administrationDom(t, { serverPage: true, configure, expected: 'Bob Martin' });
   const main = dom.document.querySelector('main');

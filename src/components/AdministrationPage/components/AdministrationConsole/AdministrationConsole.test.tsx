@@ -20,7 +20,7 @@ describe('AdministrationConsole', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Administration' })).toBeTruthy();
     expect(screen.getByText('Comptes des agents, rôles et groupes de la mairie')).toBeTruthy();
     const tabs = screen.getByRole('tablist', { name: 'Sections d’administration' });
-    expect([...tabs.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent?.trim())).toEqual(['Utilisateurs', 'Rôles', 'Groupes', 'Sécurité']);
+    expect([...tabs.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent?.trim())).toEqual(['Utilisateurs', 'Rôles', 'Groupes', 'Services', 'Sécurité']);
     expect(screen.queryByText(/Sessions actives/)).toBeNull();
     expect(screen.getByRole('table', { name: 'Utilisateurs' })).toBeTruthy();
   });

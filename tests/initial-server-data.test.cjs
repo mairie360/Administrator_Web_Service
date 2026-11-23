@@ -16,7 +16,7 @@ const users = { users: [user], page: 1, page_size: 6, total: 1, total_pages: 1 }
 function seed(role = 'Admin') {
   bff.on('get', '/me', { body: me(role) });
   bff.on('get', '/admin/users', { body: users });
-  for (const [path, key] of [['roles', 'roles'], ['groups', 'groups']]) bff.on('get', '/admin/' + path, { body: { [key]: [] } });
+  for (const [path, key] of [['roles', 'roles'], ['groups', 'groups'], ['services', 'services']]) bff.on('get', '/admin/' + path, { body: { [key]: [] } });
 }
 before(async () => {
   await bff.start(); front = new FrontHarness({ bff });

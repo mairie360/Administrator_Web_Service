@@ -1,13 +1,15 @@
-import { KeyRound, ShieldCheck, UserCog, UsersRound } from "lucide-react";
+import { Building2, KeyRound, ShieldCheck, UserCog, UsersRound } from "lucide-react";
 
 // MAIR-885 C1: the « Sessions » tab is gone, a user's sessions live in their record (MAIR-894).
 // MAIR-824: « Sécurité » after them, the second factor of the mairie (Administrator part of MAIR-809).
-export type AdministrationTabId = "users" | "roles" | "groups" | "security";
+// MAIR-923: « Services », the services of the mairie the agents belong to.
+export type AdministrationTabId = "users" | "roles" | "groups" | "services" | "security";
 
 export const administrationTabs = [
   { id: "users", label: "Utilisateurs", icon: UserCog },
   { id: "roles", label: "Rôles", icon: ShieldCheck },
   { id: "groups", label: "Groupes", icon: UsersRound },
+  { id: "services", label: "Services", icon: Building2 },
   { id: "security", label: "Sécurité", icon: KeyRound },
 ] as const satisfies ReadonlyArray<{ id: AdministrationTabId; label: string; icon: typeof UserCog }>;
 

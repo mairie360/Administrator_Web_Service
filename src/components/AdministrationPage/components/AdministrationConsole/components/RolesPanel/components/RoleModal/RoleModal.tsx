@@ -2,10 +2,14 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Checkbox, FormActions, Modal, TextArea, TextField } from "@mairie360/lib-components/primitives";
 
-import type { AdministrationRole } from '@/lib/administration-api';
+import { MODULE_LABELS, ROLE_MODULES, type AdministrationRole, type RoleModule } from '@/lib/administration-api';
 import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH } from '@/lib/text-constraints';
 
-export interface RoleDraft { name: string; description: string; can_be_deleted: boolean }
+export interface RoleDraft { name: string; description: string; can_be_deleted: boolean; modules: RoleModule[] }
+
+/** A new role opens the dashboard, as Core does when no module is sent. */
+const DEFAULT_MODULES: RoleModule[] = ["dashboard"];
+const sameModules = (a: RoleModule[], b: RoleModule[]) => a.length === b.length && a.every((module) => b.includes(module));
 
 /** F15 / F16 validation: name required and unique (case and spaces ignored); `null` when valid. */
 export function roleNameError(name: string, roles: AdministrationRole[], ownId: number | null): string | null {
@@ -30,11 +34,12 @@ export interface RoleModalProps {
  * stays disabled while nothing changed, with the status « Aucune modification à enregistrer » /
  * « Modifications non enregistrées »; errors under the field keep the modal open; Entrée saves, Échap or
  * « Annuler » closes without saving. A system role (Administrateur) cannot be renamed or unprotected (MAIR-678).
+ * « Modules accessibles » (MAIR-916): the modules of the navigation its holders open; the Admin role keeps Administration.
  */
 export function RoleModal({ target, roles, saving, onClose, onSave }: RoleModalProps) {
   const initial: RoleDraft = target && target !== "new"
-    ? { name: target.name, description: target.description, can_be_deleted: target.can_be_deleted !== false }
-    : { name: "", description: "", can_be_deleted: true };
+    ? { name: target.name, description: target.description, can_be_deleted: target.can_be_deleted !== false, modules: (target.modules ?? []) as RoleModule[] }
+    : { name: "", description: "", can_be_deleted: true, modules: DEFAULT_MODULES };
   const [draft, setDraft] = useState<RoleDraft>(initial);
   const [error, setError] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -44,7 +49,13 @@ export function RoleModal({ target, roles, saving, onClose, onSave }: RoleModalP
 
   const creating = target === "new";
   const system = !creating && target.can_be_deleted === false;
-  const dirty = draft.name !== initial.name || draft.description !== initial.description || draft.can_be_deleted !== initial.can_be_deleted;
+  // The Admin role always opens the administration (Core answers 403 otherwise).
+  const adminRole = !creating && target.name === "Admin";
+  const dirty = draft.name !== initial.name || draft.description !== initial.description || draft.can_be_deleted !== initial.can_be_deleted
+    || !sameModules(draft.modules, initial.modules);
+  const toggleModule = (module: RoleModule, checked: boolean) => setDraft({
+    ...draft, modules: ROLE_MODULES.filter((known) => known === module ? checked : draft.modules.includes(known)),
+  });
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const problem = roleNameError(draft.name, roles, creating ? null : target.id);
@@ -62,6 +73,17 @@ export function RoleModal({ target, roles, saving, onClose, onSave }: RoleModalP
           onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
         <Checkbox label="Rôle système (ne peut pas être supprimé)" checked={!draft.can_be_deleted} disabled={system}
           onChange={(event) => setDraft({ ...draft, can_be_deleted: !event.target.checked })} />
+        <fieldset className="space-y-2" aria-describedby="role-modules-hint">
+          <legend className="text-sm font-medium">Modules accessibles</legend>
+          <p id="role-modules-hint" className="text-sm text-muted-foreground">Les modules affichés dans la navigation des agents qui ont ce rôle.</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {ROLE_MODULES.map((module) => (
+              <Checkbox key={module} label={MODULE_LABELS[module]} checked={draft.modules.includes(module)}
+                disabled={adminRole && module === "admin"}
+                onChange={(event) => toggleModule(module, event.target.checked)} />
+            ))}
+          </div>
+        </fieldset>
         <FormActions busy={saving} saveDisabled={!creating && !dirty} saveLabel={creating ? "Créer le rôle" : "Enregistrer"} onCancel={onClose}
           status={creating ? undefined : dirty ? "Modifications non enregistrées" : "Aucune modification à enregistrer."} />
       </form>

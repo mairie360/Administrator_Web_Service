@@ -43,6 +43,8 @@ export function RolesPanel({ roles, loading, busyAction, runAction, refreshRoles
     if (draft.name !== target.name) change.name = draft.name;
     if (draft.description !== target.description) change.description = draft.description;
     if (draft.can_be_deleted !== (target.can_be_deleted !== false)) change.can_be_deleted = draft.can_be_deleted;
+    const before = target.modules ?? [];
+    if (draft.modules.length !== before.length || draft.modules.some((module) => !before.includes(module))) change.modules = draft.modules;
     return runAction("save-role", `Les droits de « ${draft.name} » sont à jour.`, () => administrationApi.updateRole(target.id, change), refreshRoles);
   };
 

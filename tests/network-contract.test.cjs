@@ -39,6 +39,10 @@ const REQUEST_BODIES = {
   AdminGroupPatchBody: { name: 'Élus' },
   AdminGroupUserBody: { user_id: 7 },
   AdminSessionRevokeBody: { refresh_token: 'opaque-refresh-token' },
+  // MAIR-923: services of the mairie and the service of an agent.
+  AdminServiceWriteBody: { name: 'Voirie' },
+  AdminServiceRenameBody: { name: 'Voirie et réseaux' },
+  AdminUserServiceBody: { service_id: 3 },
   // MAIR-805 / MAIR-808 / MAIR-810 operations of the contract the console relays without calling them.
   ForgotPasswordView: { email: 'alice@mairie.test' },
   // A fixed reset-form fixture (UUID shape), never issued by an authentication server.
@@ -48,6 +52,8 @@ const REQUEST_BODIES = {
   TwoFactorSetupConfirmView: { token: 'setup-token', code: '123456' },
   PasskeyLoginView: { id: 'ceremony', credential: {}, device_info: 'Firefox' },
   PasskeyRegisterView: { label: 'Clé', credential: {} },
+  // MAIR-811: renaming a passkey (BFF User relays it, the console does not call it).
+  PasskeyRenameView: { label: 'Clé du bureau' },
   PasskeySetupView: { token: 'setup-token', label: 'Clé', credential: {} },
   TwoFactorPolicyUpdate: { required: true, totp_allowed: true, passkey_allowed: false, backup_codes_allowed: true },
 };

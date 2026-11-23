@@ -33,6 +33,16 @@
       },
       "AdminGroupCreateBody": {
         "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AdministrationGroupColor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "description": {
             "maxLength": 2000,
             "pattern": "^[^<>]*$",
@@ -65,6 +75,16 @@
       },
       "AdminGroupPatchBody": {
         "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AdministrationGroupColor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "description": {
             "maxLength": 2000,
             "pattern": "^[^<>]*$",
@@ -141,6 +161,12 @@
               "null"
             ]
           },
+          "modules": {
+            "items": {
+              "$ref": "#/components/schemas/AdministrationRoleModule"
+            },
+            "type": "array"
+          },
           "name": {
             "maxLength": 64,
             "minLength": 1,
@@ -166,6 +192,12 @@
             "maxLength": 2000,
             "pattern": "^[^<>]*$",
             "type": "string"
+          },
+          "modules": {
+            "items": {
+              "$ref": "#/components/schemas/AdministrationRoleModule"
+            },
+            "type": "array"
           },
           "name": {
             "maxLength": 64,
@@ -193,6 +225,12 @@
             "pattern": "^[^<>]*$",
             "type": "string"
           },
+          "modules": {
+            "items": {
+              "$ref": "#/components/schemas/AdministrationRoleModule"
+            },
+            "type": "array"
+          },
           "name": {
             "maxLength": 64,
             "minLength": 1,
@@ -203,6 +241,46 @@
         "required": [
           "name",
           "description"
+        ],
+        "type": "object"
+      },
+      "AdminServiceIdParams": {
+        "properties": {
+          "serviceId": {
+            "exclusiveMinimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "serviceId"
+        ],
+        "type": "object"
+      },
+      "AdminServiceRenameBody": {
+        "properties": {
+          "name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^<>]*$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "AdminServiceWriteBody": {
+        "properties": {
+          "name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^<>]*$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
         ],
         "type": "object"
       },
@@ -415,8 +493,26 @@
         ],
         "type": "object"
       },
+      "AdminUserServiceBody": {
+        "properties": {
+          "service_id": {
+            "exclusiveMinimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "service_id"
+        ],
+        "type": "object"
+      },
       "AdministrationGroup": {
         "properties": {
+          "color": {
+            "$ref": "#/components/schemas/AdministrationGroupColorProperty"
+          },
           "description": {
             "type": [
               "string",
@@ -431,6 +527,10 @@
           },
           "owner_id": {
             "type": "number"
+          },
+          "project_count": {
+            "minimum": 0,
+            "type": "number"
           }
         },
         "required": [
@@ -440,6 +540,38 @@
           "owner_id"
         ],
         "type": "object"
+      },
+      "AdministrationGroupColor": {
+        "enum": [
+          "blue",
+          "teal",
+          "green",
+          "orange",
+          "purple",
+          "pink",
+          "neutral",
+          null
+        ],
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "AdministrationGroupColorProperty": {
+        "enum": [
+          "blue",
+          "teal",
+          "green",
+          "orange",
+          "purple",
+          "pink",
+          "neutral",
+          null
+        ],
+        "type": [
+          "string",
+          "null"
+        ]
       },
       "AdministrationGroupMember": {
         "properties": {
@@ -540,6 +672,12 @@
           "id": {
             "type": "number"
           },
+          "modules": {
+            "items": {
+              "$ref": "#/components/schemas/AdministrationRoleModule"
+            },
+            "type": "array"
+          },
           "name": {
             "type": "string"
           }
@@ -548,6 +686,71 @@
           "id",
           "name",
           "description"
+        ],
+        "type": "object"
+      },
+      "AdministrationRoleModule": {
+        "enum": [
+          "dashboard",
+          "projects",
+          "calendar",
+          "messages",
+          "training",
+          "admin",
+          "settings"
+        ],
+        "type": "string"
+      },
+      "AdministrationService": {
+        "properties": {
+          "agents": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "agents"
+        ],
+        "type": "object"
+      },
+      "AdministrationServiceRef": {
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "AdministrationServices": {
+        "properties": {
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/AdministrationService"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "services"
         ],
         "type": "object"
       },
@@ -633,6 +836,9 @@
             },
             "type": "array"
           },
+          "service": {
+            "$ref": "#/components/schemas/AdministrationUserService"
+          },
           "status": {
             "type": "string"
           },
@@ -679,6 +885,28 @@
           "name"
         ],
         "type": "object"
+      },
+      "AdministrationUserService": {
+        "anyOf": [
+          {
+            "properties": {
+              "id": {
+                "type": "number"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "AdministrationUserSessions": {
         "properties": {
@@ -1234,6 +1462,19 @@
         "required": [],
         "type": "object"
       },
+      "PasskeyRenameView": {
+        "properties": {
+          "label": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "type": "object"
+      },
       "PasskeyResponse": {
         "properties": {
           "created_at": {
@@ -1355,6 +1596,12 @@
           "groups": {
             "items": {
               "$ref": "#/components/schemas/SessionResponseGroupsItem"
+            },
+            "type": "array"
+          },
+          "modules": {
+            "items": {
+              "type": "string"
             },
             "type": "array"
           },
@@ -1648,7 +1895,7 @@
   "info": {
     "title": "bff_user",
     "version": "1.0.0",
-    "x-source-package": "@mairie360/bff-user-openapi@0.0.0-dev.c3870aff12ea3aabeaf776ed6c2f64b4c63a1ecf"
+    "x-source-package": "@mairie360/bff-user-openapi@0.0.0-dev.5c1143c399ffe7297076d36ae652bf556c8a9d3d"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -2083,6 +2330,133 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CoreResponse"
+                }
+              }
+            },
+            "description": "Succès (seul statut typé par orval)"
+          }
+        }
+      }
+    },
+    "/admin/services": {
+      "get": {
+        "operationId": "getAdminServices",
+        "parameters": [],
+        "responses": {
+          "2XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AdministrationServices"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CoreResponse"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Succès (seul statut typé par orval)"
+          }
+        }
+      },
+      "post": {
+        "operationId": "postAdminServices",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminServiceWriteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "2XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CoreResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdministrationService"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Succès (seul statut typé par orval)"
+          }
+        }
+      }
+    },
+    "/admin/services/{serviceId}": {
+      "delete": {
+        "operationId": "deleteAdminServicesServiceId",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "serviceId",
+            "required": true,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoreResponse"
+                }
+              }
+            },
+            "description": "Succès (seul statut typé par orval)"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "patchAdminServicesServiceId",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "serviceId",
+            "required": true,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminServiceRenameBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "2XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AdministrationService"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CoreResponse"
+                    }
+                  ]
                 }
               }
             },
@@ -2567,6 +2941,43 @@
             }
           }
         ],
+        "responses": {
+          "2XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoreResponse"
+                }
+              }
+            },
+            "description": "Succès (seul statut typé par orval)"
+          }
+        }
+      }
+    },
+    "/admin/users/{userId}/service": {
+      "put": {
+        "operationId": "putAdminUsersUserIdService",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserServiceBody"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "2XX": {
             "content": {
@@ -3169,6 +3580,43 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PasskeyRegisterOptionsResponse"
+                }
+              }
+            },
+            "description": "Succès (seul statut typé par orval)"
+          }
+        }
+      }
+    },
+    "/user/me/passkeys/{passkeyId}": {
+      "patch": {
+        "operationId": "patchUserMePasskeysPasskeyId",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "passkeyId",
+            "required": true,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyRenameView"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "2XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyResponse"
                 }
               }
             },

@@ -7,8 +7,8 @@ import { GroupCreateForm } from './GroupCreateForm';
 describe('GroupCreateForm', () => {
   it('edits the name and creates', async () => {
     const onChange = vi.fn(); const onSubmit = vi.fn((event) => event.preventDefault());
-    render(<GroupCreateForm form={{ name: '', description: '' }} saving={false} onChange={onChange} onSubmit={onSubmit} />);
-    await userEvent.type(screen.getByLabelText(/^Nom/), 'V'); expect(onChange).toHaveBeenCalledWith({ name: 'V', description: '' });
+    render(<GroupCreateForm form={{ name: '', description: '', color: null }} saving={false} onChange={onChange} onSubmit={onSubmit} />);
+    await userEvent.type(screen.getByLabelText(/^Nom/), 'V'); expect(onChange).toHaveBeenCalledWith({ name: 'V', description: '', color: null });
     fireEvent.submit(screen.getByRole('button', { name: 'Créer' }).closest('form')!); expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 });
