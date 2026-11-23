@@ -2,6 +2,9 @@
 
 ## Administration V2 — MAIR-824
 
+- Library: `@mairie360/lib-components` 2.3.0. The header shows « Mairie de » + the commune (C7 / C8, MAIR-1109) from
+  `COMMUNE_NAME`, read at request time (a leading « Mairie de » / « Commune de » is dropped); without it the block is
+  hidden, never the library's sample « Saint-André ». The page base has no footer any more (MAIR-1092).
 - Contract: `@mairie360/bff-user-openapi` of BFF_user `main` with the V2 admin routes (user rows carry
   `account_status`, `active_sessions`, `last_login_at`, `two_factor`; `GET /admin/users` takes
   `page_size`, `account_status`, `role_id`, `sort`; sessions, suspension, projects without group and

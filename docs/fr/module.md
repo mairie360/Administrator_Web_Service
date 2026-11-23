@@ -3,7 +3,7 @@
 ## Administration V2 — MAIR-824
 
 La console suit la maquette V2 (Figma Administrator_Web_Service, epic MAIR-824) sur
-`@mairie360/lib-components` 2.2.0. Quatre onglets : Utilisateurs, Rôles, Groupes et Sécurité ;
+`@mairie360/lib-components` 2.3.0. Quatre onglets : Utilisateurs, Rôles, Groupes et Sécurité ;
 l’onglet Sessions disparaît, les sessions d’un compte sont dans sa fiche.
 
 - **Utilisateurs** : recherche sur le nom ou l’e-mail, filtre d’état (Actif, Invité, Inactif,
@@ -25,8 +25,8 @@ l’onglet Sessions disparaît, les sessions d’un compte sont dans sa fiche.
   refusée garde les dernières lignes confirmées et le signale.
 
 Pas encore couvert (aucun champ côté back) : les modules ouverts par un rôle, le service d’un
-agent, la couleur et le nombre de projets d’un groupe, et le nom de la commune / les éléments du
-shell 2.3 (C7, C8) qui attendent MAIR-1092.
+agent, la couleur et le nombre de projets d’un groupe. Le nom de la commune de l’en-tête vient de
+`COMMUNE_NAME` (masqué s’il n’est pas défini).
 
 
 ## Une liste inconnue n’est pas vide — MAIR-470

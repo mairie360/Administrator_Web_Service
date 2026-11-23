@@ -2,6 +2,9 @@
 
 ## Administration V2 — MAIR-824
 
+- Librairie : `@mairie360/lib-components` 2.3.0. L’en-tête affiche « Mairie de » + la commune (C7 / C8, MAIR-1109)
+  depuis `COMMUNE_NAME`, lue à chaque requête (un « Mairie de » / « Commune de » en tête est retiré) ; sans elle le
+  bloc est masqué, jamais l’exemple « Saint-André » de la librairie. La base de page n’a plus de pied de page (MAIR-1092).
 - Contrat : `@mairie360/bff-user-openapi` du `main` de BFF_user avec les routes admin V2 (les lignes
   utilisateur portent `account_status`, `active_sessions`, `last_login_at`, `two_factor` ;
   `GET /admin/users` prend `page_size`, `account_status`, `role_id`, `sort` ; routes des sessions, de

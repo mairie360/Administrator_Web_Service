@@ -3,7 +3,7 @@
 ## Administration V2 — MAIR-824
 
 The console follows the V2 mock-up (Figma Administrator_Web_Service, epic MAIR-824) on
-`@mairie360/lib-components` 2.2.0. Four tabs: Users, Roles, Groups and Security; the Sessions
+`@mairie360/lib-components` 2.3.0. Four tabs: Users, Roles, Groups and Security; the Sessions
 tab is gone, the sessions of an account live in its record.
 
 - **Users**: search on the name or the e-mail, state filter (Active, Invited, Inactive,
@@ -24,7 +24,7 @@ tab is gone, the sessions of an account live in its record.
   refused read keeps the last confirmed rows and says so.
 
 Not covered yet (no backend field): the modules a role opens, the service of an agent, the colour
-and project count of a group, and the commune name / shell 2.3 items (C7, C8) waiting for MAIR-1092.
+and project count of a group. The commune name of the header comes from `COMMUNE_NAME` (hidden when unset).
 
 
 ## Unknown collections are not empty — MAIR-470

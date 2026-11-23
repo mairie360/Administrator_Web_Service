@@ -12,10 +12,11 @@ test('the installed shared UI matches the reviewed published artifact', () => {
   assertPublishedSharedUi(join(__dirname, '..'), sharedUiReleases);
 });
 
-test('sidebar information keeps copyright without creating a nested contentinfo landmark or fictitious version', () => {
+test('a requested footer: sidebar information keeps copyright without creating a nested contentinfo landmark or fictitious version', () => {
   const html = renderToStaticMarkup(React.createElement(AppShell, {
     user: { name: '' },
     hrefs: { projects: 'https://projects.example/' },
+    showFooter: true,
     footerProps: { year: 2026 },
   }, React.createElement('p', null, 'Contenu du module')));
   const dom = new JSDOM(html);
@@ -31,6 +32,17 @@ test('sidebar information keeps copyright without creating a nested contentinfo 
   assert.match(html, /Contenu du module/);
 });
 
+test('MAIR-1092 (lib 2.3): the page base renders no footer unless one is requested', () => {
+  const html = renderToStaticMarkup(React.createElement(AppShell, {
+    user: { name: '' },
+    hrefs: { projects: 'https://projects.example/' },
+    footerProps: { year: 2026 },
+  }, React.createElement('p', null, 'Contenu du module')));
+  assert.doesNotMatch(html, /© 2026 Mairie360/);
+  assert.doesNotMatch(html, /<footer\b/);
+  assert.match(html, /Contenu du module/);
+});
+
 test('standalone Footer retains horizontal compatibility', () => {
   const html = renderToStaticMarkup(React.createElement(Footer, { year: 2026 }));
   assert.match(html, /<footer\b/);
@@ -41,6 +53,7 @@ test('supplied product, year, real version and actionable links remain in sideba
   const html = renderToStaticMarkup(React.createElement(AppShell, {
     user: { name: '' },
     hrefs: { projects: 'https://projects.example/' },
+    showFooter: true,
     footerProps: {
       productName: 'Produit fourni',
       year: 2024,
@@ -65,6 +78,7 @@ test('an explicitly requested legacy content footer remains supported', () => {
     user: { name: '' },
     hrefs: { projects: 'https://projects.example/' },
     footerPlacement: 'content',
+    showFooter: true,
     footerProps: { year: 2026 },
   }, React.createElement('p', null, 'Contenu du module')));
   assert.match(html, /<\/main>\s*<footer\b/);
