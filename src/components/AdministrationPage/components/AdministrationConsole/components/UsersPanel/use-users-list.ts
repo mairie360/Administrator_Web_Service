@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type Dispatch, type FormEvent
 import { administrationApi, USERS_PAGE_SIZE, type AccountStatus, type AdministrationUsersPage, type UsersSort } from '@/lib/administration-api';
 import { administrationErrorMessage } from '@/lib/administration-error';
 import { usersQueryOf, usersUrlSchema } from '@/lib/administration-query';
-import { subscribePageReturn } from '@/lib/page-return';
+import { subscribePageReturn } from '@mairie360/lib-components/shared';
 import { usePageUrlState } from '@/lib/use-page-url-state';
 
 export const emptyUsersPage: AdministrationUsersPage = { users: [], page: 1, page_size: USERS_PAGE_SIZE, total: 0, total_pages: 0 };

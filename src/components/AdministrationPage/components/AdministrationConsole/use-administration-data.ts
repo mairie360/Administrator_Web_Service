@@ -5,7 +5,7 @@ import { administrationApi, type AdministrationGroup, type AdministrationRole } 
 import { BffRequestError, reconnectSession } from '@/lib/bff-client';
 import { administrationErrorMessage } from '@/lib/administration-error';
 import type { InitialConsole } from '@/lib/administration-response';
-import { subscribePageReturn } from '@/lib/page-return';
+import { subscribePageReturn } from '@mairie360/lib-components/shared';
 
 export interface RefreshFailure { message: string; retry: () => Promise<unknown> }
 
