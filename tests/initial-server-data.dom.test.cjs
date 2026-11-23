@@ -41,7 +41,10 @@ test('returning to Users after a confirmed deletion never resurrects the origina
   dom.bff.on('get', '/admin/users', { body: page([]) });
   const confirm = [...dom.document.querySelectorAll('[role="alertdialog"] button')].find(button => button.textContent.trim() === 'Supprimer');
   await dom.click(confirm);
-  await dom.waitFor(() => !dom.document.querySelector('tbody')?.textContent.includes('Bob Martin') && dom.bff.calls('/admin/users/{userId}', 'DELETE').length === 1);
+  // The deletion re-reads the page and locks the tabs until that read ends: wait for both.
+  const tabs = () => [...dom.document.querySelectorAll('[role="tab"]')];
+  await dom.waitFor(() => !dom.document.querySelector('tbody')?.textContent.includes('Bob Martin') && dom.bff.calls('/admin/users/{userId}', 'DELETE').length === 1
+    && dom.bff.calls('/admin/users', 'GET').length >= 2 && tabs().every(tab => !tab.disabled && tab.getAttribute('aria-disabled') !== 'true'));
   assert.equal(dom.bff.calls('/admin/users/{userId}', 'DELETE').length, 1);
   const before = dom.bff.calls('/admin/users', 'GET').length;
   await dom.click([...dom.document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.trim().startsWith('Rôles')));
