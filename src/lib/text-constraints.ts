@@ -1,6 +1,6 @@
 // Text rules of the published BFF User admin contract (MAIR-514), carried by the inputs so the browser refuses a
 // value before the BFF does: names ≤ 64 without `<` / `>`, e-mail ≤ 320, phone ≤ 32 made of digits, spaces, `.`,
-// `-`, `(`, `)` and an optional leading `+`, password 8 to 255, role and group names ≤ 64, descriptions ≤ 2 000.
+// `-`, `(`, `)` and an optional leading `+`, password 12 to 255, role and group names ≤ 64, descriptions ≤ 2 000.
 
 /** HTML `pattern` equivalent to the contract's `^[^<>]*$` (anchored by the browser, `v` flag). */
 export const NO_MARKUP_PATTERN = "[^<>]*";

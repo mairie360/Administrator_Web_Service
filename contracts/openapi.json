@@ -317,7 +317,7 @@
           },
           "password": {
             "maxLength": 255,
-            "minLength": 8,
+            "minLength": 12,
             "type": "string"
           },
           "phone_country": {
@@ -405,7 +405,7 @@
         "properties": {
           "new_password": {
             "maxLength": 255,
-            "minLength": 8,
+            "minLength": 12,
             "type": "string"
           }
         },
@@ -507,6 +507,51 @@
           "service_id"
         ],
         "type": "object"
+      },
+      "AdministrationConnectionLog": {
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "device_info": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ip_address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "occurred_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "session_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "action",
+          "session_id",
+          "ip_address",
+          "device_info",
+          "occurred_at"
+        ],
+        "type": "object"
+      },
+      "AdministrationConnectionLogs": {
+        "items": {
+          "$ref": "#/components/schemas/AdministrationConnectionLog"
+        },
+        "type": "array"
       },
       "AdministrationGroup": {
         "properties": {
@@ -700,6 +745,82 @@
           "settings"
         ],
         "type": "string"
+      },
+      "AdministrationSecurityAlert": {
+        "properties": {
+          "acknowledged_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "device_info": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "number"
+          },
+          "ip_address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "level": {
+            "$ref": "#/components/schemas/AdministrationSecurityAlertLevel"
+          },
+          "user": {
+            "$ref": "#/components/schemas/AdministrationSecurityAlertUser"
+          }
+        },
+        "required": [
+          "id",
+          "level",
+          "ip_address",
+          "device_info",
+          "created_at",
+          "acknowledged_at",
+          "user"
+        ],
+        "type": "object"
+      },
+      "AdministrationSecurityAlertLevel": {
+        "enum": [
+          "certain",
+          "possible"
+        ],
+        "type": "string"
+      },
+      "AdministrationSecurityAlertUser": {
+        "properties": {
+          "first_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "number"
+          },
+          "last_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "first_name",
+          "last_name"
+        ],
+        "type": "object"
+      },
+      "AdministrationSecurityAlerts": {
+        "items": {
+          "$ref": "#/components/schemas/AdministrationSecurityAlert"
+        },
+        "type": "array"
       },
       "AdministrationService": {
         "properties": {
@@ -1094,7 +1215,7 @@
         "properties": {
           "new_password": {
             "maxLength": 255,
-            "minLength": 8,
+            "minLength": 12,
             "type": "string"
           },
           "token": {
@@ -1568,6 +1689,36 @@
         "required": [],
         "type": "object"
       },
+      "ReportSessionResponse": {
+        "properties": {
+          "revoked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "revoked"
+        ],
+        "type": "object"
+      },
+      "ReportSessionView": {
+        "properties": {
+          "device_info": {
+            "maxLength": 255,
+            "type": "string"
+          },
+          "ip_address": {
+            "type": "string"
+          },
+          "level": {
+            "$ref": "#/components/schemas/SuspicionLevel"
+          }
+        },
+        "required": [
+          "level",
+          "ip_address"
+        ],
+        "type": "object"
+      },
       "ResetPasswordView": {
         "properties": {
           "device_info": {
@@ -1576,7 +1727,7 @@
           },
           "new_password": {
             "maxLength": 255,
-            "minLength": 8,
+            "minLength": 12,
             "type": "string"
           },
           "token": {
@@ -1590,6 +1741,46 @@
           "device_info"
         ],
         "type": "object"
+      },
+      "SecurityAlert": {
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "device_info": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "number"
+          },
+          "ip_address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "level": {
+            "$ref": "#/components/schemas/SecurityAlertLevel"
+          }
+        },
+        "required": [
+          "id",
+          "level",
+          "ip_address",
+          "device_info",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "SecurityAlertLevel": {
+        "enum": [
+          "certain",
+          "possible"
+        ],
+        "type": "string"
       },
       "SessionResponse": {
         "properties": {
@@ -1711,6 +1902,14 @@
           "status"
         ],
         "type": "object"
+      },
+      "SuspicionLevel": {
+        "enum": [
+          "certain",
+          "possible",
+          "ip_change"
+        ],
+        "type": "string"
       },
       "TwoFactorEnrolmentCompletedResponse": {
         "properties": {
@@ -1895,7 +2094,7 @@
   "info": {
     "title": "bff_user",
     "version": "1.0.0",
-    "x-source-package": "@mairie360/bff-user-openapi@0.0.0-dev.5c1143c399ffe7297076d36ae652bf556c8a9d3d"
+    "x-source-package": "@mairie360/bff-user-openapi@0.0.0-dev.873be3f495abc2132475d3d780a00db064ee9c60"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -2330,6 +2529,31 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CoreResponse"
+                }
+              }
+            },
+            "description": "Succès (seul statut typé par orval)"
+          }
+        }
+      }
+    },
+    "/admin/security-alerts": {
+      "get": {
+        "operationId": "getAdminSecurityAlerts",
+        "parameters": [],
+        "responses": {
+          "2XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AdministrationSecurityAlerts"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CoreResponse"
+                    }
+                  ]
                 }
               }
             },
@@ -2811,6 +3035,40 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CoreResponse"
+                }
+              }
+            },
+            "description": "Succès (seul statut typé par orval)"
+          }
+        }
+      }
+    },
+    "/admin/users/{userId}/connection-logs": {
+      "get": {
+        "operationId": "getAdminUsersUserIdConnectionLogs",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AdministrationConnectionLogs"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CoreResponse"
+                    }
+                  ]
                 }
               }
             },
@@ -3617,6 +3875,72 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PasskeyResponse"
+                }
+              }
+            },
+            "description": "Succès (seul statut typé par orval)"
+          }
+        }
+      }
+    },
+    "/user/me/security-alert": {
+      "get": {
+        "operationId": "getUserMeSecurityAlert",
+        "parameters": [],
+        "responses": {
+          "2XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecurityAlert"
+                }
+              }
+            },
+            "description": "Succès (seul statut typé par orval)"
+          }
+        }
+      }
+    },
+    "/user/me/security-alert/{alertId}/acknowledge": {
+      "post": {
+        "operationId": "postUserMeSecurityAlertAlertIdAcknowledge",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alertId",
+            "required": true,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Succès (seul statut typé par orval)"
+          }
+        }
+      }
+    },
+    "/user/me/sessions/report": {
+      "post": {
+        "operationId": "postUserMeSessionsReport",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportSessionView"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "2XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportSessionResponse"
                 }
               }
             },

@@ -46,7 +46,11 @@ export function AdministrationConsole({ initialState, initialSearch, currentUser
       )}
       {activeTab === "roles" && <RolesPanel roles={data.roles} loading={loading || busyAction === "refresh-roles"} busyAction={busyAction} runAction={runAction} refreshRoles={data.refreshRoles} onRoleDeleted={data.confirmRoleDeletion} />}
       {activeTab === "services" && <ServicesPanel busyAction={busyAction} runAction={runAction} />}
-      {activeTab === "security" && <SecurityPanel busyAction={busyAction} runAction={runAction} />}
+      {activeTab === "security" && (
+        <SecurityPanel busyAction={busyAction} runAction={runAction}
+          journalUserId={pageUrl.state.journal ? Number(pageUrl.state.journal) : null}
+          onJournal={(userId) => pageUrl.update({ journal: userId === null ? "" : String(userId) })} />
+      )}
       {activeTab === "groups" && <GroupsPanel groups={data.groups} loading={loading || busyAction === "refresh-groups"} busyAction={busyAction} runAction={runAction} refreshGroups={data.refreshGroups} onGroupDeleted={data.applyGroupDeletion} />}
     </section>
   );

@@ -23,7 +23,11 @@ tab is gone, the sessions of an account live in its record.
 - **Services** (MAIR-923): the services of the mairie with their agents; creation, renaming and a
   confirmed deletion that leaves its agents without a service.
 - **Security**: the second factor policy of the mairie (mandatory or not, allowed methods) and
-  the factor of each active agent, which an administrator can reset.
+  the factor of each active agent, which an administrator can reset; since MAIR-773 the recent
+  security alerts (uses of a session from another device over the last 30 days: date, agent,
+  « Tentative certaine » / « Tentative possible », device and beginning of the address) and, from
+  « Voir le journal » or the link of the alert e-mail (`?tab=security&journal=<id>`), the sign-in
+  journal of the agent.
 - The header « Actualiser » reads the roles, the groups and the visible users page again; a
   refused read keeps the last confirmed rows and says so.
 

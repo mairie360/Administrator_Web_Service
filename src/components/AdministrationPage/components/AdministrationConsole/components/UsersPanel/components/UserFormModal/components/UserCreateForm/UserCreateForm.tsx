@@ -17,7 +17,7 @@ export const UserCreateForm = ({ form, services, saving, onChange, onCancel, onS
   <AdministrationMutationForm onSubmit={onSubmit} className="space-y-4">
     <UserFields prefix="create" form={form} services={services} onChange={onChange} />
     <Field label="Mot de passe temporaire" htmlFor="create-password" hint="Le compte est créé en statut « Invité » : à sa première connexion, l’agent choisit son propre mot de passe.">
-      <input id="create-password" type="password" minLength={8} maxLength={PASSWORD_MAX_LENGTH} required autoComplete="new-password" className={inputClassName} value={form.password} onChange={(event) => onChange("password", event.target.value)} />
+      <input id="create-password" type="password" minLength={12} maxLength={PASSWORD_MAX_LENGTH} required autoComplete="new-password" className={inputClassName} value={form.password} onChange={(event) => onChange("password", event.target.value)} />
     </Field>
     <div className="flex justify-end gap-2 pt-1">
       <CancelButton variant="ghost" onClick={onCancel} />
