@@ -14,8 +14,8 @@
 - Arbre : `AdministrationConsole/components/{UsersPanel,RolesPanel,GroupsPanel,SecurityPanel}`, avec
   les `DataTable`, `Modal`, `Drawer`, `ConfirmModal`, `SessionList` de la lib ; les `SessionsPanel`,
   `ConfirmModal`, `Panel`, `UsersSearch`, `UsersPagination` et `RolesList` locaux sont supprimés.
-- État d’URL : `tab` (`users|roles|groups|security`), `usersSearch`, `usersPage`, `usersStatus`,
-  `usersRole`, `usersSort`. Le rendu serveur lit le profil, puis utilisateurs, rôles et groupes
+- État d’URL : `tab` (`users|roles|groups|security`), `usersSearch`, `usersPage`, `status`,
+  `role`, `sort`. Le rendu serveur lit le profil, puis utilisateurs, rôles et groupes
   (quatre requêtes, plus de sessions).
 - Les formulaires et la recherche d’utilisateurs sont un `fieldset` désactivé avant l’hydratation
   (`AdministrationMutationForm`) : aucun point de soumission natif.

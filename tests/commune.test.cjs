@@ -23,3 +23,12 @@ for (const configured of [true, false]) test(`MAIR-1109 the header ${configured 
   assert.doesNotMatch(dom.document.body.textContent, /Saint-André/, 'The sample name of the library is never shown.');
   if (configured) assert.match(header, /Saint-Pierre/); else assert.doesNotMatch(header, /Mairie de/);
 });
+
+test('ZAP 10024: the URL keys V2 adds carry no name ZAP reads as sensitive (user, pass, session, token)', () => {
+  const [{ administrationUrlSchema, usersUrlSchema, administrationSearch }] = loadTs(['src/lib/administration-query.ts']);
+  // usersSearch and usersPage predate V2 and the scan's baseline; any other key must stay neutral.
+  const keys = Object.keys({ ...administrationUrlSchema, ...usersUrlSchema }).filter(key => !['usersSearch', 'usersPage'].includes(key));
+  assert.deepEqual(keys.sort(), ['role', 'sort', 'status', 'tab']);
+  for (const key of keys) assert.doesNotMatch(key, /user|pass|session|token/i, key);
+  assert.equal(administrationSearch({ tab: 'users', status: 'suspended', role: '4', sort: '-name', usersStatus: 'active' }), 'tab=users&status=suspended&role=4&sort=-name');
+});

@@ -148,7 +148,7 @@ export function useUsersList({ initialPage, initialError, initialSearch, onIniti
   const clearFilters = () => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
     setSearchInput("");
-    navigate({ usersSearch: "", usersStatus: "", usersRole: "" });
+    navigate({ usersSearch: "", status: "", role: "" });
   };
   const confirmMutation = () => { usersReadRevision.current += 1; setUsersMutationConfirmed(true); onTotalChange(null); };
   const invalidateReads = () => { usersReadRevision.current += 1; };
@@ -157,9 +157,9 @@ export function useUsersList({ initialPage, initialError, initialSearch, onIniti
     usersPage, setUsersPage, hasReceivedUsers, page, search: search ?? "", status, roleId: roleId ?? null, sort: sort ?? "name",
     filtered: Boolean(search || status || roleId), searchInput, usersLoading, setUsersLoading, usersError, usersMutationConfirmed,
     confirmMutation, invalidateReads, loadUsers, typeSearch, submitSearch,
-    setStatus: (value) => navigate({ usersStatus: value }),
-    setRole: (value) => navigate({ usersRole: value ? String(value) : "" }),
-    setSort: (value) => navigate({ usersSort: value }),
+    setStatus: (value) => navigate({ status: value }),
+    setRole: (value) => navigate({ role: value ? String(value) : "" }),
+    setSort: (value) => navigate({ sort: value }),
     clearFilters,
     goToPage: (value) => { usersReadRevision.current += 1; pageUrl.update({ usersPage: String(Math.max(1, value)) }); },
   };

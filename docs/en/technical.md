@@ -13,8 +13,8 @@
 - Tree: `AdministrationConsole/components/{UsersPanel,RolesPanel,GroupsPanel,SecurityPanel}`, with the
   lib `DataTable`, `Modal`, `Drawer`, `ConfirmModal`, `SessionList`; the local `SessionsPanel`,
   `ConfirmModal`, `Panel`, `UsersSearch`, `UsersPagination` and `RolesList` are removed.
-- URL state: `tab` (`users|roles|groups|security`), `usersSearch`, `usersPage`, `usersStatus`,
-  `usersRole`, `usersSort`. The server render reads the profile, then users, roles and groups (four
+- URL state: `tab` (`users|roles|groups|security`), `usersSearch`, `usersPage`, `status`,
+  `role`, `sort`. The server render reads the profile, then users, roles and groups (four
   requests, no sessions).
 - Forms and the users search render as a disabled `fieldset` before hydration
   (`AdministrationMutationForm`): no native submission endpoint.
