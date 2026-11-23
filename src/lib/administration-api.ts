@@ -1,7 +1,9 @@
 import type {
+  AdministrationConnectionLog,
   AdministrationGroup,
   AdministrationGroupMember,
   AdministrationRole,
+  AdministrationSecurityAlert,
   AdministrationService,
   AdministrationSession,
   AdministrationUser,
@@ -49,6 +51,30 @@ export interface UsersQuery {
 }
 
 /** MAIR-808: the second-factor policy of the instance (« Sécurité » tab, A1). */
+/** A list answer of the BFF (the orval type of the admin reads also allows their other 2xx bodies). */
+function arrayOf<T>(value: unknown, what: string): T[] {
+  if (!Array.isArray(value)) throw new Error(`${what} ont une forme inattendue.`);
+  return value as T[];
+}
+
+/** MAIR-773: a use of a session from another device that closed it, over the last 30 days. */
+export interface SecurityAlert {
+  id: number;
+  level: "certain" | "possible";
+  ipAddress: string | null;
+  deviceInfo: string | null;
+  createdAt: string;
+  acknowledgedAt: string | null;
+  user: { id: number; firstName: string; lastName: string };
+}
+/** MAIR-773: one line of the sign-in journal of an agent. */
+export interface ConnectionLog {
+  action: string;
+  sessionId: string | null;
+  ipAddress: string | null;
+  deviceInfo: string | null;
+  occurredAt: string | null;
+}
 export interface TwoFactorPolicy { required: boolean; totp_allowed: boolean; passkey_allowed: boolean; backup_codes_allowed: boolean }
 
 /** F21 (MAIR-683): a project of BFF_Project left without a group. */
@@ -87,7 +113,8 @@ export type GroupInput = {
 // Bornes imposées par le contrat BFF User (AdminUserListQuery, AdminUserPasswordResetBody,
 // AdminGroupPatchBody) : vérifiées avant l'appel pour éviter un 400 sans message exploitable.
 const SEARCH_MAX_LENGTH = 100;
-const PASSWORD_MIN_LENGTH = 8;
+/** BFF User requires 12 characters for the passwords an administrator sets (MAIR-757, CNIL 2022). */
+export const PASSWORD_MIN_LENGTH = 12;
 const PASSWORD_MAX_LENGTH = 255;
 const GROUP_NAME_MAX_LENGTH = 64;
 const GROUP_DESCRIPTION_MAX_LENGTH = 2000;
@@ -370,6 +397,32 @@ export function createAdministrationApi(client: typeof bffUser = bffUser) {
     async updateTwoFactorPolicy(policy: TwoFactorPolicy): Promise<TwoFactorPolicy> {
       const { data } = await client.putAdminTwoFactorPolicy(policy);
       return parseTwoFactorPolicy(data);
+    },
+
+    /** A3 (MAIR-773): the alerts of the last 30 days, newest first. */
+    async listSecurityAlerts(): Promise<SecurityAlert[]> {
+      const { data } = await client.getAdminSecurityAlerts();
+      return arrayOf<AdministrationSecurityAlert>(data, "Les alertes de sécurité").map((alert) => ({
+        id: alert.id,
+        level: alert.level,
+        ipAddress: alert.ip_address,
+        deviceInfo: alert.device_info,
+        createdAt: alert.created_at,
+        acknowledgedAt: alert.acknowledged_at,
+        user: { id: alert.user.id, firstName: alert.user.first_name, lastName: alert.user.last_name },
+      }));
+    },
+
+    /** A3 (MAIR-773): the latest 100 lines of the sign-in journal of an agent. */
+    async listConnectionLogs(userId: number): Promise<ConnectionLog[]> {
+      const { data } = await client.getAdminUsersUserIdConnectionLogs(positiveInteger(userId, "L’identifiant utilisateur"));
+      return arrayOf<AdministrationConnectionLog>(data, "Le journal des connexions").map((line) => ({
+        action: line.action,
+        sessionId: line.session_id,
+        ipAddress: line.ip_address,
+        deviceInfo: line.device_info,
+        occurredAt: line.occurred_at,
+      }));
     },
 
     /** A2 (MAIR-805): removes the second factor of an agent and closes their sessions. */

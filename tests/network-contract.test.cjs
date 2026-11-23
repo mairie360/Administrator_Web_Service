@@ -56,6 +56,8 @@ const REQUEST_BODIES = {
   PasskeyRenameView: { label: 'Clé du bureau' },
   PasskeySetupView: { token: 'setup-token', label: 'Clé', credential: {} },
   TwoFactorPolicyUpdate: { required: true, totp_allowed: true, passkey_allowed: false, backup_codes_allowed: true },
+  // MAIR-773: the report of a front proxy (BFF User relays it, the console does not call it).
+  ReportSessionView: { level: 'possible', ip_address: '203.0.113.7', device_info: 'Firefox' },
 };
 
 function concreteRequest({ method, template }) {
@@ -133,7 +135,7 @@ describe('published BFF User contract', () => {
     assert.deepEqual(bff.violations.splice(0), [
       '[BFF_USER] requête PATCH /admin/users/abc/password?debug=1 : path.userId: type number attendu, reçu string',
       '[BFF_USER] requête PATCH /admin/users/{userId}/password : paramètre query "debug" non déclaré',
-      '[BFF_USER] requête PATCH /admin/users/{userId}/password $body.new_password: longueur < 8',
+      '[BFF_USER] requête PATCH /admin/users/{userId}/password $body.new_password: longueur < 12',
       '[BFF_USER] appel non mocké : PATCH /admin/users/{userId}/password',
       '[BFF_USER] requête GET /admin/logs : GET /admin/logs n\'existe pas dans le contrat bff_user',
     ]);

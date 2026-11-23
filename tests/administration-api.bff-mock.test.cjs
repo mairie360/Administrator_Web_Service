@@ -104,6 +104,23 @@ describe('administration API client against a contract-driven BFF User mock', ()
       assert.deepEqual(sequence(), ['GET /admin/two-factor-policy', 'PUT /admin/two-factor-policy', 'DELETE /admin/users/7/2fa']);
     });
 
+    test('MAIR-773 security tab: the recent alerts and the sign-in journal of an agent', async () => {
+      const alert = { id: 12, level: 'certain', ip_address: '92.184.10.1', device_info: 'Firefox', created_at: '2026-11-23T08:12:00+00:00', acknowledged_at: null, user: { id: 7, first_name: 'Bob', last_name: 'Martin' } };
+      const line = { action: 'STOLEN_SESSION_ATTEMPT', session_id: '4f7c2a9e-8d31-4c55-9a0b-3e1f6d2c8b70', ip_address: '92.184.10.1', device_info: 'Firefox', occurred_at: '2026-11-23T08:12:00+00:00' };
+      bff.on('get', '/admin/security-alerts', { body: [alert] })
+        .on('get', '/admin/users/{userId}/connection-logs', { body: [line] });
+
+      assert.deepEqual(await administrationApi.listSecurityAlerts(), [{
+        id: 12, level: 'certain', ipAddress: '92.184.10.1', deviceInfo: 'Firefox', createdAt: '2026-11-23T08:12:00+00:00', acknowledgedAt: null,
+        user: { id: 7, firstName: 'Bob', lastName: 'Martin' },
+      }]);
+      assert.deepEqual(await administrationApi.listConnectionLogs(7), [{
+        action: 'STOLEN_SESSION_ATTEMPT', sessionId: '4f7c2a9e-8d31-4c55-9a0b-3e1f6d2c8b70', ipAddress: '92.184.10.1', deviceInfo: 'Firefox', occurredAt: '2026-11-23T08:12:00+00:00',
+      }]);
+      assert.deepEqual(sequence(), ['GET /admin/security-alerts', 'GET /admin/users/7/connection-logs']);
+      await assert.rejects(administrationApi.listConnectionLogs(0), /L’identifiant utilisateur/);
+    });
+
     test('MAIR-923 F21 the projects left without a group', async () => {
       bff.on('get', '/admin/projects-without-group', { body: { total: 1, projects: [{ id: 'project-9', title: 'LED', createdAt: null }] } });
 
@@ -127,7 +144,7 @@ describe('administration API client against a contract-driven BFF User mock', ()
 
     test('rejects inputs outside the BFF contract bounds before any network call', async () => {
       await assert.rejects(administrationApi.listUsers({ search: 'a'.repeat(101) }), /La recherche ne doit pas dépasser 100 caractères/);
-      assert.throws(() => administrationApi.resetUserPassword(7, 'court12'), /Le mot de passe doit contenir au moins 8 caractères/);
+      assert.throws(() => administrationApi.resetUserPassword(7, 'court12'), /Le mot de passe doit contenir au moins 12 caractères/);
       assert.throws(() => administrationApi.resetUserPassword(7, 'a'.repeat(256)), /Le mot de passe ne doit pas dépasser 255 caractères/);
       await assert.rejects(administrationApi.updateGroup(5, { name: '', description: '' }), /Le nom du groupe est obligatoire/);
       await assert.rejects(administrationApi.updateGroup(5, { name: 'a'.repeat(65), description: '' }), /Le nom du groupe ne doit pas dépasser 64 caractères/);
