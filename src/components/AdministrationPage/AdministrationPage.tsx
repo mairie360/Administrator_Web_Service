@@ -16,7 +16,7 @@ import { ProfileUnavailable } from './components/ProfileUnavailable';
 export default function AdministrationPage({ initialState, initialSearch, commune }: { initialState?: InitialAdministration; initialSearch?: string; commune?: string }) {
   const [initial] = useState(initialState);
   const session = useAuthSession(undefined, initial?.session);
-  const hrefs = getActiveFrontHrefs();
+  const hrefs = getActiveFrontHrefs(session.loading ? undefined : session.modules);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const logoutPending = useRef(false);
   const requestLogout = async () => {

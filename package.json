@@ -24,7 +24,7 @@
     "e2e": "npm --prefix e2e test"
   },
   "dependencies": {
-    "@mairie360/bff-user-openapi": "0.0.0-dev.c3870aff12ea3aabeaf776ed6c2f64b4c63a1ecf",
+    "@mairie360/bff-user-openapi": "0.0.0-dev.5c1143c399ffe7297076d36ae652bf556c8a9d3d",
     "@mairie360/lib-components": "2.3.0",
     "axios": "1.20.0",
     "lucide-react": "^1.0.0",

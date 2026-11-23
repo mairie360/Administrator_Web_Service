@@ -29,7 +29,7 @@ test('MAIR-916 the role modal creates a trimmed role and closes after the write'
   await change('role-name','  Created role  '); await change('role-description','  New description  ');
   await view.fire((_props,_text,tag)=>tag==='form','onSubmit',{preventDefault(){}});
   await view.waitFor(()=>refreshes===1);
-  assert.deepEqual(bff.calls('/admin/roles','POST')[0].body,{name:'Created role',description:'New description',can_be_deleted:true});
+  assert.deepEqual(bff.calls('/admin/roles','POST')[0].body,{name:'Created role',description:'New description',can_be_deleted:true,modules:['dashboard']});
   assert.equal(refreshes,1);assert.equal(view.hostElements(props=>props.id==='role-name').length,0);
 });
 test('MAIR-916 the role modal refuses a name already taken without sending it',async()=>{
@@ -48,16 +48,18 @@ test('the groups panel submits its create modal and clears only a confirmed draf
   await change('group-name','  Created group  ');await change('group-description','  Group description  ');
   await view.fire((_props,_text,tag)=>tag==='form','onSubmit',{preventDefault(){}});
   await view.waitFor(()=>bff.calls('/admin/groups','POST').length===1);
-  assert.deepEqual(bff.calls('/admin/groups','POST')[0].body,{name:'Created group',description:'Group description'});
+  assert.deepEqual(bff.calls('/admin/groups','POST')[0].body,{name:'Created group',description:'Group description',color:null});
   assert.equal(view.hostElements(props=>props.id==='group-name').length,0);
 });
 test('MAIR-857 the users panel cancels an unsent user modal while retaining the fetched list',async()=>{
   bff.on('get','/admin/users',{body:{users:[],page:1,page_size:6,total:0,total_pages:0}});
+  bff.on('get','/admin/services',{body:{services:[]}});
   view=mount(React.createElement(UsersPanel,{roles:[],busyAction:null,runAction,onTotalChange:()=>{},currentUserId:1}));
   await view.waitFor(html=>html.includes('Aucun utilisateur'));
   await view.click('Nouvel utilisateur');
   await change('create-first-name','Unsent');await change('create-email','unsent@example.test');
   await view.click('Annuler');
   assert.equal(view.hostElements(props=>props.id==='create-email').length,0);
-  assert.equal(bff.requests.length,1);assert.equal(bff.requests[0].method,'GET');
+  // Only reads: the list, and the services offered by the form (MAIR-923); nothing was written.
+  assert.deepEqual(bff.requests.map(({method,template})=>`${method} ${template}`).sort(),['GET /admin/services','GET /admin/users']);
 });

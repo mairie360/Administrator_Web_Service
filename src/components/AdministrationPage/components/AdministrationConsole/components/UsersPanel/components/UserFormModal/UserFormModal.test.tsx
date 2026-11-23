@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 
 import { UserFormModal, emptyUserCreateDraft } from '.';
 
-const props = () => ({ roles: [], createForm: emptyUserCreateDraft, editForm: { first_name: 'A', last_name: 'B', email: 'a@b.fr', phone_number: '', roleId: '' },
+const props = () => ({ roles: [], services: [], createForm: emptyUserCreateDraft, editForm: { first_name: 'A', last_name: 'B', email: 'a@b.fr', phone_number: '', serviceId: '', roleId: '' },
   passwordForm: { password: '', confirmation: '' }, saving: false, resetting: false, warning: null, onCreateChange: vi.fn(), onEditChange: vi.fn(),
   onPasswordChange: vi.fn(), onCreate: vi.fn(), onUpdate: vi.fn(), onResetPassword: vi.fn(), onClose: vi.fn() });
 

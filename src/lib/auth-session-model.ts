@@ -32,6 +32,8 @@ export type AuthSession = {
   groups: string[];
   roles: AppRole[];
   role: AppRole;
+  /** MAIR-916: modules the role of the session opens; absent when the BFF does not send them (every module shown). */
+  modules?: string[];
   isAdmin: boolean;
   loading: boolean;
   error: string | null;
@@ -73,7 +75,8 @@ export function parseAuthSession(value: unknown): AuthSession {
       !Array.isArray(body.groups) || !Array.isArray(body.roles) ||
       (user.role !== undefined && typeof user.role !== "string") ||
       (user.id !== undefined && typeof user.id !== "string" && !finite(user.id)) ||
-      ["phone", "phone_country"].some(key => user[key] !== undefined && user[key] !== null && typeof user[key] !== "string")) throw new InvalidSessionResponseError();
+      ["phone", "phone_country"].some(key => user[key] !== undefined && user[key] !== null && typeof user[key] !== "string") ||
+      (body.modules !== undefined && (!Array.isArray(body.modules) || body.modules.some(module => typeof module !== "string")))) throw new InvalidSessionResponseError();
   const groups = body.groups.map(item => {
     const group = record(item);
     if (typeof group.name !== "string" || !finite(group.id) || !finite(group.owner_id) ||
@@ -94,6 +97,7 @@ export function parseAuthSession(value: unknown): AuthSession {
     user: { ...(Number(user.id) > 0 ? { id: Number(user.id) } : {}), name: name || email, email: email || undefined, phone: typeof user.phone === "string" ? user.phone.trim() || undefined : undefined,
       status: (user.status as string).trim() || undefined, service: groups.length ? groups.join(", ") : undefined,
       position: undefined, address: undefined, city: undefined, lastConnection: undefined, role },
-    groups, roles, role, isAdmin: role === "Admin", loading: false, error: null,
+    groups, roles, role, ...(Array.isArray(body.modules) ? { modules: body.modules as string[] } : {}),
+    isAdmin: role === "Admin", loading: false, error: null,
   };
 }

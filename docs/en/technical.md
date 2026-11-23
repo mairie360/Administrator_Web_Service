@@ -258,6 +258,10 @@ These data paths are exposed at the same origin through the proxy; Next.js pages
 | PUT | `/admin/roles/{roleId}` | application/json | 2XX |
 | PATCH | `/admin/roles/{roleId}` | application/json | 2XX |
 | DELETE | `/admin/roles/{roleId}` | — | 2XX |
+| GET | `/admin/services` | — | 2XX |
+| POST | `/admin/services` | application/json | 2XX |
+| PATCH | `/admin/services/{serviceId}` | application/json | 2XX |
+| DELETE | `/admin/services/{serviceId}` | — | 2XX |
 | GET | `/admin/sessions` | — | 2XX |
 | GET | `/admin/sessions/history` | — | 2XX |
 | POST | `/admin/sessions/revoke` | application/json | 2XX |
@@ -268,6 +272,7 @@ These data paths are exposed at the same origin through the proxy; Next.js pages
 | PATCH | `/admin/users/{userId}/password` | application/json | 2XX |
 | POST | `/admin/users/{userId}/roles` | application/json | 2XX |
 | DELETE | `/admin/users/{userId}/roles/{roleId}` | — | 2XX |
+| PUT | `/admin/users/{userId}/service` | application/json | 2XX |
 | GET | `/check_apis` | — | 2XX |
 | GET | `/health` | — | 2XX |
 | GET | `/me` | — | 2XX |

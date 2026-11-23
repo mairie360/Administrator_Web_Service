@@ -173,8 +173,6 @@ describe('administration API client against a contract-driven BFF User mock', ()
 
   describe('writes', () => {
     const cases = [
-      ['createUser', () => administrationApi.createUser({ email: 'bob@mairie.test', first_name: 'Bob', last_name: 'Martin', password: 'MotDePasse123', phone_number: null }),
-        'POST', '/admin/users', { email: 'bob@mairie.test', first_name: 'Bob', last_name: 'Martin', password: 'MotDePasse123', phone_number: null }],
       ['updateUser', () => administrationApi.updateUser(7, { first_name: 'Robert' }), 'PATCH', '/admin/users/7', { first_name: 'Robert' }],
       ['resetUserPassword', () => administrationApi.resetUserPassword(7, 'NouveauMotDePasse1'), 'PATCH', '/admin/users/7/password', { new_password: 'NouveauMotDePasse1' }],
       ['deleteUser', () => administrationApi.deleteUser(7), 'DELETE', '/admin/users/7', undefined],
@@ -188,6 +186,10 @@ describe('administration API client against a contract-driven BFF User mock', ()
       ['deleteGroup', () => administrationApi.deleteGroup(5), 'DELETE', '/admin/groups/5', undefined],
       ['addUserToGroup', () => administrationApi.addUserToGroup(5, 7), 'POST', '/admin/groups/5/users', { group_id: 5, user_id: 7 }],
       ['removeUserFromGroup', () => administrationApi.removeUserFromGroup(5, 7), 'DELETE', '/admin/groups/5/users/7', undefined],
+      // MAIR-923: the service of an agent, and the deletion of a service.
+      ['setUserService', () => administrationApi.setUserService(7, 3), 'PUT', '/admin/users/7/service', { service_id: 3 }],
+      ['setUserService', () => administrationApi.setUserService(7, null), 'PUT', '/admin/users/7/service', { service_id: null }],
+      ['deleteService', () => administrationApi.deleteService(3), 'DELETE', '/admin/services/3', undefined],
     ];
 
     for (const [name, call, method, pathname, body] of cases) {
@@ -204,6 +206,33 @@ describe('administration API client against a contract-driven BFF User mock', ()
         assert.equal(request.headers.accept, 'application/json');
       });
     }
+
+    test('createUser sends a contract-valid POST /admin/users and answers the id of the account', async () => {
+      const input = { email: 'bob@mairie.test', first_name: 'Bob', last_name: 'Martin', password: 'MotDePasse123', phone_number: null };
+      bff.on('post', '/admin/users', { status: 201, body: { id: 12, message: 'User created successfully!' } });
+      assert.equal(await administrationApi.createUser(input), 12);
+      assert.deepEqual(bff.requests[0].body, input);
+      assert.equal(bff.requests[0].headers['content-type'], 'application/json');
+
+      bff.on('post', '/admin/users', { status: 201, body: { message: 'User created successfully!' } });
+      assert.equal(await administrationApi.createUser(input), null);
+    });
+
+    test('MAIR-923 lists, creates and renames the services of the mairie', async () => {
+      const voirie = { id: 3, name: 'Voirie', created_at: '2026-11-20T08:00:00Z', agents: 2 };
+      bff.on('get', '/admin/services', { body: { services: [voirie] } });
+      assert.deepEqual(await administrationApi.listServices(), [voirie]);
+
+      bff.on('post', '/admin/services', { status: 201, body: { ...voirie, id: 4, name: 'Culture', agents: 0 } });
+      assert.deepEqual(await administrationApi.createService('  Culture '), { ...voirie, id: 4, name: 'Culture', agents: 0 });
+
+      bff.on('patch', '/admin/services/{serviceId}', { body: { ...voirie, name: 'Voirie et réseaux' } });
+      assert.equal((await administrationApi.renameService(3, 'Voirie et réseaux')).name, 'Voirie et réseaux');
+
+      assert.deepEqual(sequence(), ['GET /admin/services', 'POST /admin/services', 'PATCH /admin/services/3']);
+      assert.deepEqual(bff.requests.map(({ body }) => body), [undefined, { name: 'Culture' }, { name: 'Voirie et réseaux' }]);
+      await assert.rejects(administrationApi.createService('  '), /obligatoire/);
+    });
 
     test('updateGroup returns the group sent back by the BFF, or null on an empty reply', async () => {
       bff.on('patch', '/admin/groups/{groupId}', { body: { group: group(5, { name: 'Conseil' }) } });

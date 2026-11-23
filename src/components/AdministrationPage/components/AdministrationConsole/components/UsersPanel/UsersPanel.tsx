@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { Button, ConfirmModal, ErrorAlert, Pagination, Panel } from "@mairie360/lib-components/primitives";
-import { administrationApi, USERS_PAGE_SIZE, type AdministrationRole, type AdministrationUser, type AdministrationUsersPage } from '@/lib/administration-api';
+import { administrationApi, USERS_PAGE_SIZE, type AdministrationRole, type AdministrationService, type AdministrationUser, type AdministrationUsersPage } from '@/lib/administration-api';
 import { type RunAction } from '../../types';
 import { useUsersList } from './use-users-list';
 import { fullName } from './users-model';
@@ -45,7 +45,15 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, curren
   const [userToSuspend, setUserToSuspend] = useState<AdministrationUser | null>(null);
   const [passwordResetTarget, setPasswordResetTarget] = useState<{ user: AdministrationUser; password: string } | null>(null);
   const [createForm, setCreateForm] = useState<UserCreateDraft>(emptyUserCreateDraft);
-  const [editForm, setEditForm] = useState<UserEditDraft>({ first_name: "", last_name: "", email: "", phone_number: "", roleId: "" });
+  const [editForm, setEditForm] = useState<UserEditDraft>({ first_name: "", last_name: "", email: "", phone_number: "", serviceId: "", roleId: "" });
+  // MAIR-923: the services offered by the user form, read when it opens; a failed read only leaves « Aucun service ».
+  const [services, setServices] = useState<AdministrationService[]>([]);
+  useEffect(() => {
+    if (formMode === null) return;
+    let current = true;
+    administrationApi.listServices().then((received) => { if (current) setServices(received); }, () => undefined);
+    return () => { current = false; };
+  }, [formMode]);
   const [passwordForm, setPasswordForm] = useState<PasswordDraft>(emptyPassword);
   const record = usersPage.users.find((user) => user.id === recordId) ?? null;
 
@@ -59,7 +67,7 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, curren
     setUserSaveWarning(null);
     setPasswordForm(emptyPassword);
     setPasswordResetTarget(null);
-    setEditForm({ first_name: user.first_name, last_name: user.last_name, email: user.email, phone_number: user.phone_number ?? "", roleId: user.roles[0] ? String(user.roles[0].id) : "" });
+    setEditForm({ first_name: user.first_name, last_name: user.last_name, email: user.email, phone_number: user.phone_number ?? "", serviceId: user.service ? String(user.service.id) : "", roleId: user.roles[0] ? String(user.roles[0].id) : "" });
     setFormMode("edit");
   };
   const closeForm = () => { setFormMode(null); setEditedUser(null); setUserSaveWarning(null); };
@@ -67,7 +75,10 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, curren
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const success = await runAction("create-user", `Compte créé : ${createForm.first_name.trim()} ${createForm.last_name.trim()}`, async () => {
-      await administrationApi.createUser({ ...createForm, phone_number: createForm.phone_number.trim() || null });
+      const { serviceId, ...account } = createForm;
+      const id = await administrationApi.createUser({ ...account, phone_number: account.phone_number.trim() || null });
+      // MAIR-923: the service is attached once the account exists.
+      if (serviceId && id !== null) await administrationApi.setUserService(id, Number(serviceId));
       // POST confirms the write, not a new row or a current total. Invalidate
       // earlier reads and wait for GET before displaying either as fresh.
       list.confirmMutation();
@@ -86,7 +97,9 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, curren
     const currentRoleIds = user.roles.map((role) => role.id);
     const roleIdsToRemove = roleSelectionChanged ? currentRoleIds.filter((roleId) => roleId !== selectedRoleId) : [];
     const shouldAddRole = roleSelectionChanged && selectedRoleId !== null && !currentRoleIds.includes(selectedRoleId);
-    const changed = profileChanged || roleIdsToRemove.length > 0 || shouldAddRole;
+    const selectedServiceId = editForm.serviceId ? Number(editForm.serviceId) : null;
+    const serviceChanged = selectedServiceId !== (user.service?.id ?? null);
+    const changed = profileChanged || serviceChanged || roleIdsToRemove.length > 0 || shouldAddRole;
 
     const success = await runAction("update-user-" + user.id,
       changed ? `Le compte de ${profile.first_name} ${profile.last_name} est à jour.` : "Aucune modification à enregistrer.",
@@ -105,6 +118,11 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, curren
         if (profileChanged) {
           await administrationApi.updateUser(user.id, profile);
           applyConfirmation(profile);
+        }
+        if (serviceChanged) {
+          await administrationApi.setUserService(user.id, selectedServiceId);
+          const service = services.find((entry) => entry.id === selectedServiceId);
+          applyConfirmation({ service: service ? { id: service.id, name: service.name } : null });
         }
         const roleWrites = [
           ...roleIdsToRemove.map((roleId) => ({
@@ -220,7 +238,7 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, curren
         onEdit={openEdit} onToggleSuspension={toggleSuspension} onDelete={(user) => setUserToDelete(user)}
         onRevoke={(action, message) => runAction("revoke-sessions-" + (record?.id ?? 0), message, action)}
         onActiveCountChange={(userId, count) => replaceRow(userId, { active_sessions: count })} />
-      <UserFormModal mode={formMode} name={editedUser ? fullName(editedUser) : undefined} roles={roles} createForm={createForm} editForm={editForm}
+      <UserFormModal mode={formMode} name={editedUser ? fullName(editedUser) : undefined} roles={roles} services={services} createForm={createForm} editForm={editForm}
         passwordForm={passwordForm} saving={busyAction === "create-user" || (editedUser !== null && busyAction === "update-user-" + editedUser.id)}
         resetting={editedUser !== null && busyAction === "reset-user-password-" + editedUser.id} warning={userSaveWarning}
         onCreateChange={(field, value) => setCreateForm((current) => ({ ...current, [field]: value }))}

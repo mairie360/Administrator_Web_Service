@@ -1,7 +1,7 @@
 "use client";
 import { DataTable, DeleteIconButton, EditIconButton, StatusPill, type DataTableColumn } from "@mairie360/lib-components/primitives";
 
-import type { AdministrationRole } from '@/lib/administration-api';
+import { MODULE_LABELS, type AdministrationRole, type RoleModule } from '@/lib/administration-api';
 
 export interface RolesTableProps {
   roles: AdministrationRole[] | null;
@@ -19,6 +19,10 @@ export function RolesTable({ roles, loading, locked, selectedId, onOpen, onDelet
   const columns: DataTableColumn<AdministrationRole>[] = [
     { key: "name", header: "Rôle", kind: "strong", cell: (role) => role.name },
     { key: "description", header: "Description", cell: (role) => role.description || "Sans description" },
+    {
+      key: "modules", header: "Modules accessibles",
+      cell: (role) => role.modules?.length ? role.modules.map((module) => MODULE_LABELS[module as RoleModule] ?? module).join(", ") : "Aucun module",
+    },
     {
       key: "kind", header: "Type", kind: "content",
       cell: (role) => role.can_be_deleted === false ? <StatusPill label="Rôle système" tone="info" size="s" /> : <StatusPill label="Personnalisé" tone="neutral" size="s" />,

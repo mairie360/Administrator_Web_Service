@@ -6,12 +6,14 @@ import { Button, DataTable, Panel, formatDateTime, type DataTableColumn } from "
 import { administrationApi, type ProjectWithoutGroup } from '@/lib/administration-api';
 import { getActiveFrontHrefs } from '@/lib/navigation';
 
-/** Where « Choisir un groupe » leads: the project in the Projects front, which opens its edition with the group field. */
+/**
+ * Where « Choisir un groupe » leads: the project in the Projects front (its deep link, `?project=<id>`), where the
+ * manager edits the project to give it a group. The Projects front reads no `edit` parameter.
+ */
 export function projectGroupHref(projectsFront: string | undefined, projectId: string) {
   if (!projectsFront) return undefined;
   const url = new URL(projectsFront);
   url.searchParams.set("project", projectId);
-  url.searchParams.set("edit", "group");
   return url.href;
 }
 

@@ -14,7 +14,7 @@ describe('ProjectsWithoutGroup', () => {
   it('builds the link to the project, nothing without a Projects front', () => {
     // Built rather than written: the network policy test refuses absolute URL literals in src/.
     const front = new URL('/', window.location.href).href;
-    expect(projectGroupHref(front, 'project-9')).toBe(`${front}?project=project-9&edit=group`);
+    expect(projectGroupHref(front, 'project-9')).toBe(`${front}?project=project-9`);
     expect(projectGroupHref(undefined, 'project-9')).toBeUndefined();
   });
 

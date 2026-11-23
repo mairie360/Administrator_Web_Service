@@ -2,12 +2,13 @@ import type {
   AdministrationGroup,
   AdministrationGroupMember,
   AdministrationRole,
+  AdministrationService,
   AdministrationSession,
   AdministrationUser,
   AdministrationUsersPage,
 } from "@mairie360/bff-user-openapi/model";
 import type { GetAdminUsersParams } from "@mairie360/bff-user-openapi/model";
-import { parseUsersPage, parseRoles, parseGroups, parseSessions } from "./administration-response";
+import { parseUsersPage, parseRoles, parseGroups, parseService, parseServices, parseSessions, type GROUP_COLORS, type ROLE_MODULES } from "./administration-response";
 import { bffUser } from "./bff-client";
 
 // Modèles du contrat publié de BFF User (@mairie360/bff-user-openapi, version exacte de package.json).
@@ -15,10 +16,21 @@ export type {
   AdministrationGroup,
   AdministrationGroupMember,
   AdministrationRole,
+  AdministrationService,
   AdministrationSession,
   AdministrationUser,
   AdministrationUsersPage,
 };
+export { GROUP_COLORS, ROLE_MODULES } from "./administration-response";
+/** MAIR-916: a module of the shared navigation a role opens. */
+export type RoleModule = (typeof ROLE_MODULES)[number];
+/** Names of the modules of the shared navigation (MAIR-916), in its order. */
+export const MODULE_LABELS: Record<RoleModule, string> = {
+  dashboard: "Tableau de bord", projects: "Projets", calendar: "Calendrier", messages: "Messagerie",
+  training: "Formation", admin: "Administration", settings: "Paramètres",
+};
+/** MAIR-923: a colour of the charter palette for a group card. */
+export type GroupColor = (typeof GROUP_COLORS)[number];
 
 export type AdministrationUserRole = Pick<AdministrationRole, "id" | "name">;
 
@@ -61,6 +73,7 @@ export type RoleInput = {
   name: string;
   description: string;
   can_be_deleted?: boolean | null;
+  modules?: RoleModule[];
 };
 
 export type RolePatchInput = Partial<RoleInput>;
@@ -68,6 +81,7 @@ export type RolePatchInput = Partial<RoleInput>;
 export type GroupInput = {
   name: string;
   description: string;
+  color?: GroupColor | null;
 };
 
 // Bornes imposées par le contrat BFF User (AdminUserListQuery, AdminUserPasswordResetBody,
@@ -251,8 +265,11 @@ export function createAdministrationApi(client: typeof bffUser = bffUser) {
       ));
     },
 
-    createUser(input: CreateUserInput) {
-      return done(client.postAdminUsers(input));
+    /** Creates the account and answers its id (`null` when the BFF does not send it back). */
+    async createUser(input: CreateUserInput): Promise<number | null> {
+      const { data } = await client.postAdminUsers(input);
+      const id = asRecord(data)?.id;
+      return typeof id === "number" && Number.isInteger(id) && id > 0 ? id : null;
     },
 
     updateUser(userId: number, input: UpdateUserInput) {
@@ -308,6 +325,33 @@ export function createAdministrationApi(client: typeof bffUser = bffUser) {
 
     reactivateUser(userId: number) {
       return done(client.postAdminUsersUserIdReactivate(positiveInteger(userId, "L’identifiant utilisateur")));
+    },
+
+    /** MAIR-923: the services of the mairie, by name, with their agent counts. */
+    async listServices(signal?: AbortSignal) {
+      const { data } = await client.getAdminServices({ signal });
+      return parseServices(data);
+    },
+
+    async createService(name: string) {
+      const { data } = await client.postAdminServices({ name: boundedText(name.trim(), "Le nom du service", { min: 1, max: GROUP_NAME_MAX_LENGTH }) });
+      return parseService(data);
+    },
+
+    async renameService(serviceId: number, name: string) {
+      const { data } = await client.patchAdminServicesServiceId(positiveInteger(serviceId, "L’identifiant du service"),
+        { name: boundedText(name.trim(), "Le nom du service", { min: 1, max: GROUP_NAME_MAX_LENGTH }) });
+      return parseService(data);
+    },
+
+    deleteService(serviceId: number) {
+      return done(client.deleteAdminServicesServiceId(positiveInteger(serviceId, "L’identifiant du service")));
+    },
+
+    /** MAIR-923: attaches the agent to a service, or detaches them with `null`. */
+    setUserService(userId: number, serviceId: number | null) {
+      return done(client.putAdminUsersUserIdService(positiveInteger(userId, "L’identifiant utilisateur"),
+        { service_id: serviceId === null ? null : positiveInteger(serviceId, "L’identifiant du service") }));
     },
 
     /** F21 (MAIR-683): the projects left without a group, newest first. */

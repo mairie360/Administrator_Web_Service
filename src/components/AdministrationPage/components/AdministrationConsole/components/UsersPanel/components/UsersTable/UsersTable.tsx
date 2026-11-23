@@ -32,6 +32,8 @@ export function UsersTable({ users, state, sort, currentUserId, locked, emptyTit
   const columns: DataTableColumn<AdministrationUser>[] = [
     { key: "name", header: "Utilisateur", sortable: true, kind: "content", cell: (user) => <UserIdentity name={fullName(user)} email={user.email} size="s" /> },
     { key: "role", header: "Rôle", kind: "content", cell: (user) => <Tag label={roleName(user)} size="s" /> },
+    // MAIR-923: the service of the agent (the search also finds it).
+    { key: "service", header: "Service", cell: (user) => user.service?.name ?? "Aucun service" },
     {
       key: "status", header: "Statut", kind: "content",
       cell: (user) => <StatusPill data-status={user.account_status} label={accountStatuses[user.account_status].label} tone={accountStatuses[user.account_status].tone} dot size="s" />,

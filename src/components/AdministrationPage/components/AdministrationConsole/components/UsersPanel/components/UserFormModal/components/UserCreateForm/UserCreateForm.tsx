@@ -3,18 +3,19 @@ import { type FormEvent } from "react";
 import { CancelButton, CreateButton } from "@mairie360/lib-components/primitives";
 
 import AdministrationMutationForm from '@/components/AdministrationPage/components/AdministrationConsole/components/AdministrationMutationForm';
+import type { AdministrationService } from '@/lib/administration-api';
 import { PASSWORD_MAX_LENGTH } from '@/lib/text-constraints';
 import { Field } from '@/components/AdministrationPage/components/Field';
 import { inputClassName } from '@/components/AdministrationPage/controls';
 import { UserFields, type UserIdentityDraft } from '../UserFields';
 
 export interface UserCreateDraft extends UserIdentityDraft { password: string }
-export const emptyUserCreateDraft: UserCreateDraft = { first_name: "", last_name: "", email: "", phone_number: "", password: "" };
+export const emptyUserCreateDraft: UserCreateDraft = { first_name: "", last_name: "", email: "", phone_number: "", serviceId: "", password: "" };
 
 /** F06: a new account, created « Invité », with a temporary password. */
-export const UserCreateForm = ({ form, saving, onChange, onCancel, onSubmit }: { form: UserCreateDraft; saving: boolean; onChange: (field: keyof UserCreateDraft, value: string) => void; onCancel: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) => (
+export const UserCreateForm = ({ form, services, saving, onChange, onCancel, onSubmit }: { form: UserCreateDraft; services: AdministrationService[]; saving: boolean; onChange: (field: keyof UserCreateDraft, value: string) => void; onCancel: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) => (
   <AdministrationMutationForm onSubmit={onSubmit} className="space-y-4">
-    <UserFields prefix="create" form={form} onChange={onChange} />
+    <UserFields prefix="create" form={form} services={services} onChange={onChange} />
     <Field label="Mot de passe temporaire" htmlFor="create-password" hint="Le compte est créé en statut « Invité » : à sa première connexion, l’agent choisit son propre mot de passe.">
       <input id="create-password" type="password" minLength={8} maxLength={PASSWORD_MAX_LENGTH} required autoComplete="new-password" className={inputClassName} value={form.password} onChange={(event) => onChange("password", event.target.value)} />
     </Field>

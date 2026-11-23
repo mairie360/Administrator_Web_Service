@@ -7,7 +7,7 @@ import { UserCreateForm, emptyUserCreateDraft } from './UserCreateForm';
 describe('UserCreateForm', () => {
   it('asks for the identity and a temporary password, then creates', async () => {
     const onChange = vi.fn(); const onSubmit = vi.fn((event) => event.preventDefault()); const onCancel = vi.fn();
-    render(<UserCreateForm form={emptyUserCreateDraft} saving={false} onChange={onChange} onCancel={onCancel} onSubmit={onSubmit} />);
+    render(<UserCreateForm form={emptyUserCreateDraft} services={[]} saving={false} onChange={onChange} onCancel={onCancel} onSubmit={onSubmit} />);
     await userEvent.type(screen.getByLabelText(/Mot de passe temporaire/), 's'); expect(onChange).toHaveBeenCalledWith('password', 's');
     fireEvent.submit(screen.getByRole('button', { name: 'Créer le compte' }).closest('form')!); expect(onSubmit).toHaveBeenCalledTimes(1);
   });

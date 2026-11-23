@@ -3,29 +3,33 @@
 ## Administration V2 — MAIR-824
 
 La console suit la maquette V2 (Figma Administrator_Web_Service, epic MAIR-824) sur
-`@mairie360/lib-components` 2.3.0. Quatre onglets : Utilisateurs, Rôles, Groupes et Sécurité ;
+`@mairie360/lib-components` 2.3.0. Cinq onglets : Utilisateurs, Rôles, Groupes, Services et Sécurité ;
 l’onglet Sessions disparaît, les sessions d’un compte sont dans sa fiche.
 
-- **Utilisateurs** : recherche sur le nom ou l’e-mail, filtre d’état (Actif, Invité, Inactif,
+- **Utilisateurs** : recherche sur le nom, l’e-mail ou le service, filtre d’état (Actif, Invité, Inactif,
   Suspendu), filtre de rôle, tri par nom, 6 lignes par page. Chaque ligne affiche le rôle, l’état,
   « En ligne · N sessions » ou la dernière connexion, et ses actions : modifier, suspendre /
-  réactiver, supprimer. Un administrateur ne peut ni suspendre ni supprimer son propre compte. Un
+  réactiver, supprimer, et le service de l’agent (choisi dans la modale de l’utilisateur). Un administrateur ne peut ni suspendre ni supprimer son propre compte. Un
   clic sur la ligne ouvre la fiche (identité, rôle, état, sessions ouvertes et des 30 derniers
   jours, déconnexion d’une session ou de toutes après confirmation).
 - **Suspension** (MAIR-904) : confirmée d’abord, elle ferme toutes les sessions du compte et
   refuse sa connexion jusqu’à « Réactiver » ; rôles, groupes et seconds facteurs sont conservés.
-- **Rôles** : tableau, création et modification dans une modale ; la suppression d’un rôle système
+- **Rôles** : tableau, création et modification dans une modale, avec les « Modules accessibles » du rôle
+  (MAIR-916 ; le rôle Admin garde toujours Administration) ; la suppression d’un rôle système
   est refusée, un rôle encore attribué prévient avec le nombre de comptes, les autres demandent une
   confirmation.
-- **Groupes** : création dans une modale, le groupe s’ouvre dans un panneau latéral (membres,
+- **Groupes** : création dans une modale avec une couleur de la palette de la charte, chaque carte affiche
+  sa couleur et son nombre de projets (MAIR-923), le groupe s’ouvre dans un panneau latéral (membres,
   propriétaire, suppression) ; « Projets sans groupe » liste les projets de BFF_Project sans groupe.
+- **Services** (MAIR-923) : les services de la mairie et leurs agents ; création, renommage et
+  suppression confirmée, qui laisse ses agents sans service.
 - **Sécurité** : la politique de double authentification de la mairie (obligatoire ou non,
   méthodes autorisées) et le facteur de chaque agent actif, qu’un administrateur peut réinitialiser.
 - « Actualiser » relit les rôles, les groupes et la page d’utilisateurs affichée ; une lecture
   refusée garde les dernières lignes confirmées et le signale.
 
-Pas encore couvert (aucun champ côté back) : les modules ouverts par un rôle, le service d’un
-agent, la couleur et le nombre de projets d’un groupe. Le nom de la commune de l’en-tête vient de
+La navigation partagée n’affiche que les modules ouverts par le rôle de la session (`modules` de `/me` ;
+tous les modules tant que le BFF ne les envoie pas). Le nom de la commune de l’en-tête vient de
 `COMMUNE_NAME` (masqué s’il n’est pas défini).
 
 

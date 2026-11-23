@@ -37,7 +37,7 @@ const row = (dom, name) => [...dom.document.querySelectorAll('tbody tr')].find(e
 test('MAIR-885 the console reads users, roles and groups once, with V2 states and no sessions tab', async t => {
   const dom = await administrationDom(t, { configure: seed(), expected: 'Bob Martin' });
   assert.deepEqual(requests(dom.bff).filter(r => r.startsWith('GET /admin')).sort(), ['GET /admin/groups', 'GET /admin/roles', 'GET /admin/users?page=1&page_size=6']);
-  assert.deepEqual([...dom.document.querySelectorAll('[role="tab"]')].map(element => element.textContent.trim()), ['Utilisateurs', 'Rôles', 'Groupes', 'Sécurité']);
+  assert.deepEqual([...dom.document.querySelectorAll('[role="tab"]')].map(element => element.textContent.trim()), ['Utilisateurs', 'Rôles', 'Groupes', 'Services', 'Sécurité']);
   assert.match(text(dom), /En ligne · 2 sessions/);
   assert.equal(row(dom, 'Carla Petit').querySelector('[data-status]').getAttribute('data-status'), 'suspended');
   // C7: an administrator cannot suspend or delete their own account from the list.
@@ -182,7 +182,7 @@ test('MAIR-923 a group opens in its panel: rename, add a member, remove one afte
   await type(dom.document.getElementById('edit-group-name'), '  Voirie et réseaux ');
   await dom.click(dom.button('Enregistrer le groupe'));
   await dom.waitFor(() => dom.bff.calls('/admin/groups/{groupId}', 'PATCH').length === 1);
-  assert.deepEqual(dom.bff.calls('/admin/groups/{groupId}', 'PATCH')[0].body, { name: 'Voirie et réseaux', description: 'Routes' });
+  assert.deepEqual(dom.bff.calls('/admin/groups/{groupId}', 'PATCH')[0].body, { name: 'Voirie et réseaux', description: 'Routes', color: null });
 
   const carlaRow = [...dom.document.querySelectorAll('div')].filter(d => d.textContent.includes('Carla Petit') && d.querySelectorAll('button').length === 1 && d.querySelector('button').textContent.trim() === 'Ajouter')
     .sort((a, b) => a.textContent.length - b.textContent.length)[0];
@@ -205,4 +205,49 @@ test('MAIR-923 a group opens in its panel: rename, add a member, remove one afte
   await dom.waitFor(() => dom.bff.calls('/admin/groups/{groupId}', 'DELETE').length === 1);
   // Let the debounced member search (250 ms) and its read finish before the DOM is torn down.
   await React.act(async () => new Promise(resolve => setTimeout(resolve, 400)));
+});
+
+test('MAIR-923 the « Services » tab lists, creates, renames and deletes the services of the mairie', async t => {
+  const voirie = { id: 3, name: 'Voirie', created_at: '2026-11-20T08:00:00Z', agents: 2 };
+  const culture = { id: 4, name: 'Culture', created_at: '2026-11-21T08:00:00Z', agents: 0 };
+  const dom = await administrationDom(t, { configure: seed(bff => bff
+    .on('get', '/admin/groups', { body: { groups: [] } })
+    .on('get', '/admin/services', { body: { services: [voirie] } })
+    .on('post', '/admin/services', { status: 201, body: culture })
+    .on('patch', '/admin/services/{serviceId}', { body: { ...voirie, name: 'Voirie et réseaux' } })
+    .on('delete', '/admin/services/{serviceId}', { status: 204 })), expected: 'Bob Martin' });
+  const React = require('react');
+  const type = async (element, value) => React.act(async () => {
+    Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set.call(element, value);
+    element.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  });
+
+  await dom.click(tab(dom, 'Services'));
+  await dom.waitFor(() => /2 agents/.test(text(dom)));
+  assert.ok(row(dom, 'Voirie'));
+
+  dom.bff.on('get', '/admin/services', { body: { services: [culture, voirie] } });
+  await dom.click(dom.button('Nouveau service'));
+  await type(dom.document.getElementById('service-name'), '  Culture ');
+  await dom.click(dom.button('Créer le service'));
+  await dom.waitFor(() => dom.bff.calls('/admin/services', 'POST').length === 1 && Boolean(row(dom, 'Culture')));
+  assert.deepEqual(dom.bff.calls('/admin/services', 'POST')[0].body, { name: 'Culture' });
+
+  dom.bff.on('get', '/admin/services', { body: { services: [culture, { ...voirie, name: 'Voirie et réseaux' }] } });
+  const labelled = (label) => [...dom.document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === label);
+  await dom.click(labelled('Renommer le service Voirie'));
+  await dom.waitFor(() => Boolean(dom.document.getElementById('service-name')));
+  await type(dom.document.getElementById('service-name'), 'Voirie et réseaux');
+  await dom.click(dom.button('Enregistrer'));
+  await dom.waitFor(() => dom.bff.calls('/admin/services/{serviceId}', 'PATCH').length === 1);
+  assert.deepEqual(dom.bff.calls('/admin/services/{serviceId}', 'PATCH')[0].body, { name: 'Voirie et réseaux' });
+  assert.equal(dom.bff.calls('/admin/services/{serviceId}', 'PATCH')[0].url.pathname, '/admin/services/3');
+
+  dom.bff.on('get', '/admin/services', { body: { services: [culture] } });
+  await dom.waitFor(() => Boolean(labelled('Supprimer le service Voirie et réseaux')));
+  await dom.click(labelled('Supprimer le service Voirie et réseaux'));
+  assert.match(text(dom), /qui ne seront plus rattachés à aucun service/);
+  await dom.click(within(dom, '[role="alertdialog"]', 'Supprimer'));
+  await dom.waitFor(() => dom.bff.calls('/admin/services/{serviceId}', 'DELETE').length === 1);
+  assert.equal(dom.bff.calls('/admin/services/{serviceId}', 'DELETE')[0].url.pathname, '/admin/services/3');
 });
