@@ -7,7 +7,7 @@ import { parseAuthSession, type AuthSession } from './auth-session-model';
 import { createAdministrationApi } from './administration-api';
 import { administrationErrorMessage } from './administration-error';
 import { readPageUrlState } from './page-url-state';
-import { usersUrlSchema } from './administration-query';
+import { usersQueryOf, usersUrlSchema } from './administration-query';
 import type { InitialAdministration } from './administration-response';
 
 function unavailable(error: string): InitialAdministration {
@@ -34,16 +34,14 @@ export async function readInitialAdministration(search: string): Promise<Initial
   if (!session.isAdmin) return { session, console: null };
   const api = createAdministrationApi(client);
   const query = readPageUrlState(search, usersUrlSchema);
-  const [users, roles, groups, active, history] = await Promise.allSettled([
-    api.listUsers({ page: Number(query.usersPage), search: query.usersSearch }), api.listRoles(), api.listGroups(), api.listActiveSessions(), api.listSessionHistory(),
+  const [users, roles, groups] = await Promise.allSettled([
+    api.listUsers(usersQueryOf(query)), api.listRoles(), api.listGroups(),
   ]);
-  const failures = [roles, groups, active, history].filter((result): result is PromiseRejectedResult => result.status === 'rejected');
+  const failures = [roles, groups].filter((result): result is PromiseRejectedResult => result.status === 'rejected');
   return { session, console: {
     users: users.status === 'fulfilled' ? users.value : null,
     roles: roles.status === 'fulfilled' ? roles.value : null,
     groups: groups.status === 'fulfilled' ? groups.value : null,
-    activeSessions: active.status === 'fulfilled' ? active.value : null,
-    sessionHistory: history.status === 'fulfilled' ? history.value : null,
     usersError: users.status === 'rejected' ? administrationErrorMessage(users.reason) : null,
     error: failures.length ? [...new Set(failures.map(result => administrationErrorMessage(result.reason)))].join(' ') : null,
     authRequired: [...failures, ...(users.status === 'rejected' ? [users] : [])].some(result => result.reason instanceof BffRequestError && result.reason.status === 401),

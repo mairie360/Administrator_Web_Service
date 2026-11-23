@@ -11,6 +11,8 @@ export const APP_ROLES = [
 export type AppRole = (typeof APP_ROLES)[number];
 
 export type AuthSessionUser = {
+  /** Account id (MAIR-923: one's own account can be neither suspended nor deleted). */
+  id?: number;
   name: string;
   email?: string;
   role?: string;
@@ -89,7 +91,7 @@ export function parseAuthSession(value: unknown): AuthSession {
   const name = `${(user.first_name as string).trim()} ${(user.last_name as string).trim()}`.trim();
   const email = (user.email as string).trim();
   return {
-    user: { name: name || email, email: email || undefined, phone: typeof user.phone === "string" ? user.phone.trim() || undefined : undefined,
+    user: { ...(Number(user.id) > 0 ? { id: Number(user.id) } : {}), name: name || email, email: email || undefined, phone: typeof user.phone === "string" ? user.phone.trim() || undefined : undefined,
       status: (user.status as string).trim() || undefined, service: groups.length ? groups.join(", ") : undefined,
       position: undefined, address: undefined, city: undefined, lastConnection: undefined, role },
     groups, roles, role, isAdmin: role === "Admin", loading: false, error: null,

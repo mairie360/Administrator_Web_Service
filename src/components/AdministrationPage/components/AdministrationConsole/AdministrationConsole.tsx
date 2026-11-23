@@ -7,7 +7,7 @@ import type { InitialConsole } from '@/lib/administration-response';
 import { UsersPanel } from './components/UsersPanel';
 import { RolesPanel } from './components/RolesPanel';
 import { GroupsPanel } from './components/GroupsPanel';
-import { SessionsPanel } from './components/SessionsPanel';
+import { SecurityPanel } from './components/SecurityPanel';
 import { ConsoleHeader } from './components/ConsoleHeader';
 import { ConsoleNotices } from './components/ConsoleNotices';
 import { ConsoleMetrics } from './components/ConsoleMetrics';
@@ -15,8 +15,8 @@ import { ConsoleTabs } from './components/ConsoleTabs';
 import { consoleMetrics, type AdministrationTabId } from './components/ConsoleTabs';
 import { useAdministrationData } from './use-administration-data';
 
-/** The administration console: header, notices, counters, tabs and the active panel. */
-export function AdministrationConsole({ initialState, initialSearch }: { initialState?: InitialConsole; initialSearch?: string }) {
+/** The administration console V2 (MAIR-824): header, notices, three counters, three tabs and the active panel. */
+export function AdministrationConsole({ initialState, initialSearch, currentUserId = null }: { initialState?: InitialConsole; initialSearch?: string; currentUserId?: number | null }) {
   const [initial] = useState(initialState);
   const pageUrl = usePageUrlState(administrationUrlSchema, initialSearch);
   // Only a users panel present in the initial render may consume this receipt.
@@ -27,23 +27,25 @@ export function AdministrationConsole({ initialState, initialSearch }: { initial
   const activeTab = pageUrl.state.tab as AdministrationTabId;
   const setActiveTab = (tab: AdministrationTabId) => pageUrl.update({ tab });
   const [usersTotal, setUsersTotal] = useState<number | null>(initial?.users?.total ?? null);
+  const [usersRefresh, setUsersRefresh] = useState(0);
   const locked = busyAction !== null;
 
   return (
     <section className="administration-console min-w-0 space-y-6 text-[var(--mairie-text)]">
-      <ConsoleHeader loading={loading} locked={locked} onRefresh={() => void data.loadAll()} />
+      <ConsoleHeader loading={loading} locked={locked} onRefresh={() => { setUsersRefresh((value) => value + 1); void data.loadAll(); }} />
       <ConsoleNotices authRequired={data.authRequired} loadError={data.loadError} notice={data.notice} actionError={data.actionError} refreshFailure={data.refreshFailure} busyAction={busyAction}
         onCloseNotice={data.clearNotice} onCloseError={data.clearActionError}
-        onRetryRefresh={() => { if (data.refreshFailure) void runAction("retry-refresh", "Données actualisées.", data.refreshFailure.retry); }} />
-      <ConsoleMetrics metrics={consoleMetrics({ users: usersTotal, roles: data.roles?.length, groups: data.groups?.length, sessions: data.activeSessions?.length })} activeTab={activeTab} locked={locked} onOpen={setActiveTab} />
+        onRetryRefresh={() => { if (data.refreshFailure) void runAction("retry-refresh", "Données actualisées.", data.refreshFailure.retry); }}
+        onReconnect={() => void data.reconnect()} reconnecting={data.reconnecting} />
+      <ConsoleMetrics metrics={consoleMetrics({ users: usersTotal, roles: data.roles?.length, groups: data.groups?.length })} activeTab={activeTab} locked={locked} onOpen={setActiveTab} />
       <ConsoleTabs value={activeTab} locked={locked} onChange={setActiveTab} />
       {activeTab === "users" && (
         <UsersPanel initialPage={usersSeed?.page} initialError={usersSeed?.error} initialSearch={usersSeed ? initialSearch : undefined} onInitialReadConsumed={consumeUsersSeed}
-          roles={data.roles ?? []} busyAction={busyAction} runAction={runAction} onTotalChange={setUsersTotal} />
+          roles={data.roles ?? []} busyAction={busyAction} runAction={runAction} onTotalChange={setUsersTotal} currentUserId={currentUserId} refreshSignal={usersRefresh} />
       )}
       {activeTab === "roles" && <RolesPanel roles={data.roles} loading={loading || busyAction === "refresh-roles"} busyAction={busyAction} runAction={runAction} refreshRoles={data.refreshRoles} onRoleDeleted={data.confirmRoleDeletion} />}
+      {activeTab === "security" && <SecurityPanel busyAction={busyAction} runAction={runAction} />}
       {activeTab === "groups" && <GroupsPanel groups={data.groups} loading={loading || busyAction === "refresh-groups"} busyAction={busyAction} runAction={runAction} refreshGroups={data.refreshGroups} onGroupDeleted={data.applyGroupDeletion} />}
-      {activeTab === "sessions" && <SessionsPanel activeSessions={data.activeSessions} sessionHistory={data.sessionHistory} loading={loading || busyAction === "refresh-sessions"} busyAction={busyAction} runAction={runAction} refreshSessions={data.refreshSessions} />}
     </section>
   );
 }

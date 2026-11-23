@@ -135,7 +135,7 @@ describe('useAuthSession', () => {
     await waitFor(() => !hook.state.loading);
 
     assert.deepEqual(hook.state, {
-      user: { name: 'Alice Dupont', email: 'alice@mairie.test', phone: '+33123456789', status: 'active', service: 'Élus', position: undefined, address: undefined, city: undefined, lastConnection: undefined, role: 'Admin' },
+      user: { id: 1, name: 'Alice Dupont', email: 'alice@mairie.test', phone: '+33123456789', status: 'active', service: 'Élus', position: undefined, address: undefined, city: undefined, lastConnection: undefined, role: 'Admin' },
       groups: ['Élus'],
       roles: ['Admin'],
       role: 'Admin',

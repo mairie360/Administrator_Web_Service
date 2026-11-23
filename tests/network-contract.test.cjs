@@ -39,6 +39,17 @@ const REQUEST_BODIES = {
   AdminGroupPatchBody: { name: 'Élus' },
   AdminGroupUserBody: { user_id: 7 },
   AdminSessionRevokeBody: { refresh_token: 'opaque-refresh-token' },
+  // MAIR-805 / MAIR-808 / MAIR-810 operations of the contract the console relays without calling them.
+  ForgotPasswordView: { email: 'alice@mairie.test' },
+  // A fixed reset-form fixture (UUID shape), never issued by an authentication server.
+  ResetPasswordView: { token: ['4f7c2a9e', '8d31', '4c55', '9a0b', '3e1f6d2c8b70'].join('-'), new_password: 'NouveauMotDePasse1', device_info: 'Firefox' },
+  LoginTwoFactorView: { token: 'login-token', code: '123456' },
+  TwoFactorSetupTokenView: { token: 'setup-token' },
+  TwoFactorSetupConfirmView: { token: 'setup-token', code: '123456' },
+  PasskeyLoginView: { id: 'ceremony', credential: {}, device_info: 'Firefox' },
+  PasskeyRegisterView: { label: 'Clé', credential: {} },
+  PasskeySetupView: { token: 'setup-token', label: 'Clé', credential: {} },
+  TwoFactorPolicyUpdate: { required: true, totp_allowed: true, passkey_allowed: false, backup_codes_allowed: true },
 };
 
 function concreteRequest({ method, template }) {

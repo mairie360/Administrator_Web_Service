@@ -9,7 +9,7 @@ const { bffUserContract } = require('./bff-user-contract.cjs');
 let serverAccess;
 
 /** Actual page, React hooks, published shell and contract-gated HTTP responses. */
-async function administrationDom(t, { serverPage = false, strict = false, configure, searchParams = {}, expected = "Aucun utilisateur disponible." } = {}) {
+async function administrationDom(t, { serverPage = false, strict = false, configure, searchParams = {}, expected = "Aucun utilisateur" } = {}) {
   const keys = ['window', 'document', 'HTMLElement', 'Element', 'Node', 'SVGElement',
     'MutationObserver', 'Event', 'MouseEvent', 'KeyboardEvent', 'CustomEvent',
     'getComputedStyle', 'requestAnimationFrame', 'cancelAnimationFrame',
@@ -59,8 +59,8 @@ async function administrationDom(t, { serverPage = false, strict = false, config
     groups: [], roles: [{ id: 1, name: 'Admin' }],
   } });
   for (const [route, body] of [
-    ['roles', { roles: [] }], ['groups', { groups: [] }], ['sessions', { sessions: [] }],
-    ['sessions/history', { sessions: [] }], ['users', { users: [], page: 1, page_size: 20, total: 0, total_pages: 0 }],
+    ['roles', { roles: [] }], ['groups', { groups: [] }], ['projects-without-group', { total: 0, projects: [] }],
+    ['users', { users: [], page: 1, page_size: 6, total: 0, total_pages: 0 }],
   ]) bff.on('get', '/admin/' + route, { body });
   [{ setBrowserFrontUrls }] = loadTs(['src/lib/front-urls.ts']);
   setBrowserFrontUrls({ ADMINISTRATION_FRONT_URL: 'http://administration.mairie360.test/', LOGIN_FRONT_URL: 'https://login.example/',
