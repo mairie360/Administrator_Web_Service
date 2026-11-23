@@ -9,8 +9,7 @@ test('actual administration page retains root typography after a later shared bo
   assert.equal(dom.style(dom.document.body).fontFamily, 'system-ui, sans-serif');
   assert.equal(dom.document.querySelector('.administration-console') !== null, true);
   assert.deepEqual(dom.bff.requests.map(({ method, template }) => `${method} ${template}`).sort(), [
-    'GET /admin/groups', 'GET /admin/roles', 'GET /admin/sessions',
-    'GET /admin/sessions/history', 'GET /admin/users', 'GET /me',
+    'GET /admin/groups', 'GET /admin/roles', 'GET /admin/users', 'GET /me',
   ]);
 });
 

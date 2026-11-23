@@ -24,7 +24,13 @@ function object(required: Record<string, Field>, optional: Record<string, Field>
 // Exact fields of Administration* schemas in the pinned contracts/openapi.json.
 // Projection is shared by server and client reads; unknown nested keys are discarded.
 const userRole = object({ id: number, name: text });
-const user = object({ id: number, first_name: text, last_name: text, email: text, phone_number: nullable(text), status: text, is_archived: boolean, roles: array(userRole) }, { phone_country: nullable(text) });
+const choice = (values: readonly string[]): Field => value => typeof value === 'string' && values.includes(value) ? value : invalid();
+const twoFactor = object({ methods: array(choice(['totp', 'passkey', 'backup_codes'])), last_verified_at: nullable(text) });
+// MAIR-584 / MAIR-904: the V2 list carries the state, the open sessions, the last sign-in and the second factor.
+const user = object({
+  id: number, first_name: text, last_name: text, email: text, phone_number: nullable(text), status: text, is_archived: boolean, roles: array(userRole),
+  account_status: choice(['active', 'invited', 'inactive', 'suspended']), active_sessions: number, last_login_at: nullable(text), two_factor: twoFactor,
+}, { phone_country: nullable(text) });
 const role = object({ id: number, name: text, description: text }, { can_be_deleted: nullable(boolean) });
 const group = object({ id: number, name: text, owner_id: number, description: nullable(text) });
 const session = object({ id: text, device_info: text, ip_address: text, created_at: text, expires_at: text, revoked_at: nullable(text) });
@@ -40,8 +46,6 @@ export type InitialConsole = {
   users: AdministrationUsersPage | null;
   roles: AdministrationRole[] | null;
   groups: AdministrationGroup[] | null;
-  activeSessions: AdministrationSession[] | null;
-  sessionHistory: AdministrationSession[] | null;
   error: string | null;
   usersError: string | null;
   authRequired: boolean;

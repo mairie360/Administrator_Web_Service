@@ -1,13 +1,29 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 const group = { id: 3, name: 'Voirie', description: 'Entretien', owner_id: 7 } as never;
 
 import { GroupsPanel } from './GroupsPanel';
 
+vi.mock('@/lib/administration-api', async (original) => ({
+  ...(await original<typeof import('@/lib/administration-api')>()),
+  administrationApi: {
+    listProjectsWithoutGroup: vi.fn(async () => ({ total: 0, projects: [] })),
+    getGroup: vi.fn(async () => ({ id: 3, name: 'Voirie', description: 'Entretien', owner_id: 7 })),
+    listGroupUsers: vi.fn(async () => []),
+    listUsers: vi.fn(async () => ({ users: [], page: 1, page_size: 20, total: 0, total_pages: 0 })),
+  },
+}));
+
 describe('GroupsPanel', () => {
-  it('lists the groups, the creation card and asks to pick a group', () => {
+  it('F18 / F19 / F21: projects without group, cards, « Nouveau groupe » in a modal, the group in a drawer', async () => {
     render(<GroupsPanel groups={[group]} loading={false} busyAction={null} runAction={vi.fn(async () => true)} refreshGroups={vi.fn(async () => {})} onGroupDeleted={vi.fn()} />);
-    expect(screen.getByRole('heading', { level: 2, name: 'Groupes' })).toBeTruthy(); expect(screen.getByRole('heading', { level: 2, name: 'Créer un groupe' })).toBeTruthy();
-    expect(screen.getByText('Voirie')).toBeTruthy(); expect(screen.getByText('Cliquez sur un groupe dans la liste.')).toBeTruthy();
+    expect(await screen.findByText('Tous les projets ont un groupe')).toBeTruthy();
+    expect(screen.getByText('Voirie')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Nouveau groupe' }));
+    expect(screen.getByRole('dialog', { name: 'Nouveau groupe' })).toBeTruthy();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByText('Voirie'));
+    expect(await screen.findByRole('dialog', { name: 'Voirie' })).toBeTruthy();
   });
 });

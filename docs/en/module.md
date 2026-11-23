@@ -1,5 +1,32 @@
 # Administrator_Web_Service — Module overview
 
+## Administration V2 — MAIR-824
+
+The console follows the V2 mock-up (Figma Administrator_Web_Service, epic MAIR-824) on
+`@mairie360/lib-components` 2.2.0. Four tabs: Users, Roles, Groups and Security; the Sessions
+tab is gone, the sessions of an account live in its record.
+
+- **Users**: search on the name or the e-mail, state filter (Active, Invited, Inactive,
+  Suspended), role filter, order by name, 6 rows per page. Each row shows the role, the state,
+  « En ligne · N sessions » or the last sign-in, and its actions: edit, suspend / reactivate,
+  delete. An administrator cannot suspend or delete their own account. A click on the row opens
+  the user record (identity, role, state, open sessions and those of the last 30 days, sign-out
+  of one or of every session after a confirmation).
+- **Suspension** (MAIR-904): confirmed first, it closes every session of the account and refuses
+  its sign-in until « Réactiver »; roles, groups and second factors are kept.
+- **Roles**: table, creation and edition in a modal; the deletion of a system role is refused,
+  a role still held warns with the number of accounts, any other asks for a confirmation.
+- **Groups**: creation in a modal, the group opens in a side panel (members, owner, deletion);
+  « Projets sans groupe » lists the projects of BFF_Project left without a group.
+- **Security**: the second factor policy of the mairie (mandatory or not, allowed methods) and
+  the factor of each active agent, which an administrator can reset.
+- The header « Actualiser » reads the roles, the groups and the visible users page again; a
+  refused read keeps the last confirmed rows and says so.
+
+Not covered yet (no backend field): the modules a role opens, the service of an agent, the colour
+and project count of a group, and the commune name / shell 2.3 items (C7, C8) waiting for MAIR-1092.
+
+
 ## Unknown collections are not empty — MAIR-470
 
 Roles, groups, active sessions and session history remain unknown until their
@@ -19,9 +46,11 @@ French hint before any request. A 400 that still arrives with field details is e
 per field ("Prénom : ne doit pas contenir les caractères < ou >") instead of the generic
 message.
 
-## Read-only session lists — MAIR-406
+## Sessions of an account — MAIR-894 (replaces MAIR-406)
 
-Active sessions and history remain available with their existing GET-only refresh, counters, expiry/revocation labels and independent failure handling. The token-entry form and its refresh/revoke actions are removed following the explicit decision of 10 October 2026; MAIR-460 token-draft checks are historical. The published User 0.5.0 contract does not define a typed session-ID revocation operation, so no replacement payload or command is invented. Real Dev permissions and session persistence still require a usable account.
+The read-only Sessions tab of MAIR-406 is gone: the sessions of an account are read from its record
+(`GET /admin/users/{userId}/sessions`) and an administrator can sign one or every session out
+after a confirmation (`DELETE /admin/users/{userId}/sessions[/{sessionId}]`).
 
 ## Independent administration panels — MAIR-406
 

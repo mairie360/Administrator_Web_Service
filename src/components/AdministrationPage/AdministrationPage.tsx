@@ -32,7 +32,7 @@ export default function AdministrationPage({ initialState, initialSearch }: { in
         {logoutError && <LogoutFailure message={logoutError} />}
         {session.loading ? <ProfileChecking />
           : session.error ? <ProfileUnavailable error={session.error} onRetry={session.retry} />
-          : session.isAdmin ? <AdministrationConsole initialState={initial?.console ?? undefined} initialSearch={initialSearch} />
+          : session.isAdmin ? <AdministrationConsole initialState={initial?.console ?? undefined} initialSearch={initialSearch} currentUserId={session.user?.id ?? null} />
           : <AccessDenied />}
       </div>
     </AccessibleShell>

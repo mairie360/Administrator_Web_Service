@@ -31,7 +31,7 @@ criteria:
   - "3.2"
   - "3.3"
   # 4.x: no media.
-  # Tables: the users and sessions tables (simple data tables).
+  # Tables: the users, roles, sessions and second factor tables (simple data tables).
   - "5.4"
   - "5.5"
   - "5.6"
@@ -68,7 +68,7 @@ criteria:
   - "10.10"
   - "10.11"
   - "10.12"
-  # Forms: search, user, password, role, group and session forms.
+  # Forms: search, user, password, role, group and second factor policy forms.
   - "11.1"
   - "11.2"
   - "11.3"
@@ -92,7 +92,7 @@ criteria:
   - "13.11"
 
 states:
-  # Users tab (default tab).
+  # Users tab (default tab), V2 (MAIR-824): 6 rows per page, actions on each row, forms in modals.
   - id: users
     as: admin
     route: /
@@ -105,53 +105,70 @@ states:
     steps:
       - wait_for: { text: remi.aubert@mairie360.fr }
       - click: { role: button, name: Page suivante }
-      - wait_for: { text: Page 2 / 2 }
+      - wait_for: { text: Page 2 / 5 }
   - id: users-search-empty
     description: A search without result (empty state)
     as: admin
     route: /
     steps:
       - wait_for: { text: remi.aubert@mairie360.fr }
-      - fill: { label: Rechercher un utilisateur, value: zzzz }
-      - click: { role: button, name: Rechercher, exact: true }
-      - wait_for: { text: Aucun utilisateur ne correspond à cette recherche. }
+      - fill: { label: Rechercher, value: zzzz }
+      - wait_for: { text: Aucun utilisateur ne correspond }
   - id: user-create-form
     as: admin
     route: /
     steps:
       - wait_for: { text: remi.aubert@mairie360.fr }
       - click: { role: button, name: Nouvel utilisateur }
-      - wait_for: { role: heading, name: Créer un utilisateur }
-  - id: user-edit
-    description: A row selected, the edit form and the password reset form
+      - wait_for: { role: dialog, name: Nouvel utilisateur }
+  - id: user-record
+    description: The record of a user (identity, role, state, sessions)
     as: admin
     route: /
     steps:
       - click: { text: remi.aubert@mairie360.fr }
-      - wait_for: { role: heading, name: Modifier l’utilisateur }
+      - wait_for: { role: dialog, name: Fiche utilisateur }
+  - id: user-edit
+    description: The edit modal and its password reset form
+    as: admin
+    route: /
+    steps:
+      - wait_for: { text: remi.aubert@mairie360.fr }
+      - click: { role: button, name: Modifier Rémi Aubert }
+      - wait_for: { role: dialog, name: Modifier l’utilisateur }
   - id: user-password-mismatch
     description: Password confirmation that does not match (role="alert")
     as: admin
     route: /
     steps:
-      - click: { text: remi.aubert@mairie360.fr }
+      - wait_for: { text: remi.aubert@mairie360.fr }
+      - click: { role: button, name: Modifier Rémi Aubert }
       - fill: { label: Nouveau mot de passe, value: Rgaa-2026-Pass }
       - fill: { label: Confirmer le mot de passe, value: Rgaa-2026-Other }
       - wait_for: { text: Les deux mots de passe ne correspondent pas. }
+  - id: user-suspend-confirm
+    description: Suspension confirmation dialog (cancelled by the end of the state, nothing written)
+    as: admin
+    route: /
+    steps:
+      - wait_for: { text: remi.aubert@mairie360.fr }
+      - click: { role: button, name: Suspendre Rémi Aubert }
+      - wait_for: { role: alertdialog }
   - id: user-delete-confirm
     description: Deletion confirmation dialog (cancelled by the end of the state, nothing deleted)
     as: admin
     route: /
     steps:
-      - click: { text: remi.aubert@mairie360.fr }
-      - click: { role: button, name: Supprimer l’utilisateur }
+      - wait_for: { text: remi.aubert@mairie360.fr }
+      - click: { role: button, name: Supprimer Rémi Aubert }
       - wait_for: { role: alertdialog }
   - id: user-password-reset
     description: Password reset confirmed (role="status"); writes the password of the seed user 12 only
     as: writer
     route: /
     steps:
-      - click: { text: remi.aubert@mairie360.fr }
+      - wait_for: { text: remi.aubert@mairie360.fr }
+      - click: { role: button, name: Modifier Rémi Aubert }
       - fill: { label: Nouveau mot de passe, value: Rgaa-2026-Pass }
       - fill: { label: Confirmer le mot de passe, value: Rgaa-2026-Pass }
       - click: { role: button, name: Réinitialiser le mot de passe }
@@ -164,34 +181,24 @@ states:
     route: /
     steps:
       - click: { role: tab, name: Rôles }
-      - wait_for: { role: heading, name: Rôles disponibles }
       - wait_for: { text: Administrateur système }
-  - id: roles-refreshed
-    description: Roles reloaded (status message, read only)
-    as: admin
-    route: /
-    steps:
-      - click: { role: tab, name: Rôles }
-      - wait_for: { text: Administrateur système }
-      - click: { selector: '.administration-panel button:has-text("Actualiser")' }
-      - wait_for: { text: Rôles actualisés. }
   - id: role-edit
-    description: Edit form of a role (write mode select)
+    description: The role modal
     as: admin
     route: /
     steps:
       - click: { role: tab, name: Rôles }
       - wait_for: { text: Administrateur système }
-      - click: { selector: '.administration-panel button:has-text("Modifier") >> nth=0' }
-      - wait_for: { role: heading, name: Modifier le rôle }
+      - click: { selector: '.administration-panel button[aria-label^="Modifier le rôle"] >> nth=0' }
+      - wait_for: { role: dialog }
   - id: role-delete-confirm
-    description: Deletion confirmation dialog of a role (nothing deleted)
+    description: "Deletion dialog of a role (a system role: nothing can be deleted)"
     as: admin
     route: /
     steps:
       - click: { role: tab, name: Rôles }
       - wait_for: { text: Administrateur système }
-      - click: { selector: '.administration-panel button:has-text("Supprimer") >> nth=0' }
+      - click: { selector: '.administration-panel button[aria-label^="Supprimer"] >> nth=0' }
       - wait_for: { role: alertdialog }
   # Groups tab. No empty-group state: core-api only lists the groups the administrator belongs to,
   # and the owner is always a member.
@@ -200,15 +207,14 @@ states:
     route: /
     steps:
       - click: { role: tab, name: Groupes }
-      - wait_for: { role: button, name: Services techniques }
+      - wait_for: { text: Services techniques }
   - id: group-detail
-    description: A group opened, its members and the user search to add one
+    description: A group opened in its panel, its members and the user search to add one
     as: admin
     route: /
     steps:
       - click: { role: tab, name: Groupes }
-      - click: { role: button, name: Services techniques }
-      - wait_for: { role: heading, name: Membres }
+      - click: { text: Services techniques }
       - wait_for: { text: remi.aubert@mairie360.fr }
   - id: group-delete-confirm
     description: Deletion confirmation dialog of a group (nothing deleted)
@@ -216,23 +222,16 @@ states:
     route: /
     steps:
       - click: { role: tab, name: Groupes }
-      - click: { role: button, name: Services techniques }
+      - click: { text: Services techniques }
       - click: { role: button, name: Supprimer ce groupe }
       - wait_for: { role: alertdialog }
-  # Sessions tab.
-  - id: sessions
+  # Security tab (MAIR-824): the second factor policy of the mairie and the agents.
+  - id: security
     as: admin
     route: /
     steps:
-      - click: { role: tab, name: Sessions }
-      - wait_for: { text: Firefox 133 sur Ubuntu }
-  - id: sessions-history
-    as: admin
-    route: /
-    steps:
-      - click: { role: tab, name: Sessions }
-      - click: { role: radio, name: Historique (3) }
-      - wait_for: { text: Chrome 131 sur Windows 11 }
+      - click: { role: tab, name: Sécurité }
+      - wait_for: { text: Double authentification des agents }
 # No state for a user without the Admin role: the page renders its error message, but the
 # navigation never reaches network idle (page.goto timeout, see the MAIR-316 report).
 # No "no session" state: the middleware redirects to LOGIN_FRONT_URL without a cookie.

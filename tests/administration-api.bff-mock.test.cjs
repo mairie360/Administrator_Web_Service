@@ -40,7 +40,7 @@ afterEach(() => {
 const role = (id, extra = {}) => ({ id, name: `Rôle ${id}`, description: `Description ${id}`, can_be_deleted: true, ...extra });
 const group = (id, extra = {}) => ({ id, name: `Groupe ${id}`, description: null, owner_id: 1, ...extra });
 const member = (id) => ({ id, first_name: 'Alice', last_name: 'Dupont', email: `user${id}@mairie.test`, phone_number: null, status: 'active', is_archived: false });
-const user = (id) => ({ ...member(id), roles: [{ id: 1, name: 'Admin' }] });
+const user = (id) => ({ ...member(id), roles: [{ id: 1, name: 'Admin' }], account_status: 'active', active_sessions: 0, last_login_at: null, two_factor: { methods: [], last_verified_at: null } });
 const session = (id, extra = {}) => ({ id, device_info: 'Firefox', ip_address: '10.0.0.1', created_at: '2026-09-15T08:00:00Z', expires_at: '2026-09-16T08:00:00Z', revoked_at: null, ...extra });
 
 const sequence = () => bff.requests.map(({ method, url }) => `${method} ${url.pathname}${url.search}`);
@@ -48,22 +48,66 @@ const sequence = () => bff.requests.map(({ method, url }) => `${method} ${url.pa
 describe('administration API client against a contract-driven BFF User mock', () => {
   describe('users', () => {
     test('listUsers sends the declared pagination and trimmed search query and returns the page', async () => {
-      const page = { users: [user(7), user(8)], page: 2, page_size: 20, total: 22, total_pages: 2 };
+      const page = { users: [user(7), user(8)], page: 2, page_size: 6, total: 8, total_pages: 2 };
       bff.on('get', '/admin/users', { body: page });
 
       assert.deepEqual(await administrationApi.listUsers({ page: 2, search: '  alice  ' }), page);
 
-      assert.deepEqual(sequence(), ['GET /admin/users?page=2&page_size=20&search=alice']);
+      assert.deepEqual(sequence(), ['GET /admin/users?page=2&page_size=6&search=alice']);
       assert.equal(bff.requests[0].headers.authorization, `Bearer ${front.cookie}`);
       assert.equal(bff.requests[0].headers.cookie, undefined);
-      assert.deepEqual(front.browserCalls, [{ method: 'GET', target: '/admin/users?page=2&page_size=20&search=alice' }]);
+      assert.deepEqual(front.browserCalls, [{ method: 'GET', target: '/admin/users?page=2&page_size=6&search=alice' }]);
     });
 
-    test('listUsers omits an empty search and defaults to the first page', async () => {
-      bff.on('get', '/admin/users', { body: { users: [], page: 1, page_size: 20, total: 0, total_pages: 0 } });
+    test('listUsers omits an empty search and defaults to the first page of 6 rows (MAIR-904)', async () => {
+      bff.on('get', '/admin/users', { body: { users: [], page: 1, page_size: 6, total: 0, total_pages: 0 } });
 
-      assert.deepEqual(await administrationApi.listUsers(), { users: [], page: 1, page_size: 20, total: 0, total_pages: 0 });
-      assert.deepEqual(sequence(), ['GET /admin/users?page=1&page_size=20']);
+      assert.deepEqual(await administrationApi.listUsers(), { users: [], page: 1, page_size: 6, total: 0, total_pages: 0 });
+      assert.deepEqual(sequence(), ['GET /admin/users?page=1&page_size=6']);
+    });
+
+    test('MAIR-904 listUsers sends the state and role filters and the descending order', async () => {
+      bff.on('get', '/admin/users', { body: { users: [{ ...user(3), account_status: 'suspended' }], page: 1, page_size: 6, total: 1, total_pages: 1 } });
+
+      const page = await administrationApi.listUsers({ status: 'suspended', roleId: 4, sort: '-name' });
+      assert.equal(page.users[0].account_status, 'suspended');
+      assert.deepEqual(sequence(), ['GET /admin/users?page=1&page_size=6&account_status=suspended&role_id=4&sort=-name']);
+    });
+
+    test('MAIR-584 / MAIR-904 sessions of a user, sign-out, suspension and reactivation', async () => {
+      const sid = '4f7c2a9e-8d31-4c55-9a0b-3e1f6d2c8b70';
+      bff.on('get', '/admin/users/{userId}/sessions', { body: { sessions: [session(sid)] } })
+        .on('delete', '/admin/users/{userId}/sessions/{sessionId}', { status: 204 })
+        .on('delete', '/admin/users/{userId}/sessions', { status: 204 })
+        .on('post', '/admin/users/{userId}/suspend', { status: 204 })
+        .on('post', '/admin/users/{userId}/reactivate', { status: 204 });
+
+      assert.deepEqual(await administrationApi.listUserSessions(7), [session(sid)]);
+      await administrationApi.revokeUserSession(7, sid);
+      await administrationApi.revokeUserSessions(7);
+      await administrationApi.suspendUser(7);
+      await administrationApi.reactivateUser(7);
+      assert.deepEqual(sequence(), [
+        'GET /admin/users/7/sessions', `DELETE /admin/users/7/sessions/${sid}`, 'DELETE /admin/users/7/sessions', 'POST /admin/users/7/suspend', 'POST /admin/users/7/reactivate',
+      ]);
+    });
+
+    test('MAIR-824 security tab: the policy, its update and the reset of an agent', async () => {
+      const policy = { required: false, totp_allowed: true, passkey_allowed: false, backup_codes_allowed: true };
+      bff.on('get', '/admin/two-factor-policy', { body: { ...policy, updated_by: null, updated_at: '2026-11-17T09:30:00Z' } })
+        .on('put', '/admin/two-factor-policy', { body: { ...policy, required: true, updated_by: 1, updated_at: '2026-11-17T09:31:00Z' } })
+        .on('delete', '/admin/users/{userId}/2fa', { status: 204 });
+
+      assert.deepEqual(await administrationApi.getTwoFactorPolicy(), policy);
+      assert.deepEqual(await administrationApi.updateTwoFactorPolicy({ ...policy, required: true }), { ...policy, required: true });
+      await administrationApi.resetUserTwoFactor(7);
+      assert.deepEqual(sequence(), ['GET /admin/two-factor-policy', 'PUT /admin/two-factor-policy', 'DELETE /admin/users/7/2fa']);
+    });
+
+    test('MAIR-923 F21 the projects left without a group', async () => {
+      bff.on('get', '/admin/projects-without-group', { body: { total: 1, projects: [{ id: 'project-9', title: 'LED', createdAt: null }] } });
+
+      assert.deepEqual(await administrationApi.listProjectsWithoutGroup(), { total: 1, projects: [{ id: 'project-9', title: 'LED', createdAt: null }] });
     });
 
     test('listUsers refuses an incoherent receipt rather than confirming a partial page', async () => {

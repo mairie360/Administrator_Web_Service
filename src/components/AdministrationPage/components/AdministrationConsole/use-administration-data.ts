@@ -1,8 +1,8 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { administrationApi, type AdministrationGroup, type AdministrationRole, type AdministrationSession } from '@/lib/administration-api';
-import { BffRequestError } from '@/lib/bff-client';
+import { administrationApi, type AdministrationGroup, type AdministrationRole } from '@/lib/administration-api';
+import { BffRequestError, reconnectSession } from '@/lib/bff-client';
 import { administrationErrorMessage } from '@/lib/administration-error';
 import type { InitialConsole } from '@/lib/administration-response';
 import { subscribePageReturn } from '@/lib/page-return';
@@ -10,15 +10,13 @@ import { subscribePageReturn } from '@/lib/page-return';
 export interface RefreshFailure { message: string; retry: () => Promise<unknown> }
 
 /**
- * Roles, groups and sessions of the console: one global read (each resource owned by its own
+ * Roles and groups of the console: one global read (each resource owned by its own
  * revision), targeted refreshes, confirmed deletions that later reads cannot undo, and `runAction`,
  * the single-flight write runner that separates a refused write from a failed follow-up read.
  */
 export function useAdministrationData(initial: InitialConsole | undefined, onMutationConfirmed: () => void) {
   const [roles, setRoles] = useState<AdministrationRole[] | null>(initial?.roles ?? null);
   const [groups, setGroups] = useState<AdministrationGroup[] | null>(initial?.groups ?? null);
-  const [activeSessions, setActiveSessions] = useState<AdministrationSession[] | null>(initial?.activeSessions ?? null);
-  const [sessionHistory, setSessionHistory] = useState<AdministrationSession[] | null>(initial?.sessionHistory ?? null);
   const [loading, setLoading] = useState(initial === undefined);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const actionPending = useRef(false);
@@ -27,10 +25,12 @@ export function useAdministrationData(initial: InitialConsole | undefined, onMut
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(initial?.authRequired ?? false);
+  const [reconnecting, setReconnecting] = useState(false);
+  const authRequiredRef = useRef(authRequired);
+  useEffect(() => { authRequiredRef.current = authRequired; }, [authRequired]);
   const allReadRevision = useRef(0);
   const rolesReadRevision = useRef(0);
   const groupsReadRevision = useRef(0);
-  const sessionsReadRevision = useRef(0);
   const mutationConfirmed = useRef(onMutationConfirmed);
   useEffect(() => { mutationConfirmed.current = onMutationConfirmed; }, [onMutationConfirmed]);
 
@@ -39,18 +39,15 @@ export function useAdministrationData(initial: InitialConsole | undefined, onMut
     const revision = ++allReadRevision.current;
     const rolesRevision = ++rolesReadRevision.current;
     const groupsRevision = ++groupsReadRevision.current;
-    const sessionsRevision = ++sessionsReadRevision.current;
     setLoading(true);
     setLoadError(null);
-    const results = await Promise.allSettled([administrationApi.listRoles(), administrationApi.listGroups(), administrationApi.listActiveSessions(), administrationApi.listSessionHistory()]);
+    const results = await Promise.allSettled([administrationApi.listRoles(), administrationApi.listGroups()]);
     if (revision !== allReadRevision.current) return;
     // A targeted refresh can supersede one resource without discarding the
     // independent resources (or their errors) from this global read.
-    const ownsResult = [rolesRevision === rolesReadRevision.current, groupsRevision === groupsReadRevision.current, sessionsRevision === sessionsReadRevision.current, sessionsRevision === sessionsReadRevision.current];
+    const ownsResult = [rolesRevision === rolesReadRevision.current, groupsRevision === groupsReadRevision.current];
     if (ownsResult[0] && results[0].status === "fulfilled") setRoles(results[0].value);
     if (ownsResult[1] && results[1].status === "fulfilled") setGroups(results[1].value);
-    if (ownsResult[2] && results[2].status === "fulfilled") setActiveSessions(results[2].value);
-    if (ownsResult[3] && results[3].status === "fulfilled") setSessionHistory(results[3].value);
     const failures = results.filter((_result, index) => ownsResult[index]).filter((result): result is PromiseRejectedResult => result.status === "rejected").map((result) => result.reason);
     setAuthRequired(failures.some((failure) => failure instanceof BffRequestError && failure.status === 401));
     if (failures.length > 0) setLoadError([...new Set(failures.map(administrationErrorMessage))].join(" "));
@@ -59,7 +56,7 @@ export function useAdministrationData(initial: InitialConsole | undefined, onMut
 
   useEffect(() => {
     if (initial === undefined) void loadAll();
-    return () => { allReadRevision.current += 1; rolesReadRevision.current += 1; groupsReadRevision.current += 1; sessionsReadRevision.current += 1; };
+    return () => { allReadRevision.current += 1; rolesReadRevision.current += 1; groupsReadRevision.current += 1; };
   }, [loadAll, initial]);
 
   useEffect(() => {
@@ -72,6 +69,8 @@ export function useAdministrationData(initial: InitialConsole | undefined, onMut
   const runAction = useCallback(async (key: string, successMessage: string, action: () => Promise<unknown>, refresh?: () => Promise<unknown>) => {
     // State alone cannot protect two submissions before React renders again.
     if (actionPending.current) return false;
+    // F13 (MAIR-910): reading stays possible, writing waits for « Se reconnecter ».
+    if (authRequiredRef.current && key !== "retry-refresh") { setNotice("Reconnectez-vous pour enregistrer des modifications."); return false; }
     actionPending.current = true;
     setBusyAction(key);
     setActionError(null);
@@ -93,6 +92,7 @@ export function useAdministrationData(initial: InitialConsole | undefined, onMut
       if (key === "retry-refresh") setRefreshFailure(null);
       return true;
     } catch (error) {
+      if (error instanceof BffRequestError && error.status === 401) setAuthRequired(true);
       setActionError(administrationErrorMessage(error));
       return false;
     } finally {
@@ -100,6 +100,18 @@ export function useAdministrationData(initial: InitialConsole | undefined, onMut
       setBusyAction(null);
     }
   }, []);
+
+  /** F13: « Se reconnecter »: « Session rétablie » and a fresh read, or « Reconnexion impossible ». */
+  const reconnect = useCallback(async () => {
+    setReconnecting(true);
+    const back = await reconnectSession();
+    setReconnecting(false);
+    if (!back) { setActionError("Reconnexion impossible. Réessayez ou reconnectez-vous depuis la page de connexion."); return; }
+    authRequiredRef.current = false;
+    setAuthRequired(false);
+    setNotice("Session rétablie. Vous pouvez de nouveau modifier les comptes.");
+    void loadAll();
+  }, [loadAll]);
 
   const confirmRoleDeletion = useCallback((roleId: number) => {
     // A confirmed DELETE is authoritative even if the follow-up GET fails.
@@ -120,20 +132,9 @@ export function useAdministrationData(initial: InitialConsole | undefined, onMut
     groupsReadRevision.current += 1;
     setGroups((current) => current?.filter((group) => group.id !== groupId) ?? null);
   }, []);
-  const refreshSessions = useCallback(async () => {
-    const revision = ++sessionsReadRevision.current;
-    // Both reads own the pending command until they settle, even if one fails early.
-    const [current, history] = await Promise.allSettled([administrationApi.listActiveSessions(), administrationApi.listSessionHistory()]);
-    if (revision !== sessionsReadRevision.current) return;
-    if (current.status === "fulfilled") setActiveSessions(current.value);
-    if (history.status === "fulfilled") setSessionHistory(history.value);
-    if (current.status === "rejected") throw current.reason;
-    if (history.status === "rejected") throw history.reason;
-  }, []);
-
   return {
-    roles, groups, activeSessions, sessionHistory, loading, busyAction, refreshFailure, loadError, actionError, notice, authRequired,
+    roles, groups, loading, busyAction, refreshFailure, loadError, actionError, notice, authRequired, reconnecting, reconnect,
     clearNotice: () => setNotice(null), clearActionError: () => setActionError(null),
-    loadAll, runAction, confirmRoleDeletion, refreshRoles, refreshGroups, applyGroupDeletion, refreshSessions,
+    loadAll, runAction, confirmRoleDeletion, refreshRoles, refreshGroups, applyGroupDeletion,
   };
 }

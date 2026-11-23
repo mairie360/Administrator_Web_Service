@@ -5,7 +5,7 @@ import { useSyncExternalStore, type ComponentProps } from 'react';
 const subscribe = () => () => {};
 const browserReady = () => true;
 const serverReady = () => false;
-type Props = Pick<ComponentProps<'form'>, 'children' | 'className' | 'onSubmit' | 'aria-busy' | 'aria-labelledby' | 'id' | 'role'>;
+type Props = Pick<ComponentProps<'form'>, 'children' | 'className' | 'onSubmit' | 'aria-busy' | 'aria-label' | 'aria-labelledby' | 'id' | 'role'>;
 
 // Mutations are owned by SDK handlers, with no HTML form endpoint. Keep the
 // confirmed fields readable on the server without offering a native submission.

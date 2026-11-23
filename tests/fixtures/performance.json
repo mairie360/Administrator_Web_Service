@@ -17,7 +17,14 @@
               "id": 1,
               "name": "Admin"
             }
-          ]
+          ],
+          "account_status": "active",
+          "active_sessions": 0,
+          "last_login_at": null,
+          "two_factor": {
+            "methods": [],
+            "last_verified_at": null
+          }
         }
       ],
       "page": 1,

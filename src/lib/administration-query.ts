@@ -1,6 +1,25 @@
+import type { AccountStatus, UsersQuery, UsersSort } from './administration-api';
 import { urlChoice, urlPage, urlText } from './page-url-state';
-export const administrationUrlSchema = { tab: urlChoice(['users', 'roles', 'groups', 'sessions'], 'users') };
-export const usersUrlSchema = { usersSearch: urlText(100), usersPage: urlPage };
+// MAIR-885: three tabs, the sessions live in the user record (MAIR-894).
+export const administrationUrlSchema = { tab: urlChoice(['users', 'roles', 'groups', 'security'], 'users') };
+// MAIR-904: search, state and role filters, order and page of the users list.
+export const usersUrlSchema = {
+  usersSearch: urlText(100),
+  usersPage: urlPage,
+  usersStatus: urlChoice(['', 'active', 'invited', 'inactive', 'suspended'], ''),
+  usersRole: { defaultValue: '', accept: (value: string) => value === '' || /^[1-9]\d{0,8}$/.test(value) },
+  usersSort: urlChoice(['name', '-name'], 'name'),
+};
+/** The users read of a page URL state. */
+export function usersQueryOf(state: Record<string, string>): UsersQuery {
+  return {
+    page: Number(state.usersPage) || 1,
+    search: state.usersSearch ?? '',
+    status: (state.usersStatus ?? '') as AccountStatus | '',
+    roleId: state.usersRole ? Number(state.usersRole) : null,
+    sort: (state.usersSort || 'name') as UsersSort,
+  };
+}
 export function administrationSearch(params: Record<string, string | string[] | undefined>): string {
   const schema = { ...administrationUrlSchema, ...usersUrlSchema };
   const result = new URLSearchParams();

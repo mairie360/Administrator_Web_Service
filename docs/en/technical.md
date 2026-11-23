@@ -1,5 +1,23 @@
 # Administrator_Web_Service — Technical documentation
 
+## Administration V2 — MAIR-824
+
+- Contract: `@mairie360/bff-user-openapi` of BFF_user `main` with the V2 admin routes (user rows carry
+  `account_status`, `active_sessions`, `last_login_at`, `two_factor`; `GET /admin/users` takes
+  `page_size`, `account_status`, `role_id`, `sort`; sessions, suspension, projects without group and
+  two-factor policy routes). `src/lib/administration-api.ts` has one method per operation and
+  `tests/administration-api.bff-mock.test.cjs` exercises every `/admin` operation of the contract.
+- Tree: `AdministrationConsole/components/{UsersPanel,RolesPanel,GroupsPanel,SecurityPanel}`, with the
+  lib `DataTable`, `Modal`, `Drawer`, `ConfirmModal`, `SessionList`; the local `SessionsPanel`,
+  `ConfirmModal`, `Panel`, `UsersSearch`, `UsersPagination` and `RolesList` are removed.
+- URL state: `tab` (`users|roles|groups|security`), `usersSearch`, `usersPage`, `usersStatus`,
+  `usersRole`, `usersSort`. The server render reads the profile, then users, roles and groups (four
+  requests, no sessions).
+- Forms and the users search render as a disabled `fieldset` before hydration
+  (`AdministrationMutationForm`): no native submission endpoint.
+- Tests: `tests/administration-v2.bff-mock.test.cjs` (the page in jsdom against the contract mock) and
+  the co-located Vitest tests of each component.
+
 ## Partial session reads — MAIR-460 / MAIR-470
 
 `refreshSessions` starts both existing GETs concurrently and awaits

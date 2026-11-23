@@ -22,6 +22,29 @@ export type {
 
 export type AdministrationUserRole = Pick<AdministrationRole, "id" | "name">;
 
+/** States of an account in the V2 list (MAIR-904), as Core computes them. */
+export type AccountStatus = "active" | "invited" | "inactive" | "suspended";
+export type UsersSort = "name" | "-name";
+
+/** One page of the V2 users list: 6 rows (MAIR-904), with its filters and order. */
+export interface UsersQuery {
+  page?: number;
+  search?: string;
+  status?: AccountStatus | "";
+  roleId?: number | null;
+  sort?: UsersSort;
+  pageSize?: number;
+}
+
+/** MAIR-808: the second-factor policy of the instance (« Sécurité » tab, A1). */
+export interface TwoFactorPolicy { required: boolean; totp_allowed: boolean; passkey_allowed: boolean; backup_codes_allowed: boolean }
+
+/** F21 (MAIR-683): a project of BFF_Project left without a group. */
+export interface ProjectWithoutGroup { id: string; title: string; createdAt: string | null }
+
+/** Rows of the V2 list (MAIR-904). */
+export const USERS_PAGE_SIZE = 6;
+
 export type CreateUserInput = {
   email: string;
   first_name: string;
@@ -129,17 +152,28 @@ function boundedText(value: string, label: string, { min = 0, max }: { min?: num
   return value;
 }
 
+/** The policy fields of a BFF answer; anything else is an incoherent answer. */
+export function parseTwoFactorPolicy(value: unknown): TwoFactorPolicy {
+  const record = asRecord(value);
+  const keys = ["required", "totp_allowed", "passkey_allowed", "backup_codes_allowed"] as const;
+  if (!record || keys.some((key) => typeof record[key] !== "boolean")) throw new Error("La politique de double authentification reçue est incohérente.");
+  return { required: record.required as boolean, totp_allowed: record.totp_allowed as boolean, passkey_allowed: record.passkey_allowed as boolean, backup_codes_allowed: record.backup_codes_allowed as boolean };
+}
+
 export function createAdministrationApi(client: typeof bffUser = bffUser) {
   return {
-    async listUsers({ page = 1, search = "" }: { page?: number; search?: string } = {}, signal?: AbortSignal) {
+    async listUsers({ page = 1, search = "", status = "", roleId = null, sort = "name", pageSize = USERS_PAGE_SIZE }: UsersQuery = {}, signal?: AbortSignal) {
       const query: GetAdminUsersParams = {
         page: positiveInteger(page, "La page"),
-        page_size: 20,
+        page_size: positiveInteger(pageSize, "La taille de page"),
       };
       const trimmedSearch = search.trim();
       if (trimmedSearch) {
         query.search = boundedText(trimmedSearch, "La recherche", { max: SEARCH_MAX_LENGTH });
       }
+      if (status) query.account_status = status;
+      if (roleId) query.role_id = positiveInteger(roleId, "L’identifiant du rôle");
+      if (sort === "-name") query.sort = sort;
 
       const { data: response } = await client.getAdminUsers(query, { signal });
       return parseUsersPage(response);
@@ -249,6 +283,54 @@ export function createAdministrationApi(client: typeof bffUser = bffUser) {
         positiveInteger(userId, "L’identifiant utilisateur"),
         positiveInteger(roleId, "L’identifiant du rôle"),
       ));
+    },
+
+    /** MAIR-584: the latest sessions of one user, active and ended, newest first. */
+    async listUserSessions(userId: number, signal?: AbortSignal) {
+      const { data: response } = await client.getAdminUsersUserIdSessions(positiveInteger(userId, "L’identifiant utilisateur"), { signal });
+      return parseSessions(response);
+    },
+
+    /** MAIR-584: signs the user out of one device. */
+    revokeUserSession(userId: number, sessionId: string) {
+      return done(client.deleteAdminUsersUserIdSessionsSessionId(positiveInteger(userId, "L’identifiant utilisateur"), sessionId));
+    },
+
+    /** MAIR-584: signs the user out of every device. */
+    revokeUserSessions(userId: number) {
+      return done(client.deleteAdminUsersUserIdSessions(positiveInteger(userId, "L’identifiant utilisateur")));
+    },
+
+    /** MAIR-904: suspends the account (every session closed) or reactivates it. */
+    suspendUser(userId: number) {
+      return done(client.postAdminUsersUserIdSuspend(positiveInteger(userId, "L’identifiant utilisateur")));
+    },
+
+    reactivateUser(userId: number) {
+      return done(client.postAdminUsersUserIdReactivate(positiveInteger(userId, "L’identifiant utilisateur")));
+    },
+
+    /** F21 (MAIR-683): the projects left without a group, newest first. */
+    async listProjectsWithoutGroup(signal?: AbortSignal): Promise<{ total: number; projects: ProjectWithoutGroup[] }> {
+      const { data } = await client.getAdminProjectsWithoutGroup({ signal });
+      return { total: data.total, projects: data.projects.map(({ id, title, createdAt }) => ({ id, title, createdAt: createdAt ?? null })) };
+    },
+
+    /** A1 (MAIR-808): the second-factor policy of the instance. */
+    async getTwoFactorPolicy(): Promise<TwoFactorPolicy> {
+      const { data } = await client.getAdminTwoFactorPolicy();
+      return parseTwoFactorPolicy(data);
+    },
+
+    /** A1: replaces the policy (at least one method stays allowed; the passkeys need WebAuthn on Core). */
+    async updateTwoFactorPolicy(policy: TwoFactorPolicy): Promise<TwoFactorPolicy> {
+      const { data } = await client.putAdminTwoFactorPolicy(policy);
+      return parseTwoFactorPolicy(data);
+    },
+
+    /** A2 (MAIR-805): removes the second factor of an agent and closes their sessions. */
+    resetUserTwoFactor(userId: number) {
+      return done(client.deleteAdminUsersUserId2fa(positiveInteger(userId, "L’identifiant utilisateur")));
     },
 
     async listActiveSessions() {

@@ -1,8 +1,8 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { administrationDom } = require('./support/administration-dom.cjs');
-const bob = { id: 7, first_name: 'Bob', last_name: 'Martin', email: 'bob@mairie.test', phone_number: null, status: 'active', is_archived: false, roles: [] };
-const page = users => ({ users, page: 1, page_size: 20, total: users.length, total_pages: users.length ? 1 : 0 });
+const bob = { id: 7, first_name: 'Bob', last_name: 'Martin', email: 'bob@mairie.test', phone_number: null, status: 'active', is_archived: false, roles: [], account_status: 'active', active_sessions: 0, last_login_at: null, two_factor: { methods: [], last_verified_at: null } };
+const page = users => ({ users, page: 1, page_size: 6, total: users.length, total_pages: users.length ? 1 : 0 });
 function configure(bff) { bff.on('get', '/admin/users', { body: page([bob]) }); }
 test('a local deletion alertdialog inerts the sole shared skip link and cancellation restores its main without a write', async t => {
   const dom = await administrationDom(t, { serverPage: true, configure, expected: 'Bob Martin' });
@@ -12,8 +12,7 @@ test('a local deletion alertdialog inerts the sole shared skip link and cancella
   const skip = skips[0];
   assert.equal(skip.closest('[inert]'), null);
   assert.ok(skip.compareDocumentPosition(dom.document.querySelector('.app-desktop-navigation button')) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
-  await dom.click([...dom.document.querySelectorAll('tr')].find(row => row.textContent.includes('Bob Martin')));
-  await dom.click(dom.button('Supprimer l’utilisateur'));
+  await dom.click(dom.button('Supprimer Bob Martin'));
   await dom.waitFor(() => skip.closest('[inert]'));
   const dialog = dom.document.querySelector('[role="alertdialog"][aria-modal="true"]');
   assert.ok(dialog);
@@ -32,19 +31,18 @@ test('a local deletion alertdialog inerts the sole shared skip link and cancella
 test('a confirmed SSR receipt survives real React StrictMode effect replay without any duplicate bootstrap', async t => {
   const dom = await administrationDom(t, { serverPage: true, strict: true, configure, expected: 'Bob Martin' });
   assert.equal(dom.bff.calls('/me', 'GET').length, 1);
-  for (const path of ['/admin/users', '/admin/roles', '/admin/groups', '/admin/sessions', '/admin/sessions/history']) assert.equal(dom.bff.calls(path, 'GET').length, 1, path);
+  for (const path of ['/admin/users', '/admin/roles', '/admin/groups']) assert.equal(dom.bff.calls(path, 'GET').length, 1, path);
   assert.equal(dom.front.browserCalls.length, 0);
 });
 test('returning to Users after a confirmed deletion never resurrects the original SSR row', async t => {
   const dom = await administrationDom(t, { serverPage: true, configure, expected: 'Bob Martin' });
   dom.bff.on('delete', '/admin/users/{userId}', { status: 204 });
-  await dom.click([...dom.document.querySelectorAll('tr')].find(row => row.textContent.includes('Bob Martin')));
-  await dom.click(dom.button('Supprimer l’utilisateur'));
+  await dom.click(dom.button('Supprimer Bob Martin'));
   dom.bff.on('get', '/admin/users', { body: page([]) });
-  const confirm = [...dom.document.querySelectorAll('[role="alertdialog"] button')].find(button => button.textContent.trim() === 'Supprimer l’utilisateur');
+  const confirm = [...dom.document.querySelectorAll('[role="alertdialog"] button')].find(button => button.textContent.trim() === 'Supprimer');
   await dom.click(confirm);
-  await dom.waitFor(() => dom.document.body.textContent.includes('Aucun utilisateur disponible.'));
-  assert.ok(dom.document.body.textContent.includes('Aucun utilisateur disponible.'));
+  await dom.waitFor(() => !dom.document.querySelector('tbody')?.textContent.includes('Bob Martin') && dom.bff.calls('/admin/users/{userId}', 'DELETE').length === 1);
+  assert.equal(dom.bff.calls('/admin/users/{userId}', 'DELETE').length, 1);
   const before = dom.bff.calls('/admin/users', 'GET').length;
   await dom.click([...dom.document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.trim().startsWith('Rôles')));
   await dom.click([...dom.document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.trim().startsWith('Utilisateurs')));
@@ -79,19 +77,21 @@ test('the first Users visit after a confirmed role mutation reads the current ro
   } });
   assert.equal(dom.bff.calls('/admin/users', 'GET').length, 1);
   dom.bff.on('delete', '/admin/roles/{roleId}', { status: 204 });
-  await dom.click(dom.button('Supprimer'));
+  // F17: the deletion first counts the holders of the role (one more users read), then asks.
+  await dom.click(dom.button('Supprimer Rôle temporaire'));
+  await dom.waitFor(() => /Rôle encore utilisé/.test(dom.document.querySelector('[role="alertdialog"]')?.textContent ?? ''));
   dom.bff.on('get', '/admin/roles', { body: { roles: [] } });
   dom.bff.on('get', '/admin/users', { body: page([bob]) });
-  await dom.click(dom.button('Supprimer le rôle'));
-  await dom.waitFor(() => dom.document.body.textContent.includes('Rôle supprimé.'));
+  await dom.click([...dom.document.querySelectorAll('[role="alertdialog"] button')].find(button => button.textContent.trim() === 'Supprimer'));
+  await dom.waitFor(() => dom.document.body.textContent.includes('Rôle supprimé'));
   await dom.click([...dom.document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.trim().startsWith('Utilisateurs')));
   await dom.waitFor(() => dom.document.querySelector('tbody')?.textContent.includes('Bob Martin'));
   assert.ok(!dom.document.querySelector('tbody').textContent.includes('Rôle temporaire'));
-  assert.equal(dom.bff.calls('/admin/users', 'GET').length, 2);
+  assert.equal(dom.bff.calls('/admin/users', 'GET').length, 3);
 });
 
 for (const foreground of [false, true]) test(`an initial Roles tab never reuses its hidden users snapshot on the first Users visit${foreground ? ' after foreground recovery' : ''}`, async t => {
-  const dom = await administrationDom(t, { serverPage: true, configure, searchParams: { tab: 'roles' }, expected: 'Créer un rôle' });
+  const dom = await administrationDom(t, { serverPage: true, configure, searchParams: { tab: 'roles' }, expected: 'Nouveau rôle' });
   dom.bff.on('get', '/admin/users', { body: page([{ ...bob, first_name: 'Alice', last_name: 'Distante' }]) });
   if (foreground) {
     await require('react').act(async () => dom.window.dispatchEvent(new dom.window.Event('focus')));
@@ -104,19 +104,20 @@ for (const foreground of [false, true]) test(`an initial Roles tab never reuses 
   assert.equal(dom.bff.calls('/admin/users', 'GET').length, 2);
 });
 
-test('native administration forms use POST, including user creation, profile editing and password reset', async t => {
+test('native administration forms use POST, including user creation, profile editing and group creation', async t => {
   const dom = await administrationDom(t, { serverPage: true, configure, expected: 'Bob Martin' });
   const postForms = () => {
-    const forms = [...dom.document.querySelectorAll('main form')]; assert.ok(forms.length);
+    const forms = [...dom.document.querySelectorAll('form')]; assert.ok(forms.length);
     for (const form of forms) assert.equal(form.method, 'post', 'Native submission must keep form values out of a GET URL.');
   };
   postForms();
   await dom.click(dom.button('Nouvel utilisateur')); postForms();
   assert.equal(dom.document.getElementById('create-password').form.method, 'post');
-  await dom.click([...dom.document.querySelectorAll('tr')].find(row => row.textContent.includes('Bob Martin'))); postForms();
+  await dom.click(dom.button('Annuler'));
+  await dom.click(dom.button('Modifier Bob Martin')); postForms();
   assert.equal(dom.document.getElementById('edit-email').form.method, 'post');
-  for (const label of ['Rôles', 'Groupes']) {
-    await dom.click([...dom.document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.trim().startsWith(label)));
-    postForms();
-  }
+  await dom.click(dom.button('Annuler'));
+  await dom.click([...dom.document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.trim().startsWith('Groupes')));
+  await dom.click(dom.button('Nouveau groupe')); postForms();
+  assert.equal(dom.document.getElementById('group-name').form.method, 'post');
 });
