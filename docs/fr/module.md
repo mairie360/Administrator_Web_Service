@@ -24,7 +24,11 @@ l’onglet Sessions disparaît, les sessions d’un compte sont dans sa fiche.
 - **Services** (MAIR-923) : les services de la mairie et leurs agents ; création, renommage et
   suppression confirmée, qui laisse ses agents sans service.
 - **Sécurité** : la politique de double authentification de la mairie (obligatoire ou non,
-  méthodes autorisées) et le facteur de chaque agent actif, qu’un administrateur peut réinitialiser.
+  méthodes autorisées) et le facteur de chaque agent actif, qu’un administrateur peut réinitialiser ;
+  depuis MAIR-773, les alertes de sécurité récentes (usages d’une session depuis un autre appareil
+  sur les 30 derniers jours : date, agent, « Tentative certaine » / « Tentative possible », appareil
+  et début de l’adresse) et, depuis « Voir le journal » ou le lien de l’e-mail d’alerte
+  (`?tab=security&journal=<id>`), le journal des connexions de l’agent.
 - « Actualiser » relit les rôles, les groupes et la page d’utilisateurs affichée ; une lecture
   refusée garde les dernières lignes confirmées et le signale.
 

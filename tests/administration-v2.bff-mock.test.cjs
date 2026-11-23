@@ -141,7 +141,8 @@ test('MAIR-824 the security tab saves the policy of the mairie and resets the fa
   const dom = await administrationDom(t, { configure: seed(bff => bff
     .on('get', '/admin/two-factor-policy', { body: policy })
     .on('put', '/admin/two-factor-policy', { body: { ...policy, required: true, updated_by: 1 } })
-    .on('delete', '/admin/users/{userId}/2fa', { status: 204 })), expected: 'Bob Martin' });
+    .on('delete', '/admin/users/{userId}/2fa', { status: 204 })
+    .on('get', '/admin/security-alerts', { body: [] })), expected: 'Bob Martin' });
   dom.bff.on('get', '/admin/users', { body: page([admin, enrolled]) });
   await dom.click(tab(dom, 'Sécurité'));
   await dom.waitFor(() => Boolean(dom.document.getElementById('two-factor-required')) && Boolean(dom.button('Réinitialiser la double authentification de Bob Martin')));
@@ -154,6 +155,24 @@ test('MAIR-824 the security tab saves the policy of the mairie and resets the fa
   await dom.click(within(dom, '[role="alertdialog"]', 'Réinitialiser'));
   await dom.waitFor(() => dom.bff.calls('/admin/users/{userId}/2fa', 'DELETE').length === 1);
   assert.equal(dom.bff.calls('/admin/users/{userId}/2fa', 'DELETE')[0].url.pathname, '/admin/users/7/2fa');
+});
+
+test('MAIR-773 the security tab lists the recent alerts and opens the journal of an agent, also from the e-mail link', async t => {
+  const alert = { id: 12, level: 'certain', ip_address: '92.184.10.1', device_info: 'Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0', created_at: '2026-11-23T08:12:00+00:00', acknowledged_at: null, user: { id: 7, first_name: 'Bob', last_name: 'Martin' } };
+  const line = { action: 'STOLEN_SESSION_ATTEMPT', session_id: null, ip_address: '92.184.10.1', device_info: null, occurred_at: '2026-11-23T08:12:00+00:00' };
+  const dom = await administrationDom(t, { configure: seed(bff => bff
+    .on('get', '/admin/two-factor-policy', { body: { required: false, totp_allowed: true, passkey_allowed: false, backup_codes_allowed: true, updated_by: null, updated_at: '2026-11-17T09:30:00Z' } })
+    .on('get', '/admin/security-alerts', { body: [alert] })
+    .on('get', '/admin/users/{userId}/connection-logs', { body: [line] })), expected: 'Bob Martin' });
+  await dom.click(tab(dom, 'Sécurité'));
+  await dom.waitFor(() => text(dom).includes('Tentative certaine'));
+  assert.match(text(dom), /92\.184\.xxx\.xxx/);
+  assert.doesNotMatch(text(dom), /92\.184\.10\.1/);
+  await dom.click(dom.button('Voir le journal des connexions de Bob Martin'));
+  await dom.waitFor(() => text(dom).includes('Tentative de vol de session'));
+  assert.match(text(dom), /Journal des connexions — Bob Martin/);
+  assert.equal(dom.bff.calls('/admin/users/{userId}/connection-logs', 'GET')[0].url.pathname, '/admin/users/7/connection-logs');
+  assert.match(dom.window.location.search, /journal=7/);
 });
 
 test('MAIR-923 a group opens in its panel: rename, add a member, remove one after confirmation, delete the group', async t => {

@@ -113,7 +113,7 @@ describe('refusal details (MAIR-514)', () => {
   test('a refusal carries the details of the ErrorResponse envelope, or none when the body is not JSON', async () => {
     const details = [{ path: 'body.first_name', message: 'Must not contain < or >' }, { message: 'Context only' }, { path: 'ignored' }];
     bff.on('post', '/admin/users', { status: 400, body: { error: { code: 'BAD_REQUEST', message: 'Validation failed', details } }, outOfContract: true });
-    await assert.rejects(requestBff('/admin/users', { method: 'POST', body: JSON.stringify({ first_name: 'Anne', last_name: 'Martin', email: 'anne.martin@mairie.test', password: 'motdepasse' }) }), (error) => {
+    await assert.rejects(requestBff('/admin/users', { method: 'POST', body: JSON.stringify({ first_name: 'Anne', last_name: 'Martin', email: 'anne.martin@mairie.test', password: 'mot-de-passe-long' }) }), (error) => {
       assert.equal(error.name, 'BffRequestError');
       assert.deepEqual([error.status, error.message], [400, 'Erreur BFF (400)']);
       assert.deepEqual(error.details, [{ path: 'body.first_name', message: 'Must not contain < or >' }, { path: undefined, message: 'Context only' }]);
