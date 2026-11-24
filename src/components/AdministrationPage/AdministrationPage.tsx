@@ -13,10 +13,10 @@ import { ProfileChecking } from './components/ProfileChecking';
 import { ProfileUnavailable } from './components/ProfileUnavailable';
 
 /** The administration page: shell, then the profile check, the console or the access refusal. */
-export default function AdministrationPage({ initialState, initialSearch }: { initialState?: InitialAdministration; initialSearch?: string }) {
+export default function AdministrationPage({ initialState, initialSearch, commune }: { initialState?: InitialAdministration; initialSearch?: string; commune?: string }) {
   const [initial] = useState(initialState);
   const session = useAuthSession(undefined, initial?.session);
-  const hrefs = getActiveFrontHrefs();
+  const hrefs = getActiveFrontHrefs(session.loading ? undefined : session.modules);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const logoutPending = useRef(false);
   const requestLogout = async () => {
@@ -27,12 +27,14 @@ export default function AdministrationPage({ initialState, initialSearch }: { in
     finally { logoutPending.current = false; }
   };
   return (
-    <AccessibleShell className="administration-shell" activeItem="admin" user={session.user} onLogout={() => void requestLogout()} hrefs={hrefs}>
+    // C7 / C8 (lib 2.3, MAIR-1109): the commune of the deployment in the header and the navigation; hidden when unknown.
+    <AccessibleShell className="administration-shell" activeItem="admin" user={session.user} onLogout={() => void requestLogout()} hrefs={hrefs}
+      headerProps={{ commune, showCommune: Boolean(commune) }} sidebarProps={commune ? { brandLabel: commune } : undefined}>
       <div className="min-w-0 w-full">
         {logoutError && <LogoutFailure message={logoutError} />}
         {session.loading ? <ProfileChecking />
           : session.error ? <ProfileUnavailable error={session.error} onRetry={session.retry} />
-          : session.isAdmin ? <AdministrationConsole initialState={initial?.console ?? undefined} initialSearch={initialSearch} />
+          : session.isAdmin ? <AdministrationConsole initialState={initial?.console ?? undefined} initialSearch={initialSearch} currentUserId={session.user?.id ?? null} />
           : <AccessDenied />}
       </div>
     </AccessibleShell>

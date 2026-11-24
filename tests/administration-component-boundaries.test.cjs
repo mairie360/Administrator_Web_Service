@@ -2,9 +2,10 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { ts, parse, nodes, imported, exportedCallable, bindingNames } = require('./support/module-policy.cjs');
 // Structural policy; existing page/form/rerender tests exercise user behavior.
-// MAIR-608 component tree: the console imports each panel through its folder index.
+// MAIR-608 component tree: the console imports each panel through its folder index. MAIR-824 (V2): the sessions
+// live in the user record, the « Sécurité » tab is a panel.
 const CONSOLE = 'src/components/AdministrationPage/components/AdministrationConsole';
-for (const component of ['UsersPanel', 'RolesPanel', 'GroupsPanel', 'SessionsPanel']) {
+for (const component of ['UsersPanel', 'RolesPanel', 'GroupsPanel', 'SecurityPanel']) {
   test(`${component} has a stable explicit module boundary, not an inline console definition`, () => {
     const consoleSource = parse(`${CONSOLE}/AdministrationConsole.tsx`);
     const directImport = imported(consoleSource).find(row => row.specifier === `./components/${component}`)?.node;
@@ -21,9 +22,8 @@ for (const component of ['UsersPanel', 'RolesPanel', 'GroupsPanel', 'SessionsPan
     assert.equal(imported(panel).some(row => /administration-console/.test(row.specifier)), false);
   });
 }
-test('shared field, panel, action and confirmation rendering has no administration data dependency', () => {
-  const sources = ['Field', 'Panel', 'ActionButton'].map(name => { const source = parse(`src/components/AdministrationPage/components/${name}/${name}.tsx`); assert.ok(exportedCallable(source, name)); return source; });
-  const confirmation = parse(`${CONSOLE}/components/ConfirmModal/ConfirmModal.tsx`);
-  assert.ok(exportedCallable(confirmation, 'ConfirmModal'));
-  for (const source of [...sources, confirmation]) assert.ok(imported(source).every(row => !/administration-api|bff-client|auth-session|administration-console/.test(row.specifier)));
+test('shared field and action rendering has no administration data dependency', () => {
+  // V2: panels and confirmations are the lib's (Panel, Modal, ConfirmModal), no local copy remains.
+  const sources = ['Field', 'ActionButton'].map(name => { const source = parse(`src/components/AdministrationPage/components/${name}/${name}.tsx`); assert.ok(exportedCallable(source, name)); return source; });
+  for (const source of sources) assert.ok(imported(source).every(row => !/administration-api|bff-client|auth-session|administration-console/.test(row.specifier)));
 });

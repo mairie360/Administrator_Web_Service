@@ -96,3 +96,30 @@ test('the shell omits unsafe or looping destinations instead of exposing them as
     settings: undefined,
   });
 });
+
+test('MAIR-916: the shell only links the modules the role of the session opens, the profile whatever the role', () => {
+  global.window = {};
+  const urls = {
+    DASHBOARD_FRONT_URL: 'https://dashboard.test.example/',
+    PROJECT_FRONT_URL: 'https://projects.test.example/',
+    MESSAGE_FRONT_URL: 'https://messages.test.example/',
+    ELEARNING_FRONT_URL: 'https://elearning.test.example/',
+    CALENDAR_FRONT_URL: 'https://calendar.test.example/',
+    ADMINISTRATION_FRONT_URL: 'https://admin.test.example/',
+    SETTINGS_FRONT_URL: 'https://settings.test.example/',
+  };
+  frontUrls.setBrowserFrontUrls(urls);
+
+  assert.deepEqual(getActiveFrontHrefs(['dashboard', 'calendar', 'admin']), {
+    dashboard: urls.DASHBOARD_FRONT_URL,
+    projects: undefined,
+    messages: undefined,
+    training: undefined,
+    calendar: urls.CALENDAR_FRONT_URL,
+    admin: urls.ADMINISTRATION_FRONT_URL,
+    profile: urls.SETTINGS_FRONT_URL,
+    settings: undefined,
+  });
+  // Without the modules (older BFF, profile still loading), every configured entry stays.
+  assert.equal(getActiveFrontHrefs(undefined).projects, urls.PROJECT_FRONT_URL);
+});

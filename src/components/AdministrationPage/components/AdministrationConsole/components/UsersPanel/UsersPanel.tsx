@@ -1,25 +1,24 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { CreateButton, DataState, ErrorAlert } from "@mairie360/lib-components/primitives";
-import { administrationApi, type AdministrationRole, type AdministrationUser, type AdministrationUsersPage } from '@/lib/administration-api';
-import { ActionButton } from '@/components/AdministrationPage/components/ActionButton';
-import { Panel } from '@/components/AdministrationPage/components/Panel';
-import { ConfirmModal } from '../ConfirmModal';
+import { useEffect, useState, type FormEvent } from "react";
+import { Button, ConfirmModal, ErrorAlert, Pagination, Panel } from "@mairie360/lib-components/primitives";
+import { administrationApi, USERS_PAGE_SIZE, type AdministrationRole, type AdministrationService, type AdministrationUser, type AdministrationUsersPage } from '@/lib/administration-api';
 import { type RunAction } from '../../types';
 import { useUsersList } from './use-users-list';
-import { UsersSearch } from './components/UsersSearch';
+import { fullName } from './users-model';
+import { UsersToolbar } from './components/UsersToolbar';
 import { UsersTable } from './components/UsersTable';
-import { UsersPagination } from './components/UsersPagination';
-import { UserCreateForm, emptyUserCreateDraft, type UserCreateDraft } from './components/UserCreateForm';
-import { UserEditForm, type UserEditDraft } from './components/UserEditForm';
-import { UserPasswordReset, type PasswordDraft } from './components/UserPasswordReset';
-import { RoleChangeWarning } from './components/RoleChangeWarning';
+import { UserRecordModal } from './components/UserRecordModal';
+import { UserFormModal, emptyUserCreateDraft, type PasswordDraft, type UserCreateDraft, type UserEditDraft } from './components/UserFormModal';
 
 const emptyPassword: PasswordDraft = { password: "", confirmation: "" };
 
-/** Users tab: searchable paginated table, the create / edit editor, password reset and deletion. */
-export function UsersPanel({ roles, busyAction, runAction, onTotalChange, initialPage, initialError, initialSearch, onInitialReadConsumed }: {
+/**
+ * Users tab, V2 (MAIR-885, MAIR-894, MAIR-904, MAIR-923): search, filters and order over the whole list,
+ * 6 rows per page, rows opening the user record (sessions included), suspension, creation and edition in
+ * modals, deletion always confirmed and never of one's own account.
+ */
+export function UsersPanel({ roles, busyAction, runAction, onTotalChange, currentUserId, refreshSignal = 0, initialPage, initialError, initialSearch, onInitialReadConsumed }: {
   initialPage?: AdministrationUsersPage | null;
   initialError?: string | null;
   initialSearch?: string;
@@ -28,72 +27,102 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, initia
   busyAction: string | null;
   runAction: RunAction;
   onTotalChange: (total: number | null) => void;
+  /** The signed-in administrator. */
+  currentUserId: number | null;
+  /** Incremented by the header « Actualiser »: the visible page is read again. */
+  refreshSignal?: number;
 }) {
   const list = useUsersList({ initialPage, initialError, initialSearch, onInitialReadConsumed, onTotalChange, busyAction });
-  const { usersPage, setUsersPage, usersLoading, usersError, usersMutationConfirmed, loadUsers } = list;
-  const [editorMode, setEditorMode] = useState<"create" | "edit" | null>(null);
-  const [selectedUser, setSelectedUser] = useState<AdministrationUser | null>(null);
-  const [roleChangePending, setRoleChangePending] = useState(false);
+  const { usersPage, setUsersPage, usersLoading, usersError, loadUsers } = list;
+  const locked = busyAction !== null;
+  useEffect(() => { if (refreshSignal > 0) void loadUsers(); }, [refreshSignal]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [recordId, setRecordId] = useState<number | null>(null);
+  const [formMode, setFormMode] = useState<"create" | "edit" | null>(null);
+  const [editedUser, setEditedUser] = useState<AdministrationUser | null>(null);
   const [userSaveWarning, setUserSaveWarning] = useState<string[] | null>(null);
+  const [roleChangePending, setRoleChangePending] = useState(false);
   const [userToDelete, setUserToDelete] = useState<AdministrationUser | null>(null);
+  const [userToSuspend, setUserToSuspend] = useState<AdministrationUser | null>(null);
   const [passwordResetTarget, setPasswordResetTarget] = useState<{ user: AdministrationUser; password: string } | null>(null);
   const [createForm, setCreateForm] = useState<UserCreateDraft>(emptyUserCreateDraft);
-  const [editForm, setEditForm] = useState<UserEditDraft>({ first_name: "", last_name: "", email: "", phone_number: "", roleId: "" });
+  const [editForm, setEditForm] = useState<UserEditDraft>({ first_name: "", last_name: "", email: "", phone_number: "", serviceId: "", roleId: "" });
+  // MAIR-923: the services offered by the user form, read when it opens; a failed read only leaves « Aucun service ».
+  const [services, setServices] = useState<AdministrationService[]>([]);
+  useEffect(() => {
+    if (formMode === null) return;
+    let current = true;
+    administrationApi.listServices().then((received) => { if (current) setServices(received); }, () => undefined);
+    return () => { current = false; };
+  }, [formMode]);
   const [passwordForm, setPasswordForm] = useState<PasswordDraft>(emptyPassword);
+  const record = usersPage.users.find((user) => user.id === recordId) ?? null;
 
-  const selectUser = (user: AdministrationUser) => {
-    if (busyAction !== null) return;
-    setSelectedUser(user);
+  const replaceRow = (userId: number, change: Partial<AdministrationUser>) =>
+    setUsersPage((current) => ({ ...current, users: current.users.map((row) => row.id === userId ? { ...row, ...change } : row) }));
+
+  const openEdit = (user: AdministrationUser) => {
+    if (locked) return;
+    setEditedUser(user);
     setRoleChangePending(false);
     setUserSaveWarning(null);
-    setEditorMode("edit");
     setPasswordForm(emptyPassword);
     setPasswordResetTarget(null);
-    setEditForm({ first_name: user.first_name, last_name: user.last_name, email: user.email, phone_number: user.phone_number ?? "", roleId: user.roles[0] ? String(user.roles[0].id) : "" });
-    window.requestAnimationFrame(() => { document.getElementById("user-editor")?.scrollIntoView({ behavior: "smooth", block: "nearest" }); });
+    setEditForm({ first_name: user.first_name, last_name: user.last_name, email: user.email, phone_number: user.phone_number ?? "", serviceId: user.service ? String(user.service.id) : "", roleId: user.roles[0] ? String(user.roles[0].id) : "" });
+    setFormMode("edit");
   };
+  const closeForm = () => { setFormMode(null); setEditedUser(null); setUserSaveWarning(null); };
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const success = await runAction("create-user", "Utilisateur créé.", async () => {
-      await administrationApi.createUser({ ...createForm, phone_number: createForm.phone_number.trim() || null });
+    const success = await runAction("create-user", `Compte créé : ${createForm.first_name.trim()} ${createForm.last_name.trim()}`, async () => {
+      const { serviceId, ...account } = createForm;
+      const id = await administrationApi.createUser({ ...account, phone_number: account.phone_number.trim() || null });
+      // MAIR-923: the service is attached once the account exists.
+      if (serviceId && id !== null) await administrationApi.setUserService(id, Number(serviceId));
       // POST confirms the write, not a new row or a current total. Invalidate
       // earlier reads and wait for GET before displaying either as fresh.
       list.confirmMutation();
     }, loadUsers);
-    if (success) { setCreateForm(emptyUserCreateDraft); setEditorMode(null); }
+    if (success) { setCreateForm(emptyUserCreateDraft); setFormMode(null); }
   };
 
   const handleUpdate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!selectedUser) return;
-    const user = selectedUser;
+    if (!editedUser) return;
+    const user = editedUser;
     const profile = { first_name: editForm.first_name.trim(), last_name: editForm.last_name.trim(), email: editForm.email.trim(), phone_number: editForm.phone_number.trim() || null };
     const profileChanged = profile.first_name !== user.first_name || profile.last_name !== user.last_name || profile.email !== user.email || profile.phone_number !== (user.phone_number || null);
     const selectedRoleId = editForm.roleId ? Number(editForm.roleId) : null;
     const roleSelectionChanged = roleChangePending || editForm.roleId !== (user.roles[0] ? String(user.roles[0].id) : "");
-    const currentRoleIds = selectedUser.roles.map((role) => role.id);
+    const currentRoleIds = user.roles.map((role) => role.id);
     const roleIdsToRemove = roleSelectionChanged ? currentRoleIds.filter((roleId) => roleId !== selectedRoleId) : [];
     const shouldAddRole = roleSelectionChanged && selectedRoleId !== null && !currentRoleIds.includes(selectedRoleId);
+    const selectedServiceId = editForm.serviceId ? Number(editForm.serviceId) : null;
+    const serviceChanged = selectedServiceId !== (user.service?.id ?? null);
+    const changed = profileChanged || serviceChanged || roleIdsToRemove.length > 0 || shouldAddRole;
 
     const success = await runAction("update-user-" + user.id,
-      profileChanged || roleIdsToRemove.length > 0 || shouldAddRole ? "Utilisateur mis à jour." : "Aucune modification à enregistrer.",
+      changed ? `Le compte de ${profile.first_name} ${profile.last_name} est à jour.` : "Aucune modification à enregistrer.",
       async () => {
         setUserSaveWarning(null);
         let confirmedUser = user;
         const applyConfirmation = (change: Partial<AdministrationUser>) => {
           confirmedUser = { ...confirmedUser, ...change };
-          const currentUser = confirmedUser;
           // These independent 204 responses are not an atomic transaction.
           // Older list reads must not undo a confirmed profile or role write.
           list.invalidateReads();
           list.setUsersLoading(false);
-          setSelectedUser(currentUser);
-          setUsersPage((current) => ({ ...current, users: current.users.map((row) => row.id === user.id ? currentUser : row) }));
+          setEditedUser(confirmedUser);
+          replaceRow(user.id, confirmedUser);
         };
         if (profileChanged) {
           await administrationApi.updateUser(user.id, profile);
           applyConfirmation(profile);
+        }
+        if (serviceChanged) {
+          await administrationApi.setUserService(user.id, selectedServiceId);
+          const service = services.find((entry) => entry.id === selectedServiceId);
+          applyConfirmation({ service: service ? { id: service.id, name: service.name } : null });
         }
         const roleWrites = [
           ...roleIdsToRemove.map((roleId) => ({
@@ -113,7 +142,7 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, initia
             },
           }] : []),
         ];
-        // A fast failure must not unlock selection while another write is still
+        // A fast failure must not unlock the form while another write is still
         // pending. Record each confirmation before allowing an explicit retry.
         const outcomes = await Promise.allSettled(roleWrites.map((write) => write.perform()));
         const failures = outcomes.flatMap((outcome, index) => outcome.status === "rejected" ? [`${roleWrites[index].label} non confirmé.`] : []);
@@ -129,83 +158,105 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, initia
         }
         setRoleChangePending(false);
       });
-    if (!success) return;
-    setEditForm((current) => ({ ...current, ...profile, phone_number: profile.phone_number ?? "" }));
+    if (success) closeForm();
+  };
+
+  const requestPasswordReset = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editedUser || passwordForm.password !== passwordForm.confirmation) return;
+    setPasswordResetTarget({ user: editedUser, password: passwordForm.password });
+  };
+  const confirmPasswordReset = () => {
+    if (!passwordResetTarget) return;
+    const { user, password } = passwordResetTarget;
+    void runAction("reset-user-password-" + user.id, "Mot de passe modifié. Les sessions ont été révoquées.", async () => {
+      await administrationApi.resetUserPassword(user.id, password);
+      replaceRow(user.id, { active_sessions: 0 });
+    }).then((success) => { if (!success) return; setPasswordForm(emptyPassword); setPasswordResetTarget(null); });
   };
 
   const confirmUserDeletion = () => {
     if (!userToDelete) return;
     const user = userToDelete;
-    void runAction("delete-user-" + user.id, "Utilisateur supprimé.", async () => {
+    void runAction("delete-user-" + user.id, "Utilisateur supprimé", async () => {
       await administrationApi.deleteUser(user.id);
       list.confirmMutation();
       // The successful DELETE confirms only this removal. Other rows stay
       // available, while totals/pagination await their server readback.
       setUsersPage((current) => ({ ...current, users: current.users.filter((entry) => entry.id !== user.id) }));
     }, async () => {
-      setSelectedUser(null);
-      setEditorMode(null);
+      setRecordId(null);
       await loadUsers();
     }).then((success) => { if (success) setUserToDelete(null); });
   };
 
-  const requestPasswordReset = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!selectedUser || passwordForm.password !== passwordForm.confirmation) return;
-    setPasswordResetTarget({ user: selectedUser, password: passwordForm.password });
+  /** F10: suspending closes every session (warning notification); reactivating is a success. */
+  const toggleSuspension = (user: AdministrationUser) => {
+    if (user.account_status === "suspended") {
+      void runAction("reactivate-user-" + user.id, "Compte réactivé", async () => {
+        await administrationApi.reactivateUser(user.id);
+        replaceRow(user.id, { account_status: "active", status: "offline" });
+      });
+      return;
+    }
+    setUserToSuspend(user);
   };
-  const confirmPasswordReset = () => {
-    if (!passwordResetTarget) return;
-    const { user, password } = passwordResetTarget;
-    void runAction("reset-user-password-" + user.id, "Mot de passe modifié. Les sessions ont été révoquées.", () => administrationApi.resetUserPassword(user.id, password))
-      .then((success) => { if (!success) return; setPasswordForm(emptyPassword); setPasswordResetTarget(null); });
+  const confirmSuspension = () => {
+    if (!userToSuspend) return;
+    const user = userToSuspend;
+    void runAction("suspend-user-" + user.id, "Compte suspendu : toutes ses sessions ont été fermées.", async () => {
+      await administrationApi.suspendUser(user.id);
+      replaceRow(user.id, { account_status: "suspended", status: "suspended", active_sessions: 0 });
+    }).then((success) => { if (success) setUserToSuspend(null); });
   };
+
+  // A refresh keeps the confirmed rows on screen; a refused refresh says so above them.
+  const hasRows = usersPage.users.length > 0;
+  const tableState = usersLoading && !hasRows ? "loading" : usersError && !hasRows ? "error" : !hasRows ? "empty" : "default";
 
   return (
-    <fieldset disabled={busyAction !== null} aria-busy={busyAction !== null} className="min-w-0 grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(380px,0.5fr)]">
-      <Panel title="Utilisateurs" description="Sélectionnez une personne dans le tableau pour modifier ses informations."
-        action={<CreateButton label="Nouvel utilisateur" onClick={() => { setSelectedUser(null); setEditorMode("create"); setPasswordForm(emptyPassword); setPasswordResetTarget(null); }} />}>
-        <div className="space-y-4">
-          <UsersSearch value={list.searchInput} onType={list.typeSearch} onSubmit={list.submitSearch} />
-          {usersError && (
-            <ErrorAlert role="alert" size="s"
-              title={usersMutationConfirmed ? "L’action est enregistrée, mais les utilisateurs n’ont pas pu être actualisés." : usersError}
-              description={<>{usersMutationConfirmed ? `${usersError} Ne répétez pas l’action.` : "Dernières données reçues, si disponibles."}<span className="mt-3 block"><ActionButton variant="secondary" disabled={usersLoading} onClick={() => void loadUsers()}>Réessayer le chargement des utilisateurs</ActionButton></span></>} />
-          )}
-          {usersLoading ? <DataState state="loading" title="Chargement des utilisateurs…" />
-            : usersPage.users.length === 0 ? (usersError ? null : <DataState state="empty" size="s" title={list.search ? "Aucun utilisateur ne correspond à cette recherche." : "Aucun utilisateur disponible."} description={null} />)
-            : <UsersTable users={usersPage.users} selectedId={selectedUser?.id ?? null} locked={busyAction !== null} onSelect={selectUser} />}
-          <UsersPagination usersPage={usersPage} page={list.page} loading={usersLoading} received={list.hasReceivedUsers} mutationConfirmed={usersMutationConfirmed} onChange={list.changePage} />
-        </div>
+    <div className="min-w-0 space-y-4">
+      <UsersToolbar searchInput={list.searchInput} status={list.status} roleId={list.roleId} roles={roles} locked={locked}
+        onType={list.typeSearch} onSubmit={list.submitSearch} onStatus={list.setStatus} onRole={list.setRole}
+        onCreate={() => { setEditedUser(null); setFormMode("create"); }} />
+      <Panel className="administration-panel" title="Utilisateurs" flush>
+        {usersError && hasRows && <div className="px-4 pb-3"><ErrorAlert size="s" role="alert" title={usersError} /></div>}
+        <UsersTable users={usersPage.users} state={tableState} sort={list.sort} currentUserId={currentUserId} locked={locked}
+          emptyTitle={list.filtered ? "Aucun utilisateur ne correspond" : "Aucun utilisateur"}
+          emptyDescription={list.filtered ? "Modifiez la recherche ou les filtres pour élargir les résultats." : undefined}
+          emptyAction={list.filtered ? <Button variant="outline" tone="neutral" size="s" onClick={list.clearFilters}>Effacer les filtres</Button> : undefined}
+          errorTitle={usersError ?? undefined} onRetry={() => void loadUsers()}
+          onSort={list.setSort} onOpen={(user) => setRecordId(user.id)} onEdit={openEdit}
+          onToggleSuspension={toggleSuspension} onDelete={(user) => setUserToDelete(user)} />
+        {usersPage.total > 0 && (
+          <Pagination className="border-t border-[var(--mairie-border)] px-4 py-2.5" page={list.page} pageSize={usersPage.page_size || USERS_PAGE_SIZE}
+            total={usersPage.total} loading={usersLoading || locked} itemsLabel="utilisateurs" label="Pagination des utilisateurs" onChange={list.goToPage} />
+        )}
       </Panel>
 
-      <Panel title={editorMode === "create" ? "Créer un utilisateur" : selectedUser ? "Modifier l’utilisateur" : "Fiche utilisateur"}
-        description={editorMode === "create" ? "Créez un nouveau compte." : selectedUser ? selectedUser.first_name + " " + selectedUser.last_name : "Cliquez sur une ligne du tableau pour ouvrir la fiche."}
-        className="h-fit">
-        <div id="user-editor">
-          {editorMode === "create" ? (
-            <UserCreateForm form={createForm} saving={busyAction === "create-user"} onChange={(field, value) => setCreateForm((current) => ({ ...current, [field]: value }))} onCancel={() => setEditorMode(null)} onSubmit={handleCreate} />
-          ) : selectedUser ? (
-            <div className="space-y-6">
-              {userSaveWarning && <RoleChangeWarning messages={userSaveWarning} />}
-              <UserEditForm form={editForm} roles={roles} saving={busyAction === "update-user-" + selectedUser.id} deleting={busyAction === "delete-user-" + selectedUser.id}
-                onChange={(field, value) => setEditForm((current) => ({ ...current, [field]: value }))} onDelete={() => setUserToDelete(selectedUser)} onSubmit={handleUpdate} />
-              <UserPasswordReset form={passwordForm} busy={busyAction === "reset-user-password-" + selectedUser.id} onChange={setPasswordForm} onSubmit={requestPasswordReset} />
-            </div>
-          ) : (
-            <DataState state="empty" size="s" title="Sélectionnez un utilisateur dans le tableau." description={null} />
-          )}
-        </div>
-      </Panel>
+      <UserRecordModal user={record} currentUserId={currentUserId} locked={locked} onClose={() => setRecordId(null)}
+        onEdit={openEdit} onToggleSuspension={toggleSuspension} onDelete={(user) => setUserToDelete(user)}
+        onRevoke={(action, message) => runAction("revoke-sessions-" + (record?.id ?? 0), message, action)}
+        onActiveCountChange={(userId, count) => replaceRow(userId, { active_sessions: count })} />
+      <UserFormModal mode={formMode} name={editedUser ? fullName(editedUser) : undefined} roles={roles} services={services} createForm={createForm} editForm={editForm}
+        passwordForm={passwordForm} saving={busyAction === "create-user" || (editedUser !== null && busyAction === "update-user-" + editedUser.id)}
+        resetting={editedUser !== null && busyAction === "reset-user-password-" + editedUser.id} warning={userSaveWarning}
+        onCreateChange={(field, value) => setCreateForm((current) => ({ ...current, [field]: value }))}
+        onEditChange={(field, value) => setEditForm((current) => ({ ...current, [field]: value }))}
+        onPasswordChange={setPasswordForm} onCreate={handleCreate} onUpdate={handleUpdate} onResetPassword={requestPasswordReset} onClose={closeForm} />
 
-      <ConfirmModal open={userToDelete !== null} title="Supprimer cet utilisateur ?"
-        description={userToDelete ? `Le compte de « ${userToDelete.first_name} ${userToDelete.last_name} » (${userToDelete.email}) sera définitivement supprimé. Cette action est irréversible.` : ""}
-        confirmLabel="Supprimer l’utilisateur" busy={userToDelete !== null && busyAction === "delete-user-" + userToDelete.id}
+      <ConfirmModal role="alertdialog" open={userToDelete !== null} title="Supprimer le compte ?"
+        message={userToDelete ? `Le compte de « ${fullName(userToDelete)} » (${userToDelete.email}) sera supprimé et ses sessions fermées.` : ""}
+        confirmLabel="Supprimer" busy={userToDelete !== null && busyAction === "delete-user-" + userToDelete.id}
         onCancel={() => setUserToDelete(null)} onConfirm={confirmUserDeletion} />
-      <ConfirmModal open={passwordResetTarget !== null} tone="security" title="Confirmer la réinitialisation ?"
-        description={passwordResetTarget ? `Le mot de passe de « ${passwordResetTarget.user.first_name} ${passwordResetTarget.user.last_name} » sera remplacé. Toutes ses sessions actives seront déconnectées.` : ""}
+      <ConfirmModal role="alertdialog" open={userToSuspend !== null} destructive={false} title="Suspendre le compte ?"
+        message={userToSuspend ? `${fullName(userToSuspend)} sera déconnecté de tous ses appareils et ne pourra plus se connecter jusqu’à sa réactivation.` : ""}
+        confirmLabel="Suspendre" busy={userToSuspend !== null && busyAction === "suspend-user-" + userToSuspend.id}
+        onCancel={() => setUserToSuspend(null)} onConfirm={confirmSuspension} />
+      <ConfirmModal role="alertdialog" open={passwordResetTarget !== null} destructive={false} title="Confirmer la réinitialisation ?"
+        message={passwordResetTarget ? `Le mot de passe de « ${fullName(passwordResetTarget.user)} » sera remplacé. Toutes ses sessions actives seront déconnectées.` : ""}
         confirmLabel="Réinitialiser" busy={passwordResetTarget !== null && busyAction === "reset-user-password-" + passwordResetTarget.user.id}
         onCancel={() => setPasswordResetTarget(null)} onConfirm={confirmPasswordReset} />
-    </fieldset>
+    </div>
   );
 }

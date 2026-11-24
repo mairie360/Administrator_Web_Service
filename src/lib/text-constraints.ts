@@ -1,6 +1,6 @@
 // Text rules of the published BFF User admin contract (MAIR-514), carried by the inputs so the browser refuses a
 // value before the BFF does: names ≤ 64 without `<` / `>`, e-mail ≤ 320, phone ≤ 32 made of digits, spaces, `.`,
-// `-`, `(`, `)` and an optional leading `+`, password 12 to 255 (Core API's policy, MAIR-757), role and group names ≤ 64, descriptions ≤ 2 000.
+// `-`, `(`, `)` and an optional leading `+`, password 12 to 255, role and group names ≤ 64, descriptions ≤ 2 000.
 
 /** HTML `pattern` equivalent to the contract's `^[^<>]*$` (anchored by the browser, `v` flag). */
 export const NO_MARKUP_PATTERN = "[^<>]*";
@@ -12,10 +12,7 @@ export const PHONE_HINT = "Chiffres, espaces, points, tirets et parenthèses, av
 export const NAME_MAX_LENGTH = 64;
 export const EMAIL_MAX_LENGTH = 320;
 export const PHONE_MAX_LENGTH = 32;
-export const PASSWORD_MIN_LENGTH = 12;
 export const PASSWORD_MAX_LENGTH = 255;
-/** Core API's password policy (MAIR-757, CNIL 2022), shown under the password fields. */
-export const PASSWORD_POLICY_HINT = "12 caractères minimum. Pas de mot de passe courant, ni l’adresse e-mail, le prénom ou le nom de l’utilisateur.";
 export const DESCRIPTION_MAX_LENGTH = 2000;
 
 /** Custom validity for a `<textarea>`, which has no `pattern` attribute. */

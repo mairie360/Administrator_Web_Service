@@ -8,7 +8,8 @@ const [{ readPageUrlState }, { administrationUrlSchema, administrationSearch }] 
 // MAIR-770: ZAP 10031 (user controllable attribute) flags `?tab=sessions` because a valid tab
 // id is rendered back. The exception only holds while `tab` is a closed list.
 const rules = readFileSync(path.join(__dirname, '../.zap/rules.tsv'), 'utf8').trim().split('\n').map(line => line.split('\t'));
-const tabs = ['users', 'roles', 'groups', 'sessions'];
+// MAIR-824: the « Sessions » tab is gone, « Sécurité » joined.
+const tabs = ['users', 'roles', 'groups', 'security'];
 
 test('MAIR-770: ZAP 10031 is out of scope only on the valid console tab URLs', () => {
   const entries = rules.filter(([id]) => id === '10031');
@@ -19,7 +20,7 @@ test('MAIR-770: ZAP 10031 is out of scope only on the valid console tab URLs', (
   for (const tab of tabs) assert.ok(scope.test(`http://administrator-front:5000/?tab=${tab}`), tab);
   for (const url of [
     'http://administrator-front:5000/?tab=%22onmouseover%3Dalert(1)',
-    'http://administrator-front:5000/?tab=sessions&usersSearch=%3Cscript%3E',
+    'http://administrator-front:5000/?tab=security&usersSearch=%3Cscript%3E',
     'http://administrator-front:5000/?usersSearch=sessions',
     'http://administrator-front:5000/admin/users?tab=users',
   ]) assert.equal(scope.test(url), false, url);
@@ -27,7 +28,7 @@ test('MAIR-770: ZAP 10031 is out of scope only on the valid console tab URLs', (
 
 test('MAIR-770: a tab outside the closed list never reaches the page', () => {
   for (const tab of tabs) assert.equal(readPageUrlState(`?tab=${tab}`, administrationUrlSchema).tab, tab);
-  for (const hostile of ['"onmouseover="alert(1)', '<script>alert(1)</script>', 'Sessions', 'sessions ', '']) {
+  for (const hostile of ['"onmouseover="alert(1)', '<script>alert(1)</script>', 'Sessions', 'sessions', 'security ', '']) {
     const search = `?tab=${encodeURIComponent(hostile)}`;
     assert.equal(readPageUrlState(search, administrationUrlSchema).tab, 'users', hostile);
     assert.equal(administrationSearch({ tab: hostile }), '', hostile);

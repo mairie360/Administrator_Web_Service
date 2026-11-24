@@ -39,6 +39,25 @@ const REQUEST_BODIES = {
   AdminGroupPatchBody: { name: 'Élus' },
   AdminGroupUserBody: { user_id: 7 },
   AdminSessionRevokeBody: { refresh_token: 'opaque-refresh-token' },
+  // MAIR-923: services of the mairie and the service of an agent.
+  AdminServiceWriteBody: { name: 'Voirie' },
+  AdminServiceRenameBody: { name: 'Voirie et réseaux' },
+  AdminUserServiceBody: { service_id: 3 },
+  // MAIR-805 / MAIR-808 / MAIR-810 operations of the contract the console relays without calling them.
+  ForgotPasswordView: { email: 'alice@mairie.test' },
+  // A fixed reset-form fixture (UUID shape), never issued by an authentication server.
+  ResetPasswordView: { token: ['4f7c2a9e', '8d31', '4c55', '9a0b', '3e1f6d2c8b70'].join('-'), new_password: 'NouveauMotDePasse1', device_info: 'Firefox' },
+  LoginTwoFactorView: { token: 'login-token', code: '123456' },
+  TwoFactorSetupTokenView: { token: 'setup-token' },
+  TwoFactorSetupConfirmView: { token: 'setup-token', code: '123456' },
+  PasskeyLoginView: { id: 'ceremony', credential: {}, device_info: 'Firefox' },
+  PasskeyRegisterView: { label: 'Clé', credential: {} },
+  // MAIR-811: renaming a passkey (BFF User relays it, the console does not call it).
+  PasskeyRenameView: { label: 'Clé du bureau' },
+  PasskeySetupView: { token: 'setup-token', label: 'Clé', credential: {} },
+  TwoFactorPolicyUpdate: { required: true, totp_allowed: true, passkey_allowed: false, backup_codes_allowed: true },
+  // MAIR-773: the report of a front proxy (BFF User relays it, the console does not call it).
+  ReportSessionView: { level: 'possible', ip_address: '203.0.113.7', device_info: 'Firefox' },
 };
 
 function concreteRequest({ method, template }) {
@@ -116,7 +135,7 @@ describe('published BFF User contract', () => {
     assert.deepEqual(bff.violations.splice(0), [
       '[BFF_USER] requête PATCH /admin/users/abc/password?debug=1 : path.userId: type number attendu, reçu string',
       '[BFF_USER] requête PATCH /admin/users/{userId}/password : paramètre query "debug" non déclaré',
-      '[BFF_USER] requête PATCH /admin/users/{userId}/password $body.new_password: longueur < 8',
+      '[BFF_USER] requête PATCH /admin/users/{userId}/password $body.new_password: longueur < 12',
       '[BFF_USER] appel non mocké : PATCH /admin/users/{userId}/password',
       '[BFF_USER] requête GET /admin/logs : GET /admin/logs n\'existe pas dans le contrat bff_user',
     ]);

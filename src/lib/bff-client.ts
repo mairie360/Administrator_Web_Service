@@ -92,6 +92,19 @@ export async function requestBff<T>(path: string, init: RequestInit = {}) {
   return JSON.parse(body) as T;
 }
 
+/**
+ * MAIR-910 F13 « Se reconnecter »: renews the session through the front's refresh route (the refresh token
+ * cookie stays HttpOnly). Resolves to whether a session is back.
+ */
+export async function reconnectSession(): Promise<boolean> {
+  try {
+    const response = await sessionFetch('/api/auth/refresh', { method: 'POST', redirect: 'manual', cache: 'no-store', credentials: 'same-origin' });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 // The generated operations of the published BFF User contract own every path: axios only carries the
 // request through requestBff, which keeps the same-origin cookie, redirect and 401 handling.
 export function createUserClient(request: typeof requestBff = requestBff) {

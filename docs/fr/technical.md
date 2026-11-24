@@ -1,5 +1,27 @@
 # Administrator_Web_Service — Documentation technique
 
+## Administration V2 — MAIR-824
+
+- Librairie : `@mairie360/lib-components` 2.3.0. L’en-tête affiche « Mairie de » + la commune (C7 / C8, MAIR-1109)
+  depuis `COMMUNE_NAME`, lue à chaque requête (un « Mairie de » / « Commune de » en tête est retiré) ; sans elle le
+  bloc est masqué, jamais l’exemple « Saint-André » de la librairie. La base de page n’a plus de pied de page (MAIR-1092).
+- Contrat : `@mairie360/bff-user-openapi` du `main` de BFF_user avec les routes admin V2 (les lignes
+  utilisateur portent `account_status`, `active_sessions`, `last_login_at`, `two_factor` ;
+  `GET /admin/users` prend `page_size`, `account_status`, `role_id`, `sort` ; routes des sessions, de
+  la suspension, des projets sans groupe et de la politique de double authentification).
+  `src/lib/administration-api.ts` a une méthode par opération et
+  `tests/administration-api.bff-mock.test.cjs` exerce chaque opération `/admin` du contrat.
+- Arbre : `AdministrationConsole/components/{UsersPanel,RolesPanel,GroupsPanel,SecurityPanel}`, avec
+  les `DataTable`, `Modal`, `Drawer`, `ConfirmModal`, `SessionList` de la lib ; les `SessionsPanel`,
+  `ConfirmModal`, `Panel`, `UsersSearch`, `UsersPagination` et `RolesList` locaux sont supprimés.
+- État d’URL : `tab` (`users|roles|groups|security`), `usersSearch`, `usersPage`, `status`,
+  `role`, `sort`. Le rendu serveur lit le profil, puis utilisateurs, rôles et groupes
+  (quatre requêtes, plus de sessions).
+- Les formulaires et la recherche d’utilisateurs sont un `fieldset` désactivé avant l’hydratation
+  (`AdministrationMutationForm`) : aucun point de soumission natif.
+- Tests : `tests/administration-v2.bff-mock.test.cjs` (la page dans jsdom face au mock du contrat) et
+  les tests Vitest co-localisés de chaque composant.
+
 ## Lectures partielles des sessions — MAIR-460 / MAIR-470
 
 `refreshSessions` lance les deux GET existants en parallèle et attend
@@ -253,6 +275,10 @@ Ces chemins de données sont exposés à la même origine par le proxy; les page
 | PUT | `/admin/roles/{roleId}` | application/json | 2XX |
 | PATCH | `/admin/roles/{roleId}` | application/json | 2XX |
 | DELETE | `/admin/roles/{roleId}` | — | 2XX |
+| GET | `/admin/services` | — | 2XX |
+| POST | `/admin/services` | application/json | 2XX |
+| PATCH | `/admin/services/{serviceId}` | application/json | 2XX |
+| DELETE | `/admin/services/{serviceId}` | — | 2XX |
 | GET | `/admin/sessions` | — | 2XX |
 | GET | `/admin/sessions/history` | — | 2XX |
 | POST | `/admin/sessions/revoke` | application/json | 2XX |
@@ -263,6 +289,7 @@ Ces chemins de données sont exposés à la même origine par le proxy; les page
 | PATCH | `/admin/users/{userId}/password` | application/json | 2XX |
 | POST | `/admin/users/{userId}/roles` | application/json | 2XX |
 | DELETE | `/admin/users/{userId}/roles/{roleId}` | — | 2XX |
+| PUT | `/admin/users/{userId}/service` | application/json | 2XX |
 | GET | `/check_apis` | — | 2XX |
 | GET | `/health` | — | 2XX |
 | GET | `/me` | — | 2XX |

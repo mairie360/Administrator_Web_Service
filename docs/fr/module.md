@@ -1,5 +1,42 @@
 # Administrator_Web_Service — Présentation du module
 
+## Administration V2 — MAIR-824
+
+La console suit la maquette V2 (Figma Administrator_Web_Service, epic MAIR-824) sur
+`@mairie360/lib-components` 2.3.0. Cinq onglets : Utilisateurs, Rôles, Groupes, Services et Sécurité ;
+l’onglet Sessions disparaît, les sessions d’un compte sont dans sa fiche.
+
+- **Utilisateurs** : recherche sur le nom, l’e-mail ou le service, filtre d’état (Actif, Invité, Inactif,
+  Suspendu), filtre de rôle, tri par nom, 6 lignes par page. Chaque ligne affiche le rôle, l’état,
+  « En ligne · N sessions » ou la dernière connexion, et ses actions : modifier, suspendre /
+  réactiver, supprimer, et le service de l’agent (choisi dans la modale de l’utilisateur). Un administrateur ne peut ni suspendre ni supprimer son propre compte. Un
+  clic sur la ligne ouvre la fiche (identité, rôle, état, sessions ouvertes et des 30 derniers
+  jours, déconnexion d’une session ou de toutes après confirmation).
+- **Suspension** (MAIR-904) : confirmée d’abord, elle ferme toutes les sessions du compte et
+  refuse sa connexion jusqu’à « Réactiver » ; rôles, groupes et seconds facteurs sont conservés.
+- **Rôles** : tableau, création et modification dans une modale, avec les « Modules accessibles » du rôle
+  (MAIR-916 ; le rôle Admin garde toujours Administration) ; la suppression d’un rôle système
+  est refusée, un rôle encore attribué prévient avec le nombre de comptes, les autres demandent une
+  confirmation.
+- **Groupes** : création dans une modale avec une couleur de la palette de la charte, chaque carte affiche
+  sa couleur et son nombre de projets (MAIR-923), le groupe s’ouvre dans un panneau latéral (membres,
+  propriétaire, suppression) ; « Projets sans groupe » liste les projets de BFF_Project sans groupe.
+- **Services** (MAIR-923) : les services de la mairie et leurs agents ; création, renommage et
+  suppression confirmée, qui laisse ses agents sans service.
+- **Sécurité** : la politique de double authentification de la mairie (obligatoire ou non,
+  méthodes autorisées) et le facteur de chaque agent actif, qu’un administrateur peut réinitialiser ;
+  depuis MAIR-773, les alertes de sécurité récentes (usages d’une session depuis un autre appareil
+  sur les 30 derniers jours : date, agent, « Tentative certaine » / « Tentative possible », appareil
+  et début de l’adresse) et, depuis « Voir le journal » ou le lien de l’e-mail d’alerte
+  (`?tab=security&journal=<id>`), le journal des connexions de l’agent.
+- « Actualiser » relit les rôles, les groupes et la page d’utilisateurs affichée ; une lecture
+  refusée garde les dernières lignes confirmées et le signale.
+
+La navigation partagée n’affiche que les modules ouverts par le rôle de la session (`modules` de `/me` ;
+tous les modules tant que le BFF ne les envoie pas). Le nom de la commune de l’en-tête vient de
+`COMMUNE_NAME` (masqué s’il n’est pas défini).
+
+
 ## Une liste inconnue n’est pas vide — MAIR-470
 
 Rôles, groupes, sessions actives et historique restent inconnus jusqu’à leur
@@ -19,9 +56,11 @@ invalide avec une aide en français avant toute requête. Un 400 qui arriverait 
 avec le détail des champs est expliqué champ par champ (« Prénom : ne doit pas contenir les
 caractères < ou > ») au lieu du message générique.
 
-## Listes de sessions en lecture — MAIR-406
+## Sessions d’un compte — MAIR-894 (remplace MAIR-406)
 
-Les sessions actives et leur historique restent disponibles avec leur actualisation GET, compteurs, états d’expiration/révocation et erreurs indépendantes existants. Le formulaire à jeton et ses actions Rafraîchir/Révoquer sont retirés selon la décision explicite du 10 octobre 2026 ; les vérifications du brouillon MAIR-460 sont historiques. Le contrat publié User 0.5.0 ne définit pas d’opération typée de révocation par identifiant : aucun payload ni commande de remplacement n’est inventé. Les droits et la persistance réels en Dev restent à vérifier avec un compte utilisable.
+L’onglet Sessions en lecture de MAIR-406 disparaît : les sessions d’un compte se lisent dans sa
+fiche (`GET /admin/users/{userId}/sessions`) et un administrateur peut déconnecter une session ou
+toutes après confirmation (`DELETE /admin/users/{userId}/sessions[/{sessionId}]`).
 
 ## Panneaux Administration indépendants — MAIR-406
 

@@ -1,13 +1,13 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 
-import { administrationApi, type AdministrationUsersPage } from '@/lib/administration-api';
+import { administrationApi, USERS_PAGE_SIZE, type AccountStatus, type AdministrationUsersPage, type UsersSort } from '@/lib/administration-api';
 import { administrationErrorMessage } from '@/lib/administration-error';
-import { usersUrlSchema } from '@/lib/administration-query';
-import { subscribePageReturn } from '@/lib/page-return';
+import { usersQueryOf, usersUrlSchema } from '@/lib/administration-query';
+import { subscribePageReturn } from '@mairie360/lib-components/shared';
 import { usePageUrlState } from '@/lib/use-page-url-state';
 
-export const emptyUsersPage: AdministrationUsersPage = { users: [], page: 1, page_size: 20, total: 0, total_pages: 0 };
+export const emptyUsersPage: AdministrationUsersPage = { users: [], page: 1, page_size: USERS_PAGE_SIZE, total: 0, total_pages: 0 };
 
 export interface UsersListOptions {
   initialPage?: AdministrationUsersPage | null;
@@ -24,6 +24,11 @@ export interface UsersList {
   hasReceivedUsers: boolean;
   page: number;
   search: string;
+  status: AccountStatus | "";
+  roleId: number | null;
+  sort: UsersSort;
+  /** A search, a state or a role narrows the list (« Effacer les filtres »). */
+  filtered: boolean;
   searchInput: string;
   usersLoading: boolean;
   setUsersLoading: (loading: boolean) => void;
@@ -33,34 +38,43 @@ export interface UsersList {
   confirmMutation: () => void;
   /** Invalidates earlier reads without marking a mutation (independent confirmed writes). */
   invalidateReads: () => void;
-  loadUsers: () => Promise<void>;
+  loadUsers: () => Promise<boolean>;
   typeSearch: (value: string) => void;
   submitSearch: (event: FormEvent<HTMLFormElement>) => void;
-  changePage: (direction: number) => void;
+  /** F02 / F03 / F04: every filter or order change goes back to page 1. */
+  setStatus: (status: AccountStatus | "") => void;
+  setRole: (roleId: number | null) => void;
+  setSort: (sort: UsersSort) => void;
+  clearFilters: () => void;
+  goToPage: (page: number) => void;
 }
 
 /**
- * The paginated users read: URL-backed page and search (debounced 250 ms), one read at a time,
- * a seed from the server render, page-return refresh, and the « to refresh » state after a write.
+ * The paginated users read (MAIR-904): URL-backed page, search (debounced 250 ms), state and role
+ * filters and order by name, 6 rows per page, one read at a time, a seed from the server render,
+ * page-return refresh, and the « to refresh » state after a write.
  */
 export function useUsersList({ initialPage, initialError, initialSearch, onInitialReadConsumed, onTotalChange, busyAction }: UsersListOptions): UsersList {
   const [initial] = useState(() => ({ page: initialPage, error: initialError, search: initialSearch }));
   const [usersPage, setUsersPage] = useState<AdministrationUsersPage>(initial.page ?? emptyUsersPage);
   const [hasReceivedUsers, setHasReceivedUsers] = useState(Boolean(initial.page));
   const pageUrl = usePageUrlState(usersUrlSchema, initial.search);
-  const page = Number(pageUrl.state.usersPage);
-  const search = pageUrl.state.usersSearch;
+  const query = usersQueryOf(pageUrl.state);
+  const { search, roleId, sort } = query;
+  const page = query.page ?? 1;
+  const status = query.status ?? "";
   const [searchInput, setSearchInput] = useState(pageUrl.state.usersSearch);
   const usersReadController = useRef<AbortController | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (pageUrl.ready) setSearchInput(search);
+    if (pageUrl.ready) setSearchInput(search ?? "");
   }, [pageUrl.ready, search]);
   const [usersLoading, setUsersLoading] = useState(initial.page === undefined);
   const [usersError, setUsersError] = useState<string | null>(initial.error ?? null);
   const [usersMutationConfirmed, setUsersMutationConfirmed] = useState(false);
   const usersReadRevision = useRef(0);
+  const readKey = JSON.stringify({ page, search, status, roleId, sort });
 
   const loadUsers = useCallback(async () => {
     usersReadController.current?.abort();
@@ -68,29 +82,33 @@ export function useUsersList({ initialPage, initialError, initialSearch, onIniti
     usersReadController.current = controller;
     const revision = ++usersReadRevision.current;
     const isCurrent = () => !controller.signal.aborted && usersReadRevision.current === revision;
+    const current = JSON.parse(readKey) as { page: number; search: string; status: AccountStatus | ""; roleId: number | null; sort: UsersSort };
     setUsersLoading(true);
     setUsersError(null);
     try {
-      const response = await administrationApi.listUsers({ page, search }, controller.signal);
-      if (!isCurrent()) return;
+      const response = await administrationApi.listUsers(current, controller.signal);
+      if (!isCurrent()) return false;
       setUsersPage(response);
       setHasReceivedUsers(true);
       setUsersMutationConfirmed(false);
-      onTotalChange(response.total);
-      if (response.total_pages > 0 && page > response.total_pages) pageUrl.update({ usersPage: String(response.total_pages) }, "replace");
+      // The « Utilisateurs » metric counts every account: a filtered page leaves it as it is.
+      if (!current.search && !current.status && !current.roleId) onTotalChange(response.total);
+      if (response.total_pages > 0 && current.page > response.total_pages) pageUrl.update({ usersPage: String(response.total_pages) }, "replace");
+      return true;
     } catch (error) {
       if (isCurrent()) setUsersError(administrationErrorMessage(error));
+      return false;
     } finally {
       if (isCurrent()) setUsersLoading(false);
     }
-  }, [onTotalChange, page, search, pageUrl.update]);
+  }, [onTotalChange, readKey, pageUrl.update]);
 
   const skipInitialRead = useRef(initial.page !== undefined);
   useEffect(() => {
     if (!pageUrl.ready) return;
-    const initialQuery = new URLSearchParams(initial.search ?? "");
     if (skipInitialRead.current) {
-      if (page === Number(initialQuery.get("usersPage") ?? 1) && search === (initialQuery.get("usersSearch") ?? "")) {
+      const seeded = usersQueryOf(Object.fromEntries(new URLSearchParams(initial.search ?? "")));
+      if (JSON.stringify({ ...seeded, status: seeded.status ?? "" }) === readKey) {
         // Replay of the same mount effect still owns this confirmed query.
         // The parent consumes the seed for a later genuine panel remount.
         onInitialReadConsumed?.();
@@ -100,7 +118,7 @@ export function useUsersList({ initialPage, initialError, initialSearch, onIniti
     }
     void loadUsers();
     return () => { usersReadRevision.current += 1; usersReadController.current?.abort(); };
-  }, [loadUsers, pageUrl.ready, initial, page, search, onInitialReadConsumed]);
+  }, [loadUsers, pageUrl.ready, initial, readKey, onInitialReadConsumed]);
 
   useEffect(() => () => { if (searchTimer.current) clearTimeout(searchTimer.current); }, []);
   useEffect(() => {
@@ -110,6 +128,11 @@ export function useUsersList({ initialPage, initialError, initialSearch, onIniti
     return subscribePageReturn(refresh);
   }, [loadUsers, pageUrl.ready, busyAction]);
 
+  const navigate = (patch: Record<string, string>, mode: "push" | "replace" = "push") => {
+    // Invalidate at the change, before the effect starts the replacement read.
+    usersReadRevision.current += 1;
+    pageUrl.update({ usersPage: "1", ...patch }, mode);
+  };
   const typeSearch = (value: string) => {
     setSearchInput(value);
     if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -120,16 +143,24 @@ export function useUsersList({ initialPage, initialError, initialSearch, onIniti
     if (searchTimer.current) clearTimeout(searchTimer.current);
     const nextSearch = searchInput.trim();
     if (page === 1 && search === nextSearch) { void loadUsers(); return; }
-    // Invalidate at submission, before the effect starts the replacement read.
-    usersReadRevision.current += 1;
-    pageUrl.update({ usersSearch: nextSearch, usersPage: "1" });
+    navigate({ usersSearch: nextSearch });
   };
-  const changePage = (direction: number) => {
-    usersReadRevision.current += 1;
-    pageUrl.update({ usersPage: String(Math.max(1, page + direction)) });
+  const clearFilters = () => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    setSearchInput("");
+    navigate({ usersSearch: "", status: "", role: "" });
   };
   const confirmMutation = () => { usersReadRevision.current += 1; setUsersMutationConfirmed(true); onTotalChange(null); };
   const invalidateReads = () => { usersReadRevision.current += 1; };
 
-  return { usersPage, setUsersPage, hasReceivedUsers, page, search, searchInput, usersLoading, setUsersLoading, usersError, usersMutationConfirmed, confirmMutation, invalidateReads, loadUsers, typeSearch, submitSearch, changePage };
+  return {
+    usersPage, setUsersPage, hasReceivedUsers, page, search: search ?? "", status, roleId: roleId ?? null, sort: sort ?? "name",
+    filtered: Boolean(search || status || roleId), searchInput, usersLoading, setUsersLoading, usersError, usersMutationConfirmed,
+    confirmMutation, invalidateReads, loadUsers, typeSearch, submitSearch,
+    setStatus: (value) => navigate({ status: value }),
+    setRole: (value) => navigate({ role: value ? String(value) : "" }),
+    setSort: (value) => navigate({ sort: value }),
+    clearFilters,
+    goToPage: (value) => { usersReadRevision.current += 1; pageUrl.update({ usersPage: String(Math.max(1, value)) }); },
+  };
 }

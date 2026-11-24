@@ -1,5 +1,26 @@
 # Administrator_Web_Service — Technical documentation
 
+## Administration V2 — MAIR-824
+
+- Library: `@mairie360/lib-components` 2.3.0. The header shows « Mairie de » + the commune (C7 / C8, MAIR-1109) from
+  `COMMUNE_NAME`, read at request time (a leading « Mairie de » / « Commune de » is dropped); without it the block is
+  hidden, never the library's sample « Saint-André ». The page base has no footer any more (MAIR-1092).
+- Contract: `@mairie360/bff-user-openapi` of BFF_user `main` with the V2 admin routes (user rows carry
+  `account_status`, `active_sessions`, `last_login_at`, `two_factor`; `GET /admin/users` takes
+  `page_size`, `account_status`, `role_id`, `sort`; sessions, suspension, projects without group and
+  two-factor policy routes). `src/lib/administration-api.ts` has one method per operation and
+  `tests/administration-api.bff-mock.test.cjs` exercises every `/admin` operation of the contract.
+- Tree: `AdministrationConsole/components/{UsersPanel,RolesPanel,GroupsPanel,SecurityPanel}`, with the
+  lib `DataTable`, `Modal`, `Drawer`, `ConfirmModal`, `SessionList`; the local `SessionsPanel`,
+  `ConfirmModal`, `Panel`, `UsersSearch`, `UsersPagination` and `RolesList` are removed.
+- URL state: `tab` (`users|roles|groups|security`), `usersSearch`, `usersPage`, `status`,
+  `role`, `sort`. The server render reads the profile, then users, roles and groups (four
+  requests, no sessions).
+- Forms and the users search render as a disabled `fieldset` before hydration
+  (`AdministrationMutationForm`): no native submission endpoint.
+- Tests: `tests/administration-v2.bff-mock.test.cjs` (the page in jsdom against the contract mock) and
+  the co-located Vitest tests of each component.
+
 ## Partial session reads — MAIR-460 / MAIR-470
 
 `refreshSessions` starts both existing GETs concurrently and awaits
@@ -237,6 +258,10 @@ These data paths are exposed at the same origin through the proxy; Next.js pages
 | PUT | `/admin/roles/{roleId}` | application/json | 2XX |
 | PATCH | `/admin/roles/{roleId}` | application/json | 2XX |
 | DELETE | `/admin/roles/{roleId}` | — | 2XX |
+| GET | `/admin/services` | — | 2XX |
+| POST | `/admin/services` | application/json | 2XX |
+| PATCH | `/admin/services/{serviceId}` | application/json | 2XX |
+| DELETE | `/admin/services/{serviceId}` | — | 2XX |
 | GET | `/admin/sessions` | — | 2XX |
 | GET | `/admin/sessions/history` | — | 2XX |
 | POST | `/admin/sessions/revoke` | application/json | 2XX |
@@ -247,6 +272,7 @@ These data paths are exposed at the same origin through the proxy; Next.js pages
 | PATCH | `/admin/users/{userId}/password` | application/json | 2XX |
 | POST | `/admin/users/{userId}/roles` | application/json | 2XX |
 | DELETE | `/admin/users/{userId}/roles/{roleId}` | — | 2XX |
+| PUT | `/admin/users/{userId}/service` | application/json | 2XX |
 | GET | `/check_apis` | — | 2XX |
 | GET | `/health` | — | 2XX |
 | GET | `/me` | — | 2XX |
