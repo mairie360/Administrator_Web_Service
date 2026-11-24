@@ -12,7 +12,7 @@ const { FrontHarness, loadTs } = require('./support/front-harness.cjs');
 const contract = bffUserContract();
 const bff = new ContractMockServer('BFF_USER', contract);
 let front;
-let administrationApi;
+let administrationApi, administrationErrorMessage;
 let BffRequestError;
 const exercised = new Set();
 const savedLoginUrl = process.env.LOGIN_FRONT_URL;
@@ -21,7 +21,7 @@ before(async () => {
   process.env.LOGIN_FRONT_URL = 'https://login.mairie.test/';
   await bff.start();
   front = new FrontHarness({ bff }).install();
-  [{ administrationApi }, { BffRequestError }] = loadTs(['src/lib/administration-api.ts', 'src/lib/bff-client.ts']);
+  [{ administrationApi }, { BffRequestError }, { administrationErrorMessage }] = loadTs(['src/lib/administration-api.ts', 'src/lib/bff-client.ts', 'src/lib/administration-error.ts']);
 });
 after(async () => {
   if (savedLoginUrl === undefined) delete process.env.LOGIN_FRONT_URL;
@@ -142,10 +142,36 @@ describe('administration API client against a contract-driven BFF User mock', ()
       assert.deepEqual(bff.requests, []);
     });
 
+    test('MAIR-757 a password Core API refuses (400 without details) shows the whole policy', async () => {
+      const policy = /utilisez au moins 12 caractères, évitez les mots de passe courants et n’y mettez ni l’adresse e-mail, ni le prénom, ni le nom de l’utilisateur\./;
+      const refused = (details) => ({ status: 400, body: { error: { code: 'BAD_REQUEST', message: 'Bad request', details } }, outOfContract: true });
+      bff.on('patch', '/admin/users/{userId}/password', refused([]));
+      await assert.rejects(administrationApi.resetUserPassword(7, 'NouveauMotDePasse1'), (error) => {
+        assert.match(administrationErrorMessage(error), policy);
+        assert.doesNotMatch(administrationErrorMessage(error), /téléphone/);
+        return true;
+      });
+      bff.on('post', '/admin/users', refused([]));
+      await assert.rejects(administrationApi.createUser({ email: 'camille.lefebvre@mairie.test', first_name: 'Camille', last_name: 'Lefebvre', password: 'MotDePasse123', phone_number: '06 12 34 56 78' }), (error) => {
+        assert.match(administrationErrorMessage(error), policy);
+        assert.match(administrationErrorMessage(error), /Vérifiez aussi le numéro de téléphone\./);
+        return true;
+      });
+      // A 400 with field details keeps its field-level message.
+      bff.on('post', '/admin/users', refused([{ path: 'body.email', message: 'Invalid email' }]));
+      await assert.rejects(administrationApi.createUser({ email: 'camille.lefebvre@mairie.test', first_name: 'Camille', last_name: 'Lefebvre', password: 'MotDePasse123' }), (error) => {
+        assert.doesNotMatch(administrationErrorMessage(error), policy);
+        assert.match(administrationErrorMessage(error), /Vérifiez les champs signalés/);
+        return true;
+      });
+    });
+
     test('rejects inputs outside the BFF contract bounds before any network call', async () => {
       await assert.rejects(administrationApi.listUsers({ search: 'a'.repeat(101) }), /La recherche ne doit pas dépasser 100 caractères/);
       assert.throws(() => administrationApi.resetUserPassword(7, 'court12'), /Le mot de passe doit contenir au moins 12 caractères/);
       assert.throws(() => administrationApi.resetUserPassword(7, 'a'.repeat(256)), /Le mot de passe ne doit pas dépasser 255 caractères/);
+      // MAIR-757: the temporary password of a new account is checked before the call too.
+      await assert.rejects(administrationApi.createUser({ email: 'camille.lefebvre@mairie.test', first_name: 'Camille', last_name: 'Lefebvre', password: 'court12' }), /Le mot de passe doit contenir au moins 12 caractères/);
       await assert.rejects(administrationApi.updateGroup(5, { name: '', description: '' }), /Le nom du groupe est obligatoire/);
       await assert.rejects(administrationApi.updateGroup(5, { name: 'a'.repeat(65), description: '' }), /Le nom du groupe ne doit pas dépasser 64 caractères/);
       await assert.rejects(administrationApi.updateGroup(5, { name: 'Élus', description: 'a'.repeat(2001) }), /La description du groupe ne doit pas dépasser 2000 caractères/);
