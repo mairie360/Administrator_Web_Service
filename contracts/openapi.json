@@ -401,19 +401,6 @@
         ],
         "type": "string"
       },
-      "AdminUserPasswordResetBody": {
-        "properties": {
-          "new_password": {
-            "maxLength": 255,
-            "minLength": 12,
-            "type": "string"
-          }
-        },
-        "required": [
-          "new_password"
-        ],
-        "type": "object"
-      },
       "AdminUserPatchBody": {
         "properties": {
           "email": {
@@ -2094,7 +2081,7 @@
   "info": {
     "title": "bff_user",
     "version": "1.0.0",
-    "x-source-package": "@mairie360/bff-user-openapi@0.0.0-dev.873be3f495abc2132475d3d780a00db064ee9c60"
+    "x-source-package": "@mairie360/bff-user-openapi@0.0.0-dev.934165f111e7f516f3de6e392bea96505faad86a"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -3069,43 +3056,6 @@
                       "$ref": "#/components/schemas/CoreResponse"
                     }
                   ]
-                }
-              }
-            },
-            "description": "Succès (seul statut typé par orval)"
-          }
-        }
-      }
-    },
-    "/admin/users/{userId}/password": {
-      "patch": {
-        "operationId": "patchAdminUsersUserIdPassword",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "userId",
-            "required": true,
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminUserPasswordResetBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "2XX": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CoreResponse"
                 }
               }
             },
