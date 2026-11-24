@@ -146,20 +146,20 @@ describe('administration API client against a contract-driven BFF User mock', ()
       const policy = /utilisez au moins 12 caractères, évitez les mots de passe courants et n’y mettez ni l’adresse e-mail, ni le prénom, ni le nom de l’utilisateur\./;
       const refused = (details) => ({ status: 400, body: { error: { code: 'BAD_REQUEST', message: 'Bad request', details } }, outOfContract: true });
       bff.on('patch', '/admin/users/{userId}/password', refused([]));
-      await assert.rejects(administrationApi.resetUserPassword(7, 'Lefebvre-Mairie-2026'), (error) => {
+      await assert.rejects(administrationApi.resetUserPassword(7, 'NouveauMotDePasse1'), (error) => {
         assert.match(administrationErrorMessage(error), policy);
         assert.doesNotMatch(administrationErrorMessage(error), /téléphone/);
         return true;
       });
       bff.on('post', '/admin/users', refused([]));
-      await assert.rejects(administrationApi.createUser({ email: 'camille.lefebvre@mairie.test', first_name: 'Camille', last_name: 'Lefebvre', password: 'Unbelievable', phone_number: '06 12 34 56 78' }), (error) => {
+      await assert.rejects(administrationApi.createUser({ email: 'camille.lefebvre@mairie.test', first_name: 'Camille', last_name: 'Lefebvre', password: 'MotDePasse123', phone_number: '06 12 34 56 78' }), (error) => {
         assert.match(administrationErrorMessage(error), policy);
         assert.match(administrationErrorMessage(error), /Vérifiez aussi le numéro de téléphone\./);
         return true;
       });
       // A 400 with field details keeps its field-level message.
       bff.on('post', '/admin/users', refused([{ path: 'body.email', message: 'Invalid email' }]));
-      await assert.rejects(administrationApi.createUser({ email: 'camille.lefebvre@mairie.test', first_name: 'Camille', last_name: 'Lefebvre', password: 'Ecole-Jardin-Pont-2026' }), (error) => {
+      await assert.rejects(administrationApi.createUser({ email: 'camille.lefebvre@mairie.test', first_name: 'Camille', last_name: 'Lefebvre', password: 'MotDePasse123' }), (error) => {
         assert.doesNotMatch(administrationErrorMessage(error), policy);
         assert.match(administrationErrorMessage(error), /Vérifiez les champs signalés/);
         return true;
@@ -171,7 +171,7 @@ describe('administration API client against a contract-driven BFF User mock', ()
       assert.throws(() => administrationApi.resetUserPassword(7, 'court12'), /Le mot de passe doit contenir au moins 12 caractères/);
       assert.throws(() => administrationApi.resetUserPassword(7, 'a'.repeat(256)), /Le mot de passe ne doit pas dépasser 255 caractères/);
       // MAIR-757: the temporary password of a new account is checked before the call too.
-      await assert.rejects(administrationApi.createUser({ email: 'camille.lefebvre@mairie.test', first_name: 'Camille', last_name: 'Lefebvre', password: 'Velo-2026-x' }), /Le mot de passe doit contenir au moins 12 caractères/);
+      await assert.rejects(administrationApi.createUser({ email: 'camille.lefebvre@mairie.test', first_name: 'Camille', last_name: 'Lefebvre', password: 'court12' }), /Le mot de passe doit contenir au moins 12 caractères/);
       await assert.rejects(administrationApi.updateGroup(5, { name: '', description: '' }), /Le nom du groupe est obligatoire/);
       await assert.rejects(administrationApi.updateGroup(5, { name: 'a'.repeat(65), description: '' }), /Le nom du groupe ne doit pas dépasser 64 caractères/);
       await assert.rejects(administrationApi.updateGroup(5, { name: 'Élus', description: 'a'.repeat(2001) }), /La description du groupe ne doit pas dépasser 2000 caractères/);
