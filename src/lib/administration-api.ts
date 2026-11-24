@@ -11,7 +11,8 @@ import type {
 } from "@mairie360/bff-user-openapi/model";
 import type { GetAdminUsersParams } from "@mairie360/bff-user-openapi/model";
 import { parseUsersPage, parseRoles, parseGroups, parseService, parseServices, parseSessions, type GROUP_COLORS, type ROLE_MODULES } from "./administration-response";
-import { bffUser } from "./bff-client";
+import { PasswordPolicyError } from "./administration-error";
+import { BffRequestError, bffUser } from "./bff-client";
 
 // Modèles du contrat publié de BFF User (@mairie360/bff-user-openapi, version exacte de package.json).
 export type {
@@ -118,6 +119,19 @@ export const PASSWORD_MIN_LENGTH = 12;
 const PASSWORD_MAX_LENGTH = 255;
 const GROUP_NAME_MAX_LENGTH = 64;
 const GROUP_DESCRIPTION_MAX_LENGTH = 2000;
+
+/**
+ * MAIR-757: a 400 without field details on a password write is Core API refusing the password (common one, or holding
+ * the user's e-mail or names): the BFF keeps the status but not Core's text, so the whole policy is shown.
+ */
+async function passwordWrite<T>(call: Promise<T>, alsoCheck?: string): Promise<T> {
+  try {
+    return await call;
+  } catch (error) {
+    if (error instanceof BffRequestError && error.status === 400 && error.details.length === 0) throw new PasswordPolicyError(alsoCheck);
+    throw error;
+  }
+}
 
 /** Awaits a generated operation whose response carries no body. */
 async function done(call: Promise<unknown>): Promise<void> {
@@ -294,7 +308,9 @@ export function createAdministrationApi(client: typeof bffUser = bffUser) {
 
     /** Creates the account and answers its id (`null` when the BFF does not send it back). */
     async createUser(input: CreateUserInput): Promise<number | null> {
-      const { data } = await client.postAdminUsers(input);
+      boundedText(input.password, "Le mot de passe", { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH });
+      // Core API also answers a detail-less 400 for a phone number invalid for its country.
+      const { data } = await passwordWrite(client.postAdminUsers(input), input.phone_number ? "le numéro de téléphone" : undefined);
       const id = asRecord(data)?.id;
       return typeof id === "number" && Number.isInteger(id) && id > 0 ? id : null;
     },
@@ -306,7 +322,7 @@ export function createAdministrationApi(client: typeof bffUser = bffUser) {
     resetUserPassword(userId: number, newPassword: string) {
       const resolvedUserId = positiveInteger(userId, "L’identifiant utilisateur");
       boundedText(newPassword, "Le mot de passe", { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH });
-      return done(client.patchAdminUsersUserIdPassword(resolvedUserId, { new_password: newPassword }));
+      return done(passwordWrite(client.patchAdminUsersUserIdPassword(resolvedUserId, { new_password: newPassword })));
     },
 
     deleteUser(userId: number) {
