@@ -111,10 +111,10 @@ export type GroupInput = {
   color?: GroupColor | null;
 };
 
-// Bornes imposées par le contrat BFF User (AdminUserListQuery, AdminUserPasswordResetBody,
+// Bornes imposées par le contrat BFF User (AdminUserListQuery, AdminUserCreateBody,
 // AdminGroupPatchBody) : vérifiées avant l'appel pour éviter un 400 sans message exploitable.
 const SEARCH_MAX_LENGTH = 100;
-/** BFF User requires 12 characters for the passwords an administrator sets (MAIR-757, CNIL 2022). */
+/** BFF User requires 12 characters for the temporary password an administrator sets on a new account (MAIR-757, CNIL 2022). */
 export const PASSWORD_MIN_LENGTH = 12;
 const PASSWORD_MAX_LENGTH = 255;
 const GROUP_NAME_MAX_LENGTH = 64;
@@ -317,12 +317,6 @@ export function createAdministrationApi(client: typeof bffUser = bffUser) {
 
     updateUser(userId: number, input: UpdateUserInput) {
       return done(client.patchAdminUsersUserId(positiveInteger(userId, "L’identifiant utilisateur"), input));
-    },
-
-    resetUserPassword(userId: number, newPassword: string) {
-      const resolvedUserId = positiveInteger(userId, "L’identifiant utilisateur");
-      boundedText(newPassword, "Le mot de passe", { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH });
-      return done(passwordWrite(client.patchAdminUsersUserIdPassword(resolvedUserId, { new_password: newPassword })));
     },
 
     deleteUser(userId: number) {

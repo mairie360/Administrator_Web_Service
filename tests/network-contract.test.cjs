@@ -30,7 +30,6 @@ const REQUEST_BODIES = {
   ForceChangePasswordView: { new_password: 'NouveauMotDePasse1', token: 'force-token' },
   AdminUserCreateBody: { email: 'alice@mairie.test', first_name: 'Alice', last_name: 'Dupont', password: 'MotDePasse123' },
   AdminUserPatchBody: { first_name: 'Alice' },
-  AdminUserPasswordResetBody: { new_password: 'NouveauMotDePasse1' },
   AdminUserRoleBody: { role_id: 3 },
   AdminRoleWriteBody: { name: 'Élus', description: 'Rôle des élus' },
   AdminRoleReplaceBody: { name: 'Élus', description: 'Rôle des élus' },
@@ -127,16 +126,16 @@ describe('published BFF User contract', () => {
   });
 
   test('the mock reports requests that break the contract', async () => {
-    const response = await fetch(`${bff.url}/admin/users/abc/password?debug=1`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ new_password: 'court' }) });
+    const response = await fetch(`${bff.url}/admin/users/abc?debug=1`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ first_name: '<b>' }) });
     const unknown = await fetch(`${bff.url}/admin/logs`);
 
     assert.equal(response.status, 500);
     assert.equal(unknown.status, 404);
     assert.deepEqual(bff.violations.splice(0), [
-      '[BFF_USER] requête PATCH /admin/users/abc/password?debug=1 : path.userId: type number attendu, reçu string',
-      '[BFF_USER] requête PATCH /admin/users/{userId}/password : paramètre query "debug" non déclaré',
-      '[BFF_USER] requête PATCH /admin/users/{userId}/password $body.new_password: longueur < 12',
-      '[BFF_USER] appel non mocké : PATCH /admin/users/{userId}/password',
+      '[BFF_USER] requête PATCH /admin/users/abc?debug=1 : path.userId: type number attendu, reçu string',
+      '[BFF_USER] requête PATCH /admin/users/{userId} : paramètre query "debug" non déclaré',
+      '[BFF_USER] requête PATCH /admin/users/{userId} $body.first_name: "<b>" ne respecte pas ^[^<>]*$',
+      '[BFF_USER] appel non mocké : PATCH /admin/users/{userId}',
       '[BFF_USER] requête GET /admin/logs : GET /admin/logs n\'existe pas dans le contrat bff_user',
     ]);
   });

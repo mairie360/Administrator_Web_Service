@@ -51,7 +51,8 @@ Ce contrôle d’affichage ne certifie ni droits ni persistance déployés.
 Les formulaires utilisateur, rôle et groupe portent les règles du contrat publié : noms de
 64 caractères au plus sans `<` ni `>`, e-mail de 320 au plus, téléphone de 32 caractères au
 plus composé de chiffres, espaces, `.`, `-`, `(`, `)` et d’un `+` initial facultatif, mot de
-passe de 8 à 255 caractères, descriptions de 2 000 au plus. Le navigateur refuse une valeur
+passe temporaire d’un nouveau compte de 12 à 255 caractères (un administrateur ne change
+jamais le mot de passe d’un compte existant : l’agent passe par « Mot de passe oublié »), descriptions de 2 000 au plus. Le navigateur refuse une valeur
 invalide avec une aide en français avant toute requête. Un 400 qui arriverait malgré tout
 avec le détail des champs est expliqué champ par champ (« Prénom : ne doit pas contenir les
 caractères < ou > ») au lieu du message générique.
