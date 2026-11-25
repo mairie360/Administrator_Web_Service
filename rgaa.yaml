@@ -101,15 +101,15 @@ states:
     route: /
     steps:
       - wait_for: { text: remi.aubert@mairie360.fr }
-      - click: { role: button, name: Page suivante }
-      - wait_for: { text: Page 2 / 5 }
+      - click: { role: button, name: Suivant, exact: true }
+      - wait_for: { text: "Page 2 /" }
   - id: users-search-empty
     description: A search without result (empty state)
     as: admin
     route: /
     steps:
       - wait_for: { text: remi.aubert@mairie360.fr }
-      - fill: { label: Rechercher, value: zzzz }
+      - fill: { label: Rechercher, exact: true, value: zzzz }
       - wait_for: { text: Aucun utilisateur ne correspond }
   - id: user-create-form
     as: admin
@@ -126,7 +126,7 @@ states:
       - click: { text: remi.aubert@mairie360.fr }
       - wait_for: { role: dialog, name: Fiche utilisateur }
   - id: user-edit
-    description: The edit modal (no password section: an administrator never changes a password)
+    description: "The edit modal (no password section: an administrator never changes a password)"
     as: admin
     route: /
     steps:
@@ -205,7 +205,7 @@ states:
     route: /
     steps:
       - click: { role: tab, name: Sécurité }
-      - wait_for: { text: Double authentification des agents }
+      - wait_for: { role: table, name: Double authentification des agents }
 # No state for a user without the Admin role: the page renders its error message, but the
 # navigation never reaches network idle (page.goto timeout, see the MAIR-316 report).
 # No "no session" state: the middleware redirects to LOGIN_FRONT_URL without a cookie.
