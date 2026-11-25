@@ -63,9 +63,10 @@ steps:
       headers: *session
       json: {phone_number: "{{marker.phone}}{{marker.last_name}}"}
     expect: [400]
-  - name: reset the marker's password as admin
+  - name: reset the marker's password as admin (route removed, deliberate error)
     request:
       method: PATCH
       path: "/admin/users/{{user_id}}/password"
       headers: *session
       json: {new_password: "{{marker.password}}3"}
+    expect: [404]
