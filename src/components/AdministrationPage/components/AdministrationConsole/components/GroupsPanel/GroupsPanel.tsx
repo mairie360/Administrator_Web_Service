@@ -183,6 +183,8 @@ export function GroupsPanel({ groups, loading, busyAction, runAction, refreshGro
 
       <Drawer open={drawerOpen} title={selectedGroup ? selectedGroup.name : "Groupe"} size="m" onClose={() => setDrawerOpen(false)} closeLabel="Fermer le groupe">
         <fieldset disabled={busyAction !== null} aria-busy={busyAction !== null} className="min-w-0">
+          {/* Every group of fields has a legend (RGAA 11.6); the drawer title already shows it. */}
+          <legend className="sr-only">{selectedGroup ? `Groupe ${selectedGroup.name}` : "Groupe"}</legend>
           {groupDetailLoading ? <DataState state="loading" size="s" title="Chargement du groupe…" />
             : groupDetailError ? <ErrorAlert size="s" title={groupDetailError} role="status" />
             : !selectedGroup ? <DataState state="empty" size="s" title="Ce groupe n’existe plus." description={null} />

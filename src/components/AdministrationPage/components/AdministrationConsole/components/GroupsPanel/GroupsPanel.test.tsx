@@ -26,4 +26,12 @@ describe('GroupsPanel', () => {
     await userEvent.click(screen.getByText('Voirie'));
     expect(await screen.findByRole('dialog', { name: 'Voirie' })).toBeTruthy();
   });
+
+  it('MAIR-1221 the fields of the group drawer have a legend (RGAA 11.6)', async () => {
+    render(<GroupsPanel groups={[group]} loading={false} busyAction={null} runAction={vi.fn(async () => true)} refreshGroups={vi.fn(async () => {})} onGroupDeleted={vi.fn()} />);
+    await userEvent.click(screen.getByText('Voirie'));
+    const drawer = await screen.findByRole('dialog', { name: 'Voirie' });
+    const fieldset = drawer.querySelector('fieldset');
+    expect(fieldset?.querySelector(':scope > legend')?.textContent).toBe('Groupe Voirie');
+  });
 });

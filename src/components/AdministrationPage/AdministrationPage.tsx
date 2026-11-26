@@ -27,10 +27,10 @@ export default function AdministrationPage({ initialState, initialSearch, commun
     finally { logoutPending.current = false; }
   };
   return (
-    // C7 / C8 (lib 2.3, MAIR-1109): the commune of the deployment in the header and the navigation; hidden when unknown.
-    <AccessibleShell className="administration-shell" activeItem="admin" user={session.user} onLogout={() => void requestLogout()} hrefs={hrefs}
-      headerProps={{ commune, showCommune: Boolean(commune) }} sidebarProps={commune ? { brandLabel: commune } : undefined}>
-      <div className="min-w-0 w-full">
+    // The shared header of every front: the commune of the deployment feeds the header and the navigation (none when unknown).
+    // The module area of the collapsible shell has no padding: the page gives the mockup's 24 px.
+    <AccessibleShell className="administration-shell" activeItem="admin" user={session.user} onLogout={() => void requestLogout()} hrefs={hrefs} commune={commune}>
+      <div className="min-w-0 w-full p-6">
         {logoutError && <LogoutFailure message={logoutError} />}
         {session.loading ? <ProfileChecking />
           : session.error ? <ProfileUnavailable error={session.error} onRetry={session.retry} />
