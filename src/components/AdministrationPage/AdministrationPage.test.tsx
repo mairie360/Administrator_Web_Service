@@ -26,6 +26,10 @@ describe('AdministrationPage', () => {
     expect(container.querySelector('aside')?.textContent).toContain('Saint-Martin');
     expect(container.querySelector('main div.p-6')).toBeTruthy();
     rerender(<AdministrationPage />);
-    expect(screen.getByRole('banner').textContent).not.toContain('Saint-André');
+    // Without a configured commune, neither the previous one nor the library sample is shown.
+    for (const region of [screen.getByRole('banner'), container.querySelector('aside')]) {
+      expect(region?.textContent).not.toContain('Saint-Martin');
+      expect(region?.textContent).not.toContain('Saint-André');
+    }
   });
 });
