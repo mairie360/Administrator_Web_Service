@@ -18,4 +18,14 @@ describe('AdministrationPage', () => {
     rerender(<AdministrationPage />);
     expect(screen.getByText('Accès réservé aux administrateurs')).toBeTruthy();
   });
+
+  it('MAIR-1221 uses the shared header with the commune of the deployment and the mockup padding', () => {
+    session.current = { ...session.current, loading: true, error: null };
+    const { container, rerender } = render(<AdministrationPage commune="Saint-Martin" />);
+    expect(screen.getByRole('banner').textContent).toContain('Saint-Martin');
+    expect(container.querySelector('aside')?.textContent).toContain('Saint-Martin');
+    expect(container.querySelector('main div.p-6')).toBeTruthy();
+    rerender(<AdministrationPage />);
+    expect(screen.getByRole('banner').textContent).not.toContain('Saint-André');
+  });
 });
