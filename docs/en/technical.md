@@ -10,12 +10,14 @@
   `page_size`, `account_status`, `role_id`, `sort`; sessions, suspension, projects without group and
   two-factor policy routes). `src/lib/administration-api.ts` has one method per operation and
   `tests/administration-api.bff-mock.test.cjs` exercises every `/admin` operation of the contract.
-- Tree: `AdministrationConsole/components/{UsersPanel,RolesPanel,GroupsPanel,SecurityPanel}`, with the
+- Tree: `AdministrationConsole/components/{UsersPanel,RolesPanel,GroupsPanel}`, with the
   lib `DataTable`, `Modal`, `Drawer`, `ConfirmModal`, `SessionList`; the local `SessionsPanel`,
   `ConfirmModal`, `Panel`, `UsersSearch`, `UsersPagination` and `RolesList` are removed.
-- URL state: `tab` (`users|roles|groups|security`), `usersSearch`, `usersPage`, `status`,
-  `role`, `sort`. The server render reads the profile, then users, roles and groups (four
-  requests, no sessions).
+- URL state: `tab` (`users|roles|groups`), `usersSearch`, `usersPage`, `status`,
+  `role`, `sort`. The server render reads the profile, then users, roles, groups and the one-row
+  count of the active accounts (`GET /admin/users?page=1&page_size=1&account_status=active`, five
+  requests, no sessions). The header search (`AdministrationPage/use-header-search.ts`) writes
+  `tab=users` and `usersSearch` to the URL.
 - Forms and the users search render as a disabled `fieldset` before hydration
   (`AdministrationMutationForm`): no native submission endpoint.
 - Tests: `tests/administration-v2.bff-mock.test.cjs` (the page in jsdom against the contract mock) and

@@ -8,8 +8,8 @@ const [{ readPageUrlState }, { administrationUrlSchema, administrationSearch }] 
 // MAIR-770: ZAP 10031 (user controllable attribute) flags `?tab=sessions` because a valid tab
 // id is rendered back. The exception only holds while `tab` is a closed list.
 const rules = readFileSync(path.join(__dirname, '../.zap/rules.tsv'), 'utf8').trim().split('\n').map(line => line.split('\t'));
-// MAIR-824: the « Sessions » tab is gone, « Sécurité » joined.
-const tabs = ['users', 'roles', 'groups', 'security'];
+// MAIR-824: the « Sessions » tab is gone; « Services » and « Sécurité » left the console too.
+const tabs = ['users', 'roles', 'groups'];
 
 test('MAIR-770: ZAP 10031 is out of scope only on the valid console tab URLs', () => {
   const entries = rules.filter(([id]) => id === '10031');
@@ -28,7 +28,7 @@ test('MAIR-770: ZAP 10031 is out of scope only on the valid console tab URLs', (
 
 test('MAIR-770: a tab outside the closed list never reaches the page', () => {
   for (const tab of tabs) assert.equal(readPageUrlState(`?tab=${tab}`, administrationUrlSchema).tab, tab);
-  for (const hostile of ['"onmouseover="alert(1)', '<script>alert(1)</script>', 'Sessions', 'sessions', 'security ', '']) {
+  for (const hostile of ['"onmouseover="alert(1)', '<script>alert(1)</script>', 'Sessions', 'sessions', 'security', 'services', 'security ', '']) {
     const search = `?tab=${encodeURIComponent(hostile)}`;
     assert.equal(readPageUrlState(search, administrationUrlSchema).tab, 'users', hostile);
     assert.equal(administrationSearch({ tab: hostile }), '', hostile);

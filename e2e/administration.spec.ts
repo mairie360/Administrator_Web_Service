@@ -32,12 +32,12 @@ test.describe('administrator', () => {
     await editor.getByRole('button', { name: 'Créer le compte' }).click();
 
     await expect(page.getByText(`Compte créé : ${fullName}`)).toBeVisible();
-    await page.getByRole('searchbox', { name: 'Rechercher' }).fill(email);
+    await page.getByRole('searchbox', { name: 'Rechercher', exact: true }).fill(email);
     await expect(page.getByRole('row').filter({ hasText: email })).toBeVisible();
   });
 
   test('gives the user a role', async ({ page }) => {
-    await page.getByRole('searchbox', { name: 'Rechercher' }).fill(email);
+    await page.getByRole('searchbox', { name: 'Rechercher', exact: true }).fill(email);
     const row = page.getByRole('row').filter({ hasText: email });
     await row.getByRole('button', { name: `Modifier ${fullName}` }).click();
     const editor = page.getByRole('dialog', { name: 'Modifier l’utilisateur' });
@@ -51,7 +51,7 @@ test.describe('administrator', () => {
   });
 
   test('deletes the user account, which is archived', async ({ page }) => {
-    await page.getByRole('searchbox', { name: 'Rechercher' }).fill(email);
+    await page.getByRole('searchbox', { name: 'Rechercher', exact: true }).fill(email);
     const row = page.getByRole('row').filter({ hasText: email });
     await row.getByRole('button', { name: `Supprimer ${fullName}` }).click();
 

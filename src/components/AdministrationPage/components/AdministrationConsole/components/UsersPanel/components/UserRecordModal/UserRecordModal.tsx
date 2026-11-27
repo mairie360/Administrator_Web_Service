@@ -54,6 +54,7 @@ export function UserRecordModal({ user, currentUserId, locked, onClose, onEdit, 
           </div>
         </div>
         <DescriptionList items={[
+          { label: "Service", value: user.service?.name ?? "Aucun service" },
           { label: "Rôle", value: roleName(user) },
           { label: "Statut", value: state.label },
           { label: "Téléphone", value: user.phone_number || "Aucun téléphone" },

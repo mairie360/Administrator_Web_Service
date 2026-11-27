@@ -1,14 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { administrationApi } from '@/lib/administration-api';
 import { usePageUrlState } from '@/lib/use-page-url-state';
 import { administrationUrlSchema } from '@/lib/administration-query';
 import type { InitialConsole } from '@/lib/administration-response';
 import { UsersPanel } from './components/UsersPanel';
 import { RolesPanel } from './components/RolesPanel';
 import { GroupsPanel } from './components/GroupsPanel';
-import { SecurityPanel } from './components/SecurityPanel';
-import { ServicesPanel } from './components/ServicesPanel';
 import { ConsoleHeader } from './components/ConsoleHeader';
 import { ConsoleNotices } from './components/ConsoleNotices';
 import { ConsoleMetrics } from './components/ConsoleMetrics';
@@ -16,7 +15,7 @@ import { ConsoleTabs } from './components/ConsoleTabs';
 import { consoleMetrics, type AdministrationTabId } from './components/ConsoleTabs';
 import { useAdministrationData } from './use-administration-data';
 
-/** The administration console V2 (MAIR-824): header, notices, three counters, three tabs and the active panel. */
+/** The administration console V2: header, notices, three counters, three tabs (with their counts) and the active panel. */
 export function AdministrationConsole({ initialState, initialSearch, currentUserId = null }: { initialState?: InitialConsole; initialSearch?: string; currentUserId?: number | null }) {
   const [initial] = useState(initialState);
   const pageUrl = usePageUrlState(administrationUrlSchema, initialSearch);
@@ -29,6 +28,18 @@ export function AdministrationConsole({ initialState, initialSearch, currentUser
   const setActiveTab = (tab: AdministrationTabId) => pageUrl.update({ tab });
   const [usersTotal, setUsersTotal] = useState<number | null>(initial?.users?.total ?? null);
   const [usersRefresh, setUsersRefresh] = useState(0);
+  // « N actifs » under the users counter: the total of the active accounts, read with the same list operation
+  // (one row) each time the whole list total is known again; « — » until then. The server render's read is kept.
+  const [activeUsers, setActiveUsers] = useState<number | null>(initial?.activeUsers ?? null);
+  const seededActiveUsers = useRef(typeof initial?.activeUsers === "number");
+  useEffect(() => {
+    if (seededActiveUsers.current) { seededActiveUsers.current = false; return; }
+    setActiveUsers(null);
+    if (usersTotal === null) return;
+    let current = true;
+    administrationApi.listUsers({ status: "active", pageSize: 1 }).then((page) => { if (current) setActiveUsers(page.total); }, () => undefined);
+    return () => { current = false; };
+  }, [usersTotal, usersRefresh]);
   const locked = busyAction !== null;
 
   return (
@@ -38,19 +49,13 @@ export function AdministrationConsole({ initialState, initialSearch, currentUser
         onCloseNotice={data.clearNotice} onCloseError={data.clearActionError}
         onRetryRefresh={() => { if (data.refreshFailure) void runAction("retry-refresh", "Données actualisées.", data.refreshFailure.retry); }}
         onReconnect={() => void data.reconnect()} reconnecting={data.reconnecting} />
-      <ConsoleMetrics metrics={consoleMetrics({ users: usersTotal, roles: data.roles?.length, groups: data.groups?.length })} activeTab={activeTab} locked={locked} onOpen={setActiveTab} />
-      <ConsoleTabs value={activeTab} locked={locked} onChange={setActiveTab} />
+      <ConsoleMetrics metrics={consoleMetrics({ users: usersTotal, activeUsers, roles: data.roles?.length, groups: data.groups?.length })} activeTab={activeTab} locked={locked} onOpen={setActiveTab} />
+      <ConsoleTabs value={activeTab} locked={locked} counts={{ users: usersTotal, roles: data.roles?.length, groups: data.groups?.length }} onChange={setActiveTab} />
       {activeTab === "users" && (
         <UsersPanel initialPage={usersSeed?.page} initialError={usersSeed?.error} initialSearch={usersSeed ? initialSearch : undefined} onInitialReadConsumed={consumeUsersSeed}
           roles={data.roles ?? []} busyAction={busyAction} runAction={runAction} onTotalChange={setUsersTotal} currentUserId={currentUserId} refreshSignal={usersRefresh} />
       )}
       {activeTab === "roles" && <RolesPanel roles={data.roles} loading={loading || busyAction === "refresh-roles"} busyAction={busyAction} runAction={runAction} refreshRoles={data.refreshRoles} onRoleDeleted={data.confirmRoleDeletion} />}
-      {activeTab === "services" && <ServicesPanel busyAction={busyAction} runAction={runAction} />}
-      {activeTab === "security" && (
-        <SecurityPanel busyAction={busyAction} runAction={runAction}
-          journalUserId={pageUrl.state.journal ? Number(pageUrl.state.journal) : null}
-          onJournal={(userId) => pageUrl.update({ journal: userId === null ? "" : String(userId) })} />
-      )}
       {activeTab === "groups" && <GroupsPanel groups={data.groups} loading={loading || busyAction === "refresh-groups"} busyAction={busyAction} runAction={runAction} refreshGroups={data.refreshGroups} onGroupDeleted={data.applyGroupDeletion} />}
     </section>
   );

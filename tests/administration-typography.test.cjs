@@ -8,8 +8,10 @@ test('actual administration page retains root typography after a later shared bo
   assert.equal(dom.style(dom.document.documentElement).fontSize, '17px');
   assert.equal(dom.style(dom.document.body).fontFamily, 'system-ui, sans-serif');
   assert.equal(dom.document.querySelector('.administration-console') !== null, true);
+  // The second users read is the one-row count of the active accounts (« N actifs »).
+  await dom.waitFor(() => dom.bff.requests.length === 5);
   assert.deepEqual(dom.bff.requests.map(({ method, template }) => `${method} ${template}`).sort(), [
-    'GET /admin/groups', 'GET /admin/roles', 'GET /admin/users', 'GET /me',
+    'GET /admin/groups', 'GET /admin/roles', 'GET /admin/users', 'GET /admin/users', 'GET /me',
   ]);
 });
 
@@ -34,6 +36,9 @@ test('actual published drawer applies its lower sidebar layer and closes through
 
 test('actual console panels retain shadows, shrinking grid items and readable long labels', async t => {
   const dom = await administrationDom(t), console = dom.document.querySelector('.administration-console');
+  // The users list has no titled panel any more; the roles tab still opens in one.
+  await dom.click([...dom.document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.startsWith('Rôles')));
+  await dom.waitFor(() => console.querySelectorAll('.administration-panel').length > 0);
   const panels = [...console.querySelectorAll('.administration-panel')]; assert.ok(panels.length);
   for (const panel of panels) assert.deepEqual(shadow(dom.window, dom.style(panel).boxShadow), [
     { lengths: [0, 5, 15, 0], color: 'rgba(23, 32, 51, 0.14)' },

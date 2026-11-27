@@ -28,7 +28,7 @@ criteria:
   - "3.2"
   - "3.3"
   # 4.x: no media.
-  # Tables: the users, roles, sessions and second factor tables (simple data tables).
+  # Tables: the users, roles and sessions tables (simple data tables).
   - "5.4"
   - "5.5"
   - "5.6"
@@ -199,13 +199,6 @@ states:
       - click: { text: Services techniques }
       - click: { role: button, name: Supprimer ce groupe }
       - wait_for: { role: alertdialog }
-  # Security tab (MAIR-824): the second factor policy of the mairie and the agents.
-  - id: security
-    as: admin
-    route: /
-    steps:
-      - click: { role: tab, name: Sécurité }
-      - wait_for: { role: table, name: Double authentification des agents }
 # No state for a user without the Admin role: the page renders its error message, but the
 # navigation never reaches network idle (page.goto timeout, see the MAIR-316 report).
 # No "no session" state: the middleware redirects to LOGIN_FRONT_URL without a cookie.

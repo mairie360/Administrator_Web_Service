@@ -3,15 +3,23 @@
 ## Administration V2 — MAIR-824
 
 The console follows the V2 mock-up (Figma Administrator_Web_Service, epic MAIR-824) on
-`@mairie360/lib-components` 2.3.0. Five tabs: Users, Roles, Groups, Services and Security; the Sessions
-tab is gone, the sessions of an account live in its record.
+`@mairie360/lib-components` 2.8.0. Three tabs, each with its count: Users, Roles and Groups; the Sessions
+tab is gone, the sessions of an account live in its record, and the Services and Security tabs were removed
+from the console (the service of an agent is still chosen in the user modal).
 
-- **Users**: search on the name, the e-mail or the service, state filter (Active, Invited, Inactive,
-  Suspended), role filter, order by name, 6 rows per page. Each row shows the role, the state,
-  « En ligne · N sessions » or the last sign-in, and its actions: edit, suspend / reactivate,
-  delete, and the service of the agent (chosen in the user modal). An administrator cannot suspend or delete their own account. A click on the row opens
-  the user record (identity, role, state, open sessions and those of the last 30 days, sign-out
-  of one or of every session after a confirmation).
+- **Counters**: « Utilisateurs » with « ↗ N actifs » (a one-row read of the active accounts, also done by
+  the server render), « Rôles » with « Modèles d’accès », « Groupes » with « Équipes de la mairie » (BFF
+  User gives no member count per group, so the number of assignments of the mockup is not shown).
+- **Header search** « Rechercher un agent… »: BFF User serves no global `/search`, so the field of the
+  shared header searches the agents: typing opens the Users tab on that search (page 1).
+- **Users**: search « Nom, e-mail ou service » (Core API matches the service name too), then the
+  « Rôle : tous » and « Statut : tous » filters (Active, Invited, Inactive, Suspended), order by name,
+  6 rows per page. The list stands in a bordered frame, without a titled panel; columns Utilisateur,
+  Rôle (the administrator role highlighted), Statut, Service, Dernière connexion (« En ligne · N
+  sessions » or the last sign-in) and Actions: edit, suspend / reactivate, delete. Initials avatars take
+  a colour derived from the name (lib 2.8.0). An administrator cannot suspend or delete their own
+  account. A click on the row opens the user record (identity, service, role, state, open sessions and
+  those of the last 30 days, sign-out of one or of every session after a confirmation).
 - **Suspension** (MAIR-904): confirmed first, it closes every session of the account and refuses
   its sign-in until « Réactiver »; roles, groups and second factors are kept.
 - **Roles**: table, creation and edition in a modal, with the « Modules accessibles » the role opens
@@ -20,14 +28,7 @@ tab is gone, the sessions of an account live in its record.
 - **Groups**: creation in a modal with a colour of the charter palette, each card shows its colour and
   its number of projects (MAIR-923), the group opens in a side panel (members, owner, deletion);
   « Projets sans groupe » lists the projects of BFF_Project left without a group.
-- **Services** (MAIR-923): the services of the mairie with their agents; creation, renaming and a
-  confirmed deletion that leaves its agents without a service.
-- **Security**: the second factor policy of the mairie (mandatory or not, allowed methods) and
-  the factor of each active agent, which an administrator can reset; since MAIR-773 the recent
-  security alerts (uses of a session from another device over the last 30 days: date, agent,
-  « Tentative certaine » / « Tentative possible », device and beginning of the address) and, from
-  « Voir le journal » or the link of the alert e-mail (`?tab=security&journal=<id>`), the sign-in
-  journal of the agent.
+- The former `?tab=services` / `?tab=security&journal=<id>` links (alert e-mail) now open the Users tab.
 - The header « Actualiser » reads the roles, the groups and the visible users page again; a
   refused read keeps the last confirmed rows and says so.
 

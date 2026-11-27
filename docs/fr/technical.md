@@ -11,12 +11,14 @@
   la suspension, des projets sans groupe et de la politique de double authentification).
   `src/lib/administration-api.ts` a une méthode par opération et
   `tests/administration-api.bff-mock.test.cjs` exerce chaque opération `/admin` du contrat.
-- Arbre : `AdministrationConsole/components/{UsersPanel,RolesPanel,GroupsPanel,SecurityPanel}`, avec
+- Arbre : `AdministrationConsole/components/{UsersPanel,RolesPanel,GroupsPanel}`, avec
   les `DataTable`, `Modal`, `Drawer`, `ConfirmModal`, `SessionList` de la lib ; les `SessionsPanel`,
   `ConfirmModal`, `Panel`, `UsersSearch`, `UsersPagination` et `RolesList` locaux sont supprimés.
-- État d’URL : `tab` (`users|roles|groups|security`), `usersSearch`, `usersPage`, `status`,
-  `role`, `sort`. Le rendu serveur lit le profil, puis utilisateurs, rôles et groupes
-  (quatre requêtes, plus de sessions).
+- État d’URL : `tab` (`users|roles|groups`), `usersSearch`, `usersPage`, `status`,
+  `role`, `sort`. Le rendu serveur lit le profil, puis utilisateurs, rôles, groupes et le compte
+  d’une ligne des comptes actifs (`GET /admin/users?page=1&page_size=1&account_status=active`, cinq
+  requêtes, plus de sessions). La recherche de l’en-tête (`AdministrationPage/use-header-search.ts`)
+  écrit `tab=users` et `usersSearch` dans l’URL.
 - Les formulaires et la recherche d’utilisateurs sont un `fieldset` désactivé avant l’hydratation
   (`AdministrationMutationForm`) : aucun point de soumission natif.
 - Tests : `tests/administration-v2.bff-mock.test.cjs` (la page dans jsdom face au mock du contrat) et

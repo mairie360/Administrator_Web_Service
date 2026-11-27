@@ -1,5 +1,6 @@
 import { formatDateTime } from "@mairie360/lib-components/primitives";
 import type { AccountStatus, AdministrationUser } from '@/lib/administration-api';
+import { normalizeAppRole } from '@/lib/auth-session-model';
 
 type Tone = "success" | "info" | "neutral" | "warning";
 
@@ -16,6 +17,9 @@ export const accountStatusOptions = (Object.keys(accountStatuses) as AccountStat
 export const fullName = (user: Pick<AdministrationUser, "first_name" | "last_name">) => `${user.first_name} ${user.last_name}`.trim();
 
 export const roleName = (user: Pick<AdministrationUser, "roles">) => user.roles[0]?.name ?? "Aucun rôle";
+
+/** The shown role is the administrator one (« Admin », « Administrateur »…), highlighted in the list. */
+export const isAdministrator = (user: Pick<AdministrationUser, "roles">) => normalizeAppRole(user.roles[0]?.name) === "Admin";
 
 /** C6: « En ligne · N sessions » while the user has an open session. */
 export const onlineLabel = (sessions: number) => `En ligne · ${sessions} session${sessions > 1 ? "s" : ""}`;

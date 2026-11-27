@@ -1,10 +1,8 @@
 import type { AccountStatus, UsersQuery, UsersSort } from './administration-api';
 import { urlChoice, urlPage, urlText } from './page-url-state';
-// MAIR-885: three tabs, the sessions live in the user record (MAIR-894).
+// Three tabs: the sessions live in the user record, the services and security sections are not in the console.
 export const administrationUrlSchema = {
-  tab: urlChoice(['users', 'roles', 'groups', 'services', 'security'], 'users'),
-  // MAIR-773: the sign-in journal of an agent open in the Security tab (the link of the administrators' alert e-mail).
-  journal: { defaultValue: '', accept: (value: string) => value === '' || /^[1-9]\d{0,8}$/.test(value) },
+  tab: urlChoice(['users', 'roles', 'groups'], 'users'),
 };
 // MAIR-904: search, state and role filters, order and page of the users list. The keys added by V2 carry no
 // « user » (status, role, sort): ZAP rule 10024 reads such a parameter name as sensitive data in the URL.

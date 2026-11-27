@@ -55,5 +55,7 @@ export type InitialConsole = {
   error: string | null;
   usersError: string | null;
   authRequired: boolean;
+  /** Total of the active accounts (« N actifs »); absent or null when not read. */
+  activeUsers?: number | null;
 };
 export type InitialAdministration = { session: AuthSession; console: InitialConsole | null };

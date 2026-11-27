@@ -28,6 +28,7 @@ const seed = (extra) => bff => {
   bff.on('get', '/admin/users', { body: page([admin, bob, carla]) }).on('get', '/admin/roles', { body: { roles } });
   extra?.(bff);
 };
+const ACTIVE_READ = 'GET /admin/users?page=1&page_size=1&account_status=active';
 const requests = (bff) => bff.requests.map(({ method, url }) => `${method} ${url.pathname}${url.search}`);
 const text = (dom) => dom.document.body.textContent;
 const within = (dom, selector, label) => [...dom.document.querySelectorAll(`${selector} button`)].find(b => b.textContent.trim() === label);
@@ -36,8 +37,10 @@ const row = (dom, name) => [...dom.document.querySelectorAll('tbody tr')].find(e
 
 test('MAIR-885 the console reads users, roles and groups once, with V2 states and no sessions tab', async t => {
   const dom = await administrationDom(t, { configure: seed(), expected: 'Bob Martin' });
-  assert.deepEqual(requests(dom.bff).filter(r => r.startsWith('GET /admin')).sort(), ['GET /admin/groups', 'GET /admin/roles', 'GET /admin/users?page=1&page_size=6']);
-  assert.deepEqual([...dom.document.querySelectorAll('[role="tab"]')].map(element => element.textContent.trim()), ['Utilisateurs', 'Rôles', 'Groupes', 'Services', 'Sécurité']);
+  // The « N actifs » caption is the total of a one-row read of the active accounts.
+  await dom.waitFor(() => requests(dom.bff).includes(ACTIVE_READ));
+  assert.deepEqual(requests(dom.bff).filter(r => r.startsWith('GET /admin')).sort(), ['GET /admin/groups', 'GET /admin/roles', ACTIVE_READ, 'GET /admin/users?page=1&page_size=6']);
+  assert.deepEqual([...dom.document.querySelectorAll('[role="tab"]')].map(element => element.textContent.trim()), ['Utilisateurs3', 'Rôles3', 'Groupes0']);
   assert.match(text(dom), /En ligne · 2 sessions/);
   assert.equal(row(dom, 'Carla Petit').querySelector('[data-status]').getAttribute('data-status'), 'suspended');
   // C7: an administrator cannot suspend or delete their own account from the list.
@@ -89,9 +92,9 @@ test('MAIR-885 a refreshed list that is refused keeps the confirmed rows and say
   const dom = await administrationDom(t, { configure: seed(), expected: 'Bob Martin' });
   dom.bff.on('get', '/admin/users', bffError(503));
   await dom.click(dom.button('Actualiser'));
-  await dom.waitFor(() => dom.bff.calls('/admin/users', 'GET').length === 2 && dom.document.querySelector('[role="alert"]') !== null);
+  await dom.waitFor(() => dom.bff.calls('/admin/users', 'GET').filter(r => r.url.search === '?page=1&page_size=6').length === 2 && dom.document.querySelector('[role="alert"]') !== null);
   assert.ok(row(dom, 'Bob Martin'), 'The last confirmed rows stay on screen.');
-  assert.deepEqual(requests(dom.bff).filter(r => r.startsWith('GET /admin')).sort(), [
+  assert.deepEqual(requests(dom.bff).filter(r => r.startsWith('GET /admin') && r !== ACTIVE_READ).sort(), [
     'GET /admin/groups', 'GET /admin/groups', 'GET /admin/roles', 'GET /admin/roles', 'GET /admin/users?page=1&page_size=6', 'GET /admin/users?page=1&page_size=6',
   ]);
 });
@@ -135,45 +138,7 @@ test('MAIR-923 F21 the groups tab lists the projects left without a group', asyn
   assert.match(text(dom), /Projets sans groupe \(1\)/);
 });
 
-test('MAIR-824 the security tab saves the policy of the mairie and resets the factor of an agent', async t => {
-  const policy = { required: false, totp_allowed: true, passkey_allowed: false, backup_codes_allowed: true, updated_by: null, updated_at: '2026-11-17T09:30:00Z' };
-  const enrolled = { ...bob, two_factor: { methods: ['totp'], last_verified_at: '2026-11-20T08:00:00Z' } };
-  const dom = await administrationDom(t, { configure: seed(bff => bff
-    .on('get', '/admin/two-factor-policy', { body: policy })
-    .on('put', '/admin/two-factor-policy', { body: { ...policy, required: true, updated_by: 1 } })
-    .on('delete', '/admin/users/{userId}/2fa', { status: 204 })
-    .on('get', '/admin/security-alerts', { body: [] })), expected: 'Bob Martin' });
-  dom.bff.on('get', '/admin/users', { body: page([admin, enrolled]) });
-  await dom.click(tab(dom, 'Sécurité'));
-  await dom.waitFor(() => Boolean(dom.document.getElementById('two-factor-required')) && Boolean(dom.button('Réinitialiser la double authentification de Bob Martin')));
-  assert.equal(dom.bff.calls('/admin/users', 'GET').at(-1).url.search, '?page=1&page_size=10&account_status=active');
-  await dom.click(dom.document.getElementById('two-factor-required'));
-  await dom.click(within(dom, '.administration-panel', 'Enregistrer'));
-  await dom.waitFor(() => dom.bff.calls('/admin/two-factor-policy', 'PUT').length === 1);
-  assert.deepEqual(dom.bff.calls('/admin/two-factor-policy', 'PUT')[0].body, { required: true, totp_allowed: true, passkey_allowed: false, backup_codes_allowed: true });
-  await dom.click(dom.button('Réinitialiser la double authentification de Bob Martin'));
-  await dom.click(within(dom, '[role="alertdialog"]', 'Réinitialiser'));
-  await dom.waitFor(() => dom.bff.calls('/admin/users/{userId}/2fa', 'DELETE').length === 1);
-  assert.equal(dom.bff.calls('/admin/users/{userId}/2fa', 'DELETE')[0].url.pathname, '/admin/users/7/2fa');
-});
 
-test('MAIR-773 the security tab lists the recent alerts and opens the journal of an agent, also from the e-mail link', async t => {
-  const alert = { id: 12, level: 'certain', ip_address: '92.184.10.1', device_info: 'Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0', created_at: '2026-11-23T08:12:00+00:00', acknowledged_at: null, user: { id: 7, first_name: 'Bob', last_name: 'Martin' } };
-  const line = { action: 'STOLEN_SESSION_ATTEMPT', session_id: null, ip_address: '92.184.10.1', device_info: null, occurred_at: '2026-11-23T08:12:00+00:00' };
-  const dom = await administrationDom(t, { configure: seed(bff => bff
-    .on('get', '/admin/two-factor-policy', { body: { required: false, totp_allowed: true, passkey_allowed: false, backup_codes_allowed: true, updated_by: null, updated_at: '2026-11-17T09:30:00Z' } })
-    .on('get', '/admin/security-alerts', { body: [alert] })
-    .on('get', '/admin/users/{userId}/connection-logs', { body: [line] })), expected: 'Bob Martin' });
-  await dom.click(tab(dom, 'Sécurité'));
-  await dom.waitFor(() => text(dom).includes('Tentative certaine'));
-  assert.match(text(dom), /92\.184\.xxx\.xxx/);
-  assert.doesNotMatch(text(dom), /92\.184\.10\.1/);
-  await dom.click(dom.button('Voir le journal des connexions de Bob Martin'));
-  await dom.waitFor(() => text(dom).includes('Tentative de vol de session'));
-  assert.match(text(dom), /Journal des connexions — Bob Martin/);
-  assert.equal(dom.bff.calls('/admin/users/{userId}/connection-logs', 'GET')[0].url.pathname, '/admin/users/7/connection-logs');
-  assert.match(dom.window.location.search, /journal=7/);
-});
 
 test('MAIR-923 a group opens in its panel: rename, add a member, remove one after confirmation, delete the group', async t => {
   const voirie = { id: 3, name: 'Voirie', description: 'Routes', owner_id: 1 };
@@ -226,47 +191,64 @@ test('MAIR-923 a group opens in its panel: rename, add a member, remove one afte
   await React.act(async () => new Promise(resolve => setTimeout(resolve, 400)));
 });
 
-test('MAIR-923 the « Services » tab lists, creates, renames and deletes the services of the mairie', async t => {
-  const voirie = { id: 3, name: 'Voirie', created_at: '2026-11-20T08:00:00Z', agents: 2 };
-  const culture = { id: 4, name: 'Culture', created_at: '2026-11-21T08:00:00Z', agents: 0 };
+// The console matches its artifact.
+test('MAIR-1259 the « Services » and « Sécurité » tabs are gone, even from an old link', async t => {
+  const dom = await administrationDom(t, { serverPage: true, configure: seed(), searchParams: { tab: 'security', journal: '7' }, expected: 'Bob Martin' });
+  assert.deepEqual([...dom.document.querySelectorAll('[role="tab"]')].map(element => element.textContent.replace(/\d+$/, '').trim()), ['Utilisateurs', 'Rôles', 'Groupes']);
+  assert.equal(dom.document.querySelector('[role="tab"][aria-selected="true"]').textContent.replace(/\d+$/, ''), 'Utilisateurs');
+  assert.equal(dom.bff.calls('/admin/security-alerts').length + dom.bff.calls('/admin/two-factor-policy').length + dom.bff.calls('/admin/services').length, 0);
+});
+
+test('MAIR-1259 the counters read « ↗ N actifs » and the tabs carry their counts', async t => {
+  const dom = await administrationDom(t, { configure: seed(bff => bff.on('get', '/admin/users', request => ({
+    body: new URLSearchParams(request.url.search).get('account_status') === 'active' ? { users: [bob], page: 1, page_size: 1, total: 2, total_pages: 2 } : page([admin, bob, carla]),
+  }))), expected: 'Bob Martin' });
+  await dom.waitFor(() => /2 actifs/.test(dom.document.querySelector('[aria-pressed][aria-label^="Utilisateurs"]')?.textContent ?? ''));
+  assert.equal(dom.document.querySelector('[aria-pressed][aria-label^="Utilisateurs"]').getAttribute('aria-label'), 'Utilisateurs 3 2 actifs');
+  assert.ok(dom.button('Rôles 3 Modèles d’accès'));
+  assert.deepEqual([...dom.document.querySelectorAll('[role="tab"]')].map(element => element.textContent.trim()), ['Utilisateurs3', 'Rôles3', 'Groupes0']);
+  // The list stands in its frame, without the « Utilisateurs » panel title; the columns follow the mockup.
+  assert.deepEqual([...dom.document.querySelectorAll('thead th')].map(cell => cell.textContent.trim()), ['Utilisateur', 'Rôle', 'Statut', 'Service', 'Dernière connexion', 'Actions']);
+  assert.equal([...dom.document.querySelectorAll('h2, h3')].some(heading => heading.textContent.trim() === 'Utilisateurs'), false);
+  assert.equal(row(dom, 'Alice Dupont').querySelector('[data-role="admin"]').textContent, 'Admin');
+  assert.equal(row(dom, 'Bob Martin').querySelector('[data-role="admin"]'), null);
+});
+
+test('MAIR-1259 business journey: find an agent by service, narrow by role, open their record', async t => {
+  const urbanisme = { id: 4, name: 'Urbanisme' };
+  const dana = user(9, 'Dana', 'Roux', { service: urbanisme, roles: [{ id: 6, name: 'Stagiaire' }] });
+  const eric = user(10, 'Éric', 'Morel', { service: urbanisme });
   const dom = await administrationDom(t, { configure: seed(bff => bff
-    .on('get', '/admin/groups', { body: { groups: [] } })
-    .on('get', '/admin/services', { body: { services: [voirie] } })
-    .on('post', '/admin/services', { status: 201, body: culture })
-    .on('patch', '/admin/services/{serviceId}', { body: { ...voirie, name: 'Voirie et réseaux' } })
-    .on('delete', '/admin/services/{serviceId}', { status: 204 })), expected: 'Bob Martin' });
+    .on('get', '/admin/users', request => {
+      const query = new URLSearchParams(request.url.search);
+      if (query.get('account_status') === 'active') return { body: { users: [], page: 1, page_size: 1, total: 2, total_pages: 2 } };
+      if (query.get('search') !== 'urba') return { body: page([admin, bob, carla]) };
+      return { body: page(query.get('role_id') === '6' ? [dana] : [dana, eric]) };
+    })
+    .on('get', '/admin/users/{userId}/sessions', { body: { sessions: [] } })), expected: 'Bob Martin' });
   const React = require('react');
-  const type = async (element, value) => React.act(async () => {
-    Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set.call(element, value);
-    element.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  // 1. The header search (« Rechercher un agent… ») takes the name of a service.
+  const field = [...dom.document.querySelectorAll('header input')].find(input => input.placeholder === 'Rechercher un agent…');
+  assert.ok(field, 'The header offers the agent search.');
+  await React.act(async () => {
+    Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set.call(field, 'urba');
+    field.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
   });
-
-  await dom.click(tab(dom, 'Services'));
-  await dom.waitFor(() => /2 agents/.test(text(dom)));
-  assert.ok(row(dom, 'Voirie'));
-
-  dom.bff.on('get', '/admin/services', { body: { services: [culture, voirie] } });
-  await dom.click(dom.button('Nouveau service'));
-  await type(dom.document.getElementById('service-name'), '  Culture ');
-  await dom.click(dom.button('Créer le service'));
-  await dom.waitFor(() => dom.bff.calls('/admin/services', 'POST').length === 1 && Boolean(row(dom, 'Culture')));
-  assert.deepEqual(dom.bff.calls('/admin/services', 'POST')[0].body, { name: 'Culture' });
-
-  dom.bff.on('get', '/admin/services', { body: { services: [culture, { ...voirie, name: 'Voirie et réseaux' }] } });
-  const labelled = (label) => [...dom.document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === label);
-  await dom.click(labelled('Renommer le service Voirie'));
-  await dom.waitFor(() => Boolean(dom.document.getElementById('service-name')));
-  await type(dom.document.getElementById('service-name'), 'Voirie et réseaux');
-  await dom.click(dom.button('Enregistrer'));
-  await dom.waitFor(() => dom.bff.calls('/admin/services/{serviceId}', 'PATCH').length === 1);
-  assert.deepEqual(dom.bff.calls('/admin/services/{serviceId}', 'PATCH')[0].body, { name: 'Voirie et réseaux' });
-  assert.equal(dom.bff.calls('/admin/services/{serviceId}', 'PATCH')[0].url.pathname, '/admin/services/3');
-
-  dom.bff.on('get', '/admin/services', { body: { services: [culture] } });
-  await dom.waitFor(() => Boolean(labelled('Supprimer le service Voirie et réseaux')));
-  await dom.click(labelled('Supprimer le service Voirie et réseaux'));
-  assert.match(text(dom), /qui ne seront plus rattachés à aucun service/);
-  await dom.click(within(dom, '[role="alertdialog"]', 'Supprimer'));
-  await dom.waitFor(() => dom.bff.calls('/admin/services/{serviceId}', 'DELETE').length === 1);
-  assert.equal(dom.bff.calls('/admin/services/{serviceId}', 'DELETE')[0].url.pathname, '/admin/services/3');
+  await dom.waitFor(() => Boolean(row(dom, 'Éric Morel')) && !row(dom, 'Bob Martin'));
+  assert.equal(dom.bff.calls('/admin/users', 'GET').at(-1).url.search, '?page=1&page_size=6&search=urba');
+  assert.equal(dom.document.getElementById('users-search').value, 'urba', 'The list search shows the same terms.');
+  assert.equal(dom.document.getElementById('users-search').placeholder, 'Nom, e-mail ou service');
+  assert.match(row(dom, 'Dana Roux').textContent, /Urbanisme/);
+  // 2. « Rôle : tous » narrows to one role.
+  await dom.click(dom.button('Rôle : tous'));
+  await dom.waitFor(() => Boolean([...dom.document.querySelectorAll('[role="menuitemradio"]')].find(item => item.textContent.includes('Stagiaire'))));
+  await dom.click([...dom.document.querySelectorAll('[role="menuitemradio"]')].find(item => item.textContent.includes('Stagiaire')));
+  await dom.waitFor(() => !row(dom, 'Éric Morel') && Boolean(row(dom, 'Dana Roux')));
+  assert.equal(dom.bff.calls('/admin/users', 'GET').at(-1).url.search, '?page=1&page_size=6&search=urba&role_id=6');
+  assert.ok(dom.button('Rôle : Stagiaire'));
+  // 3. The row opens the record of the agent, with what the front relies on (name, service, sessions read).
+  await dom.click(row(dom, 'Dana Roux'));
+  await dom.waitFor(() => /Dana Roux/.test(dom.document.querySelector('[role="dialog"]')?.textContent ?? '') && dom.bff.calls('/admin/users/{userId}/sessions', 'GET').length === 1);
+  assert.match(dom.document.querySelector('[role="dialog"]').textContent, /Urbanisme/);
+  assert.equal(dom.bff.calls('/admin/users/{userId}/sessions', 'GET')[0].url.pathname, '/admin/users/9/sessions');
 });

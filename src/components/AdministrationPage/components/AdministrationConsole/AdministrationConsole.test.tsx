@@ -15,12 +15,15 @@ vi.mock('./components/UsersPanel/use-users-list', () => ({ useUsersList: () => (
 }) }));
 
 describe('AdministrationConsole', () => {
-  it('MAIR-885 composes the header, three counters, the tabs (Sécurité last) and the users panel by default', () => {
+  it('MAIR-885 / MAIR-1259 composes the header, three counters, the three tabs and the users panel by default', () => {
     render(<AdministrationConsole />);
     expect(screen.getByRole('heading', { level: 1, name: 'Administration' })).toBeTruthy();
     expect(screen.getByText('Comptes des agents, rôles et groupes de la mairie')).toBeTruthy();
     const tabs = screen.getByRole('tablist', { name: 'Sections d’administration' });
-    expect([...tabs.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent?.trim())).toEqual(['Utilisateurs', 'Rôles', 'Groupes', 'Services', 'Sécurité']);
+    expect([...tabs.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent?.trim())).toEqual(['Utilisateurs', 'Rôles1', 'Groupes']);
+    expect(screen.queryByRole('tab', { name: /Services|Sécurité/ })).toBeNull();
+    // The list stands without a titled « Utilisateurs » panel around it.
+    expect(screen.queryByRole('heading', { name: 'Utilisateurs' })).toBeNull();
     expect(screen.queryByText(/Sessions actives/)).toBeNull();
     expect(screen.getByRole('table', { name: 'Utilisateurs' })).toBeTruthy();
   });

@@ -34,14 +34,16 @@ export async function readInitialAdministration(search: string): Promise<Initial
   if (!session.isAdmin) return { session, console: null };
   const api = createAdministrationApi(client);
   const query = readPageUrlState(search, usersUrlSchema);
-  const [users, roles, groups] = await Promise.allSettled([
-    api.listUsers(usersQueryOf(query)), api.listRoles(), api.listGroups(),
+  const [users, roles, groups, active] = await Promise.allSettled([
+    api.listUsers(usersQueryOf(query)), api.listRoles(), api.listGroups(), api.listUsers({ status: 'active', pageSize: 1 }),
   ]);
   const failures = [roles, groups].filter((result): result is PromiseRejectedResult => result.status === 'rejected');
   return { session, console: {
     users: users.status === 'fulfilled' ? users.value : null,
     roles: roles.status === 'fulfilled' ? roles.value : null,
     groups: groups.status === 'fulfilled' ? groups.value : null,
+    // The « N actifs » caption only: its failure leaves « — » and is not reported.
+    activeUsers: active.status === 'fulfilled' ? active.value.total : null,
     usersError: users.status === 'rejected' ? administrationErrorMessage(users.reason) : null,
     error: failures.length ? [...new Set(failures.map(result => administrationErrorMessage(result.reason)))].join(' ') : null,
     authRequired: [...failures, ...(users.status === 'rejected' ? [users] : [])].some(result => result.reason instanceof BffRequestError && result.reason.status === 401),

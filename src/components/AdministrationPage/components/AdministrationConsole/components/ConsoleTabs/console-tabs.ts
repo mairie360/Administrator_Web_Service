@@ -1,23 +1,37 @@
-import { Building2, KeyRound, ShieldCheck, UserCog, UsersRound } from "lucide-react";
+import { ShieldCheck, UserCog, UsersRound } from "lucide-react";
 
-// MAIR-885 C1: the « Sessions » tab is gone, a user's sessions live in their record (MAIR-894).
-// MAIR-824: « Sécurité » after them, the second factor of the mairie (Administrator part of MAIR-809).
-// MAIR-923: « Services », the services of the mairie the agents belong to.
-export type AdministrationTabId = "users" | "roles" | "groups" | "services" | "security";
+// The « Sessions » tab is gone, a user's sessions live in their record. The « Services » and « Sécurité »
+// tabs were removed from the console: three sections, each with its count.
+export type AdministrationTabId = "users" | "roles" | "groups";
 
 export const administrationTabs = [
   { id: "users", label: "Utilisateurs", icon: UserCog },
   { id: "roles", label: "Rôles", icon: ShieldCheck },
   { id: "groups", label: "Groupes", icon: UsersRound },
-  { id: "services", label: "Services", icon: Building2 },
-  { id: "security", label: "Sécurité", icon: KeyRound },
 ] as const satisfies ReadonlyArray<{ id: AdministrationTabId; label: string; icon: typeof UserCog }>;
 
-export interface ConsoleMetric { tab: AdministrationTabId; label: string; value: number | string; caption: string; icon: typeof UserCog }
+/** Count of each tab; `undefined` (or `null`) until a successful read, so no count is shown. */
+export type AdministrationTabCounts = Partial<Record<AdministrationTabId, number | null | undefined>>;
 
-/** C2: the three counters; « — » until a successful read. */
-export const consoleMetrics = (counts: { users: number | null; roles?: number; groups?: number }): ConsoleMetric[] => [
-  { tab: "users", label: "Utilisateurs", value: counts.users ?? "—", caption: "Comptes des agents", icon: UserCog },
+export interface ConsoleMetric {
+  tab: AdministrationTabId;
+  label: string;
+  value: number | string;
+  caption: string;
+  icon: typeof UserCog;
+  /** The caption reads as a rising figure (« ↗ 12 actifs »). */
+  trend?: "up";
+}
+
+/** Caption of a counter whose figure is read separately: « — » until it is known. */
+const counted = (value: number | null | undefined, unit: string) => `${value ?? "—"} ${unit}`;
+
+/**
+ * The three counters; « — » until a successful read. The groups caption names the teams: the BFF gives
+ * no member count per group, so the number of assignments cannot be shown.
+ */
+export const consoleMetrics = (counts: { users: number | null; activeUsers?: number | null; roles?: number; groups?: number }): ConsoleMetric[] => [
+  { tab: "users", label: "Utilisateurs", value: counts.users ?? "—", caption: counted(counts.activeUsers, "actifs"), icon: UserCog, trend: "up" },
   { tab: "roles", label: "Rôles", value: counts.roles ?? "—", caption: "Modèles d’accès", icon: ShieldCheck },
-  { tab: "groups", label: "Groupes", value: counts.groups ?? "—", caption: "Services et équipes", icon: UsersRound },
+  { tab: "groups", label: "Groupes", value: counts.groups ?? "—", caption: "Équipes de la mairie", icon: UsersRound },
 ];
