@@ -252,3 +252,37 @@ test('MAIR-1259 business journey: find an agent by service, narrow by role, open
   assert.match(dom.document.querySelector('[role="dialog"]').textContent, /Urbanisme/);
   assert.equal(dom.bff.calls('/admin/users/{userId}/sessions', 'GET')[0].url.pathname, '/admin/users/9/sessions');
 });
+
+test('MAIR-1259 a suspension or a reactivation reads « N actifs » again', async t => {
+  let active = 2;
+  const dom = await administrationDom(t, { configure: seed(bff => bff
+    .on('get', '/admin/users', request => new URLSearchParams(request.url.search).get('account_status') === 'active'
+      ? { body: { users: [], page: 1, page_size: 1, total: active, total_pages: active } }
+      : { body: page([admin, bob, carla]) })
+    .on('post', '/admin/users/{userId}/suspend', () => { active = 1; return { status: 204 }; })
+    .on('post', '/admin/users/{userId}/reactivate', () => { active = 2; return { status: 204 }; })), expected: 'Bob Martin' });
+  const counter = () => dom.document.querySelector('[aria-pressed][aria-label^="Utilisateurs"]')?.getAttribute('aria-label') ?? '';
+  await dom.waitFor(() => counter() === 'Utilisateurs 3 2 actifs');
+  await dom.click(dom.button('Suspendre Bob Martin'));
+  await dom.click(within(dom, '[role="alertdialog"]', 'Suspendre'));
+  await dom.waitFor(() => counter() === 'Utilisateurs 3 1 actifs');
+  await dom.click(dom.button('Réactiver Bob Martin'));
+  await dom.waitFor(() => counter() === 'Utilisateurs 3 2 actifs');
+  assert.equal(requests(dom.bff).filter(line => line === ACTIVE_READ).length >= 3, true, 'one active read per change of the active accounts');
+});
+
+test('MAIR-1259 a header search still waiting is dropped when another tab is chosen', async t => {
+  const dom = await administrationDom(t, { configure: seed(bff => bff.on('get', '/admin/groups', { body: { groups: [] } })), expected: 'Bob Martin' });
+  const React = require('react');
+  const field = [...dom.document.querySelectorAll('header input')].find(input => input.placeholder === 'Rechercher un agent…');
+  await React.act(async () => {
+    Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set.call(field, 'bob');
+    field.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  });
+  // Before the 250 ms debounce runs out, the administrator opens « Rôles ».
+  await dom.click(tab(dom, 'Rôles'));
+  await new Promise(resolve => setTimeout(resolve, 400));
+  await dom.waitFor(() => tab(dom, 'Rôles')?.getAttribute('aria-selected') === 'true');
+  assert.equal(dom.bff.calls('/admin/users', 'GET').some(request => request.url.searchParams.has('search')), false, 'the waiting keystroke never searched');
+  assert.equal(new URL(dom.window.location.href).searchParams.get('tab'), 'roles');
+});

@@ -30,6 +30,14 @@ export function useHeaderSearch(initialSearch?: string): HeaderSearch {
   const [draft, setDraft] = useState<{ value: string; search: string } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  // A URL change made elsewhere (a tab, the list's own field) while a keystroke waits cancels that keystroke:
+  // it must not reopen « Utilisateurs » afterwards. The header's own change runs after its timer has fired.
+  useEffect(() => {
+    if (!timer.current) return;
+    clearTimeout(timer.current);
+    timer.current = null;
+    setDraft(null);
+  }, [tab, usersSearch]);
   const apply = (query: string, mode: "push" | "replace") => {
     setDraft({ value: query, search: query.trim() });
     pageUrl.update({ tab: "users", usersSearch: query.trim(), usersPage: "1" }, mode);
@@ -39,10 +47,11 @@ export function useHeaderSearch(initialSearch?: string): HeaderSearch {
     onChange: (query) => {
       setDraft({ value: query, search: shown });
       if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => apply(query, "replace"), HEADER_SEARCH_DELAY);
+      timer.current = setTimeout(() => { timer.current = null; apply(query, "replace"); }, HEADER_SEARCH_DELAY);
     },
     onSearch: (query) => {
       if (timer.current) clearTimeout(timer.current);
+      timer.current = null;
       apply(query, "push");
     },
   };
