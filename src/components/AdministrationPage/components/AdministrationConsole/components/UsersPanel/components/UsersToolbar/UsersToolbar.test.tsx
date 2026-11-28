@@ -26,11 +26,12 @@ describe('UsersToolbar', () => {
     expect(filters()).toEqual(['Rôle : Agent', 'Statut : Suspendu']);
   });
 
-  it('MAIR-1259 draws the filters without the funnel icon (only the chevron), as the artifact selects', () => {
+  // MAIR-1259 (design-match): the artifact's « Rôle : tous » / « Statut : tous » start with a funnel, then the chevron.
+  it('MAIR-1259 draws the filters with the funnel icon and the chevron, as the artifact', () => {
     render(<UsersToolbar searchInput="" status="" roleId={null} roles={[]} locked={false}
       onType={vi.fn()} onSubmit={vi.fn()} onStatus={vi.fn()} onRole={vi.fn()} onCreate={vi.fn()} />);
     for (const filter of screen.getAllByRole('button').filter((button) => button.getAttribute('aria-haspopup') === 'menu')) {
-      expect(filter.querySelectorAll('svg')).toHaveLength(1);
+      expect(filter.querySelectorAll('svg')).toHaveLength(2);
     }
   });
 });

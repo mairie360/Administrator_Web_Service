@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { UsersPanel } from './UsersPanel';
+import { lastLoginLabel } from './users-model';
 import { userRow } from '@tests/component/users-fixtures';
 
 const list = { current: {} as Record<string, unknown> };
@@ -51,5 +52,14 @@ describe('UsersPanel', () => {
     expect(screen.getByText('Aucun utilisateur ne correspond')).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: 'Effacer les filtres' }));
     expect(clearFilters).toHaveBeenCalled();
+  });
+
+  // MAIR-1259 (design-match): the list reads « 2 juil. 2026 » like the artifact; the user record keeps the time.
+  it('MAIR-1259 shows the last sign-in date without the time in the list', () => {
+    const user = { last_login_at: '2026-07-02T06:00:00Z' };
+    expect(lastLoginLabel(user)).not.toMatch(/\d{2}:\d{2}/);
+    expect(lastLoginLabel(user)).toMatch(/2 juil\.? 2026/);
+    expect(lastLoginLabel(user, true)).toMatch(/\d{2}:\d{2}/);
+    expect(lastLoginLabel({ last_login_at: null })).toBe('Jamais');
   });
 });

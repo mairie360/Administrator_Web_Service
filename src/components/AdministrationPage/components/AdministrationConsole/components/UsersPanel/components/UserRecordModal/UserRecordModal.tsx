@@ -58,7 +58,7 @@ export function UserRecordModal({ user, currentUserId, locked, onClose, onEdit, 
           { label: "Rôle", value: roleName(user) },
           { label: "Statut", value: state.label },
           { label: "Téléphone", value: user.phone_number || "Aucun téléphone" },
-          { label: "Dernière connexion", value: user.active_sessions > 0 ? "En ligne" : lastLoginLabel(user) },
+          { label: "Dernière connexion", value: user.active_sessions > 0 ? "En ligne" : lastLoginLabel(user, true) },
         ]} />
         <UserSessions key={`${user.id}-${user.account_status}`} userId={user.id} name={name} status={user.account_status} locked={locked}
           onRevoke={onRevoke} onActiveCountChange={(count) => onActiveCountChange(user.id, count)} />
