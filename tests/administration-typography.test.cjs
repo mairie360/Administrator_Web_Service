@@ -5,11 +5,13 @@ const { administrationDom, shadow } = require('./support/administration-dom.cjs'
 test('actual administration page retains root typography after a later shared body font', async t => {
   const dom = await administrationDom(t);
   const later = dom.document.createElement('style'); later.textContent = 'body { font-family: Arial; }'; dom.document.head.append(later);
-  assert.equal(dom.style(dom.document.documentElement).fontSize, '17px');
+  assert.equal(dom.style(dom.document.documentElement).fontSize, '16px'); // MAIR-1259: root size of the artifacts
   assert.equal(dom.style(dom.document.body).fontFamily, 'system-ui, sans-serif');
   assert.equal(dom.document.querySelector('.administration-console') !== null, true);
+  // The second users read is the one-row count of the active accounts (« N actifs »).
+  await dom.waitFor(() => dom.bff.requests.length === 5);
   assert.deepEqual(dom.bff.requests.map(({ method, template }) => `${method} ${template}`).sort(), [
-    'GET /admin/groups', 'GET /admin/roles', 'GET /admin/users', 'GET /me',
+    'GET /admin/groups', 'GET /admin/roles', 'GET /admin/users', 'GET /admin/users', 'GET /me',
   ]);
 });
 
@@ -18,7 +20,8 @@ test('actual published sidebar receives the reference shadow and seven nonshrink
   assert.equal(dom.style(sidebar).position, 'relative'); assert.equal(dom.style(sidebar).zIndex, '20');
   assert.deepEqual(shadow(dom.window, dom.style(sidebar).boxShadow), [{ lengths: [8, 0, 24, 0], color: 'rgba(12, 28, 48, 0.28)' }]);
   const buttons = [...sidebar.querySelectorAll('nav button')];
-  assert.deepEqual(buttons.map(button => button.textContent), ['Tableau de bord', 'Projets', 'Messagerie', 'Formation', 'Calendrier', 'Administration', 'Paramètres']);
+  // MAIR-1260 (lib 2.9.0): the artifact order, « E-learning » after Messagerie, then Administration and Paramètres.
+  assert.deepEqual(buttons.map(button => button.textContent), ['Tableau de bord', 'Projets', 'Calendrier', 'Messagerie', 'E-learning', 'Administration', 'Paramètres']);
   for (const button of buttons) {
     assert.equal(dom.style(button).minHeight, '44px'); assert.equal(dom.style(button).flexShrink, '0');
   }
@@ -34,6 +37,9 @@ test('actual published drawer applies its lower sidebar layer and closes through
 
 test('actual console panels retain shadows, shrinking grid items and readable long labels', async t => {
   const dom = await administrationDom(t), console = dom.document.querySelector('.administration-console');
+  // The users list has no titled panel any more; the roles tab still opens in one.
+  await dom.click([...dom.document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.startsWith('Rôles')));
+  await dom.waitFor(() => console.querySelectorAll('.administration-panel').length > 0);
   const panels = [...console.querySelectorAll('.administration-panel')]; assert.ok(panels.length);
   for (const panel of panels) assert.deepEqual(shadow(dom.window, dom.style(panel).boxShadow), [
     { lengths: [0, 5, 15, 0], color: 'rgba(23, 32, 51, 0.14)' },

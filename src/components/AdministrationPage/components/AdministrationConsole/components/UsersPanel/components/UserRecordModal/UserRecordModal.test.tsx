@@ -31,4 +31,14 @@ describe('UserRecordModal', () => {
     expect(screen.queryByRole('button', { name: 'Réactiver' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Supprimer' })).toBeNull();
   });
+
+  it('MAIR-1259 shows the service of the agent first, « Aucun service » without one', () => {
+    const { unmount } = render(<UserRecordModal user={userRow(4, { service: { id: 2, name: 'Urbanisme' } })} {...props()} />);
+    const terms = [...document.querySelectorAll('dt')].map((term) => term.textContent);
+    expect(terms[0]).toBe('Service');
+    expect(screen.getByText('Urbanisme')).toBeTruthy();
+    unmount();
+    render(<UserRecordModal user={userRow(5)} {...props()} />);
+    expect(screen.getByText('Aucun service')).toBeTruthy();
+  });
 });

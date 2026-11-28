@@ -3,9 +3,9 @@ const { test } = require('node:test');
 const { ts, parse, nodes, imported, exportedCallable, bindingNames } = require('./support/module-policy.cjs');
 // Structural policy; existing page/form/rerender tests exercise user behavior.
 // MAIR-608 component tree: the console imports each panel through its folder index. MAIR-824 (V2): the sessions
-// live in the user record, the « Sécurité » tab is a panel.
+// live in the user record; the « Services » and « Sécurité » panels left the console.
 const CONSOLE = 'src/components/AdministrationPage/components/AdministrationConsole';
-for (const component of ['UsersPanel', 'RolesPanel', 'GroupsPanel', 'SecurityPanel']) {
+for (const component of ['UsersPanel', 'RolesPanel', 'GroupsPanel']) {
   test(`${component} has a stable explicit module boundary, not an inline console definition`, () => {
     const consoleSource = parse(`${CONSOLE}/AdministrationConsole.tsx`);
     const directImport = imported(consoleSource).find(row => row.specifier === `./components/${component}`)?.node;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Button, ConfirmModal, ErrorAlert, Pagination, Panel } from "@mairie360/lib-components/primitives";
+import { Button, ConfirmModal, ErrorAlert, Pagination } from "@mairie360/lib-components/primitives";
 import { administrationApi, USERS_PAGE_SIZE, type AdministrationRole, type AdministrationService, type AdministrationUser, type AdministrationUsersPage } from '@/lib/administration-api';
 import { type RunAction } from '../../types';
 import { useUsersList } from './use-users-list';
@@ -200,8 +200,9 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, curren
       <UsersToolbar searchInput={list.searchInput} status={list.status} roleId={list.roleId} roles={roles} locked={locked}
         onType={list.typeSearch} onSubmit={list.submitSearch} onStatus={list.setStatus} onRole={list.setRole}
         onCreate={() => { setEditedUser(null); setFormMode("create"); }} />
-      <Panel className="administration-panel" title="Utilisateurs" flush>
-        {usersError && hasRows && <div className="px-4 pb-3"><ErrorAlert size="s" role="alert" title={usersError} /></div>}
+      {/* The list sits right under the toolbar, in a bordered frame, without a titled panel around it. */}
+      <div className="users-list min-w-0 overflow-hidden rounded-[var(--mairie-radius-l)] border border-[var(--mairie-border)] bg-[var(--mairie-surface)]">
+        {usersError && hasRows && <div className="px-4 py-3"><ErrorAlert size="s" role="alert" title={usersError} /></div>}
         <UsersTable users={usersPage.users} state={tableState} sort={list.sort} currentUserId={currentUserId} locked={locked}
           emptyTitle={list.filtered ? "Aucun utilisateur ne correspond" : "Aucun utilisateur"}
           emptyDescription={list.filtered ? "Modifiez la recherche ou les filtres pour élargir les résultats." : undefined}
@@ -213,7 +214,7 @@ export function UsersPanel({ roles, busyAction, runAction, onTotalChange, curren
           <Pagination className="border-t border-[var(--mairie-border)] px-4 py-2.5" page={list.page} pageSize={usersPage.page_size || USERS_PAGE_SIZE}
             total={usersPage.total} loading={usersLoading || locked} itemsLabel="utilisateurs" label="Pagination des utilisateurs" onChange={list.goToPage} />
         )}
-      </Panel>
+      </div>
 
       <UserRecordModal user={record} currentUserId={currentUserId} locked={locked} onClose={() => setRecordId(null)}
         onEdit={openEdit} onToggleSuspension={toggleSuspension} onDelete={(user) => setUserToDelete(user)}

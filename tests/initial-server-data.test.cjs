@@ -29,13 +29,16 @@ afterEach(() => { view?.unmount(); view = undefined; if (installed) { front.unin
 test('the real server page authorizes through the actual profile and renders administration data before JavaScript', async () => {
   seed(); const element = await Home(); const html = renderToStaticMarkup(element);
   assert.match(html, /Bob Martin/); assert.match(html, /Alice Dupont/);
-  assert.equal(bff.requests.length, 4); assert.equal(bff.requests[0].template, '/me');
+  // The fifth read is the one-row count of the active accounts (« N actifs »), done by the server too.
+  assert.equal(bff.requests.length, 5); assert.equal(bff.requests[0].template, '/me');
+  assert.equal(bff.requests.filter(request => request.url.search === '?page=1&page_size=1&account_status=active').length, 1);
+  assert.match(html, /1 actifs/);
   for (const request of bff.requests) { assert.equal(request.method, 'GET'); assert.equal(request.headers.authorization, `Bearer ${access}`); assert.equal(request.headers.cookie, undefined); }
   assert.doesNotMatch(JSON.stringify(element.props), /accessToken|refreshToken/);
   assert.ok(!JSON.stringify(element.props).includes(access));
   front.install(); installed = true; global.window = { location: { origin: FRONT_ORIGIN, search: '', href: FRONT_ORIGIN + '/' }, localStorage: { getItem: () => null }, requestAnimationFrame: fn => fn() };
   view = mount(element); await new Promise(resolve => setImmediate(resolve));
-  assert.equal(bff.requests.length, 4, 'No duplicate profile, resource or users bootstrap after a confirmed server receipt.');
+  assert.equal(bff.requests.length, 5, 'No duplicate profile, resource, users or active count bootstrap after a confirmed server receipt.');
   assert.equal(front.browserCalls.length, 0);
 });
 
@@ -77,7 +80,9 @@ test('the actual performance fixture renders confirmed users and all console res
   const html = renderToStaticMarkup(element);
   assert.ok(html.includes(performanceFixture.readyText), 'Readiness is a real received user field.');
   assert.doesNotMatch(html, /role="alert"|incohérentes|Certaines données n’ont pas pu être chargées/);
-  assert.equal(bff.requests.length, 4);
+  // Plus the one-row count of the active accounts.
+  assert.equal(bff.requests.length, 5);
+  assert.equal(typeof state.console.activeUsers, 'number');
 });
 
 test('a User profile cannot gain administration reads from an Admin-shaped access token', async () => {

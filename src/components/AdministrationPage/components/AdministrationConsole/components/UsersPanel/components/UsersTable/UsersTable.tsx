@@ -3,7 +3,7 @@ import { CheckCircle2, Lock } from "lucide-react";
 import { DataTable, DeleteIconButton, EditIconButton, IconButton, StatusPill, Tag, UserIdentity, type DataTableColumn } from "@mairie360/lib-components/primitives";
 
 import type { AdministrationUser, UsersSort } from '@/lib/administration-api';
-import { accountStatuses, fullName, lastLoginLabel, onlineLabel, roleName } from '../../users-model';
+import { accountStatuses, fullName, isAdministrator, lastLoginLabel, onlineLabel, roleName } from '../../users-model';
 
 export interface UsersTableProps {
   users: AdministrationUser[];
@@ -30,14 +30,17 @@ export interface UsersTableProps {
  */
 export function UsersTable({ users, state, sort, currentUserId, locked, emptyTitle, emptyDescription, emptyAction, errorTitle, onRetry, onSort, onOpen, onEdit, onToggleSuspension, onDelete }: UsersTableProps) {
   const columns: DataTableColumn<AdministrationUser>[] = [
-    { key: "name", header: "Utilisateur", sortable: true, kind: "content", cell: (user) => <UserIdentity name={fullName(user)} email={user.email} size="s" /> },
-    { key: "role", header: "Rôle", kind: "content", cell: (user) => <Tag label={roleName(user)} size="s" /> },
-    // MAIR-923: the service of the agent (the search also finds it).
-    { key: "service", header: "Service", cell: (user) => user.service?.name ?? "Aucun service" },
+    { key: "name", header: "Utilisateur", sortable: true, kind: "content", cell: (user) => <UserIdentity name={fullName(user)} email={user.email} size="l" emailIcon /> },
+    // The administrator role stands out (highlighted tag), every other role is a plain tag.
+    { key: "role", header: "Rôle", kind: "content", cell: (user) => isAdministrator(user)
+      ? <Tag label={roleName(user)} size="s" shape="pill" tone="purple" data-role="admin" />
+      : <Tag label={roleName(user)} size="s" shape="pill" /> },
     {
       key: "status", header: "Statut", kind: "content",
       cell: (user) => <StatusPill data-status={user.account_status} label={accountStatuses[user.account_status].label} tone={accountStatuses[user.account_status].tone} dot size="s" />,
     },
+    // The service of the agent (the search also finds it).
+    { key: "service", header: "Service", cell: (user) => user.service?.name ?? "Aucun service" },
     {
       key: "last_login", header: "Dernière connexion", kind: "content",
       cell: (user) => user.active_sessions > 0
@@ -45,7 +48,7 @@ export function UsersTable({ users, state, sort, currentUserId, locked, emptyTit
         : <span className="text-sm text-[var(--mairie-muted)]">{lastLoginLabel(user)}</span>,
     },
     {
-      key: "actions", header: "Actions", hideHeader: true, kind: "actions",
+      key: "actions", header: "Actions", kind: "actions",
       cell: (user) => {
         const own = user.id === currentUserId;
         const suspended = user.account_status === "suspended";

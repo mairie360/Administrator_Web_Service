@@ -6,6 +6,9 @@ import AdministrationMutationForm from '@/components/AdministrationPage/componen
 import type { AccountStatus, AdministrationRole } from '@/lib/administration-api';
 import { accountStatusOptions } from '../../users-model';
 
+// The lib FilterSelect shows its bare name while nothing is chosen; the mockup reads « Rôle : tous ».
+const filterLabel = (name: string, chosen: boolean) => chosen ? name : `${name} : tous`;
+
 export interface UsersToolbarProps {
   searchInput: string;
   status: AccountStatus | "";
@@ -19,18 +22,22 @@ export interface UsersToolbarProps {
   onCreate: () => void;
 }
 
-/** F01–F03: search on the name or the e-mail, state and role filters (single-choice menus), « Nouvel utilisateur ». */
+/**
+ * F01–F03: search on the name, the e-mail or the service, then the role and state filters (single-choice
+ * menus, with the lib funnel icon like the artifact, MAIR-1259), « Nouvel utilisateur ». A filter without a choice reads
+ * « Rôle : tous » / « Statut : tous ».
+ */
 export const UsersToolbar = ({ searchInput, status, roleId, roles, locked, onType, onSubmit, onStatus, onRole, onCreate }: UsersToolbarProps) => (
   <div className="flex flex-wrap items-end gap-3">
     {/* Like the mutation forms, the search has no HTML endpoint: read-only until the page is hydrated. */}
     <AdministrationMutationForm role="search" aria-label="Rechercher un utilisateur" onSubmit={onSubmit} className="min-w-0 flex-[1_1_280px]">
-      <SearchField id="users-search" label="Rechercher" placeholder="Nom ou e-mail" maxLength={100} value={searchInput}
+      <SearchField id="users-search" label="Rechercher" placeholder="Nom, e-mail ou service" maxLength={100} value={searchInput}
         onChange={(event) => onType(event.target.value)} />
     </AdministrationMutationForm>
-    <FilterSelect<AccountStatus> mode="menu" label="Statut" allLabel="Tous les statuts" options={accountStatusOptions} value={status}
-      disabled={locked} onChange={onStatus} />
-    <FilterSelect<string> mode="menu" label="Rôle" allLabel="Tous les rôles" options={roles.map((role) => ({ value: String(role.id), label: role.name }))}
+    <FilterSelect<string> mode="menu" label={filterLabel("Rôle", roleId !== null)} allLabel="Tous les rôles" options={roles.map((role) => ({ value: String(role.id), label: role.name }))}
       value={roleId ? String(roleId) : ""} disabled={locked} onChange={(value) => onRole(value ? Number(value) : null)} />
+    <FilterSelect<AccountStatus> mode="menu" label={filterLabel("Statut", status !== "")} allLabel="Tous les statuts" options={accountStatusOptions} value={status}
+      disabled={locked} onChange={onStatus} />
     <CreateButton label="Nouvel utilisateur" className="sm:ml-auto" disabled={locked} onClick={onCreate} />
   </div>
 );

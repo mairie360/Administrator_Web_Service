@@ -28,10 +28,10 @@ test('ZAP 10024: the URL keys V2 adds carry no name ZAP reads as sensitive (user
   const [{ administrationUrlSchema, usersUrlSchema, administrationSearch }] = loadTs(['src/lib/administration-query.ts']);
   // usersSearch and usersPage predate V2 and the scan's baseline; any other key must stay neutral.
   const keys = Object.keys({ ...administrationUrlSchema, ...usersUrlSchema }).filter(key => !['usersSearch', 'usersPage'].includes(key));
-  assert.deepEqual(keys.sort(), ['journal', 'role', 'sort', 'status', 'tab']);
+  assert.deepEqual(keys.sort(), ['role', 'sort', 'status', 'tab']);
   for (const key of keys) assert.doesNotMatch(key, /user|pass|session|token/i, key);
   assert.equal(administrationSearch({ tab: 'users', status: 'suspended', role: '4', sort: '-name', usersStatus: 'active' }), 'tab=users&status=suspended&role=4&sort=-name');
-  // MAIR-773: the journal of an agent opened from the link of the alert e-mail; only an id is kept.
-  assert.equal(administrationSearch({ tab: 'security', journal: '42' }), 'tab=security&journal=42');
-  assert.equal(administrationSearch({ tab: 'security', journal: 'abc' }), 'tab=security');
+  // The « Services » and « Sécurité » tabs left the console; their URL keys are dropped.
+  assert.equal(administrationSearch({ tab: 'security', journal: '42' }), '');
+  assert.equal(administrationSearch({ tab: 'services' }), '');
 });

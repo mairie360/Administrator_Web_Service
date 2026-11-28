@@ -3,15 +3,27 @@
 ## Administration V2 — MAIR-824
 
 La console suit la maquette V2 (Figma Administrator_Web_Service, epic MAIR-824) sur
-`@mairie360/lib-components` 2.3.0. Cinq onglets : Utilisateurs, Rôles, Groupes, Services et Sécurité ;
-l’onglet Sessions disparaît, les sessions d’un compte sont dans sa fiche.
+`@mairie360/lib-components` 2.9.0. Trois onglets, chacun avec son compteur : Utilisateurs, Rôles et
+Groupes ; l’onglet Sessions disparaît, les sessions d’un compte sont dans sa fiche, et les onglets Services
+et Sécurité sont retirés de la console (le service d’un agent se choisit toujours dans la modale de
+l’utilisateur).
 
-- **Utilisateurs** : recherche sur le nom, l’e-mail ou le service, filtre d’état (Actif, Invité, Inactif,
-  Suspendu), filtre de rôle, tri par nom, 6 lignes par page. Chaque ligne affiche le rôle, l’état,
-  « En ligne · N sessions » ou la dernière connexion, et ses actions : modifier, suspendre /
-  réactiver, supprimer, et le service de l’agent (choisi dans la modale de l’utilisateur). Un administrateur ne peut ni suspendre ni supprimer son propre compte. Un
-  clic sur la ligne ouvre la fiche (identité, rôle, état, sessions ouvertes et des 30 derniers
-  jours, déconnexion d’une session ou de toutes après confirmation).
+- **Compteurs** : « Utilisateurs » avec « ↗ N actifs » (lecture d’une ligne des comptes actifs, faite aussi
+  par le rendu serveur), « Rôles » avec « Modèles d’accès », « Groupes » avec « Équipes de la mairie »
+  (BFF User ne donne pas le nombre de membres par groupe : le nombre d’affectations de la maquette n’est
+  pas affiché).
+- **Recherche de l’en-tête** « Rechercher un agent… » : BFF User ne sert pas de `/search` global, le champ
+  de l’en-tête partagé cherche donc les agents : la saisie ouvre l’onglet Utilisateurs sur cette
+  recherche (page 1).
+- **Utilisateurs** : recherche « Nom, e-mail ou service » (Core API compare aussi le nom du service), puis
+  les filtres « Rôle : tous » et « Statut : tous » (Actif, Invité, Inactif, Suspendu), tri par nom,
+  6 lignes par page. La liste est dans un cadre bordé, sans panneau titré ; colonnes Utilisateur, Rôle
+  (étiquettes arrondies, le rôle administrateur en violet), Statut, Service, Dernière connexion (« En ligne · N sessions »
+  ou la dernière connexion) et Actions : modifier, suspendre / réactiver, supprimer. Les avatars à
+  initiales (40 px) prennent une couleur dérivée du nom (lib 2.8.0), l’e-mail suit une icône d’enveloppe et les filtres n’ont pas d’entonnoir (lib 2.9.0). Un administrateur ne peut ni suspendre ni
+  supprimer son propre compte. Un clic sur la ligne ouvre la fiche (identité, service, rôle, état,
+  sessions ouvertes et des 30 derniers jours, déconnexion d’une session ou de toutes après
+  confirmation).
 - **Suspension** (MAIR-904) : confirmée d’abord, elle ferme toutes les sessions du compte et
   refuse sa connexion jusqu’à « Réactiver » ; rôles, groupes et seconds facteurs sont conservés.
 - **Rôles** : tableau, création et modification dans une modale, avec les « Modules accessibles » du rôle
@@ -21,14 +33,8 @@ l’onglet Sessions disparaît, les sessions d’un compte sont dans sa fiche.
 - **Groupes** : création dans une modale avec une couleur de la palette de la charte, chaque carte affiche
   sa couleur et son nombre de projets (MAIR-923), le groupe s’ouvre dans un panneau latéral (membres,
   propriétaire, suppression) ; « Projets sans groupe » liste les projets de BFF_Project sans groupe.
-- **Services** (MAIR-923) : les services de la mairie et leurs agents ; création, renommage et
-  suppression confirmée, qui laisse ses agents sans service.
-- **Sécurité** : la politique de double authentification de la mairie (obligatoire ou non,
-  méthodes autorisées) et le facteur de chaque agent actif, qu’un administrateur peut réinitialiser ;
-  depuis MAIR-773, les alertes de sécurité récentes (usages d’une session depuis un autre appareil
-  sur les 30 derniers jours : date, agent, « Tentative certaine » / « Tentative possible », appareil
-  et début de l’adresse) et, depuis « Voir le journal » ou le lien de l’e-mail d’alerte
-  (`?tab=security&journal=<id>`), le journal des connexions de l’agent.
+- Les anciens liens `?tab=services` / `?tab=security&journal=<id>` (e-mail d’alerte) ouvrent désormais
+  l’onglet Utilisateurs.
 - « Actualiser » relit les rôles, les groupes et la page d’utilisateurs affichée ; une lecture
   refusée garde les dernières lignes confirmées et le signale.
 
