@@ -3,7 +3,7 @@
 ## Administration V2 — MAIR-824
 
 La console suit la maquette V2 (Figma Administrator_Web_Service, epic MAIR-824) sur
-`@mairie360/lib-components` 2.8.0. Trois onglets, chacun avec son compteur : Utilisateurs, Rôles et
+`@mairie360/lib-components` 2.9.0. Trois onglets, chacun avec son compteur : Utilisateurs, Rôles et
 Groupes ; l’onglet Sessions disparaît, les sessions d’un compte sont dans sa fiche, et les onglets Services
 et Sécurité sont retirés de la console (le service d’un agent se choisit toujours dans la modale de
 l’utilisateur).
@@ -18,9 +18,9 @@ l’utilisateur).
 - **Utilisateurs** : recherche « Nom, e-mail ou service » (Core API compare aussi le nom du service), puis
   les filtres « Rôle : tous » et « Statut : tous » (Actif, Invité, Inactif, Suspendu), tri par nom,
   6 lignes par page. La liste est dans un cadre bordé, sans panneau titré ; colonnes Utilisateur, Rôle
-  (le rôle administrateur mis en avant), Statut, Service, Dernière connexion (« En ligne · N sessions »
+  (étiquettes arrondies, le rôle administrateur en violet), Statut, Service, Dernière connexion (« En ligne · N sessions »
   ou la dernière connexion) et Actions : modifier, suspendre / réactiver, supprimer. Les avatars à
-  initiales prennent une couleur dérivée du nom (lib 2.8.0). Un administrateur ne peut ni suspendre ni
+  initiales (40 px) prennent une couleur dérivée du nom (lib 2.8.0), l’e-mail suit une icône d’enveloppe et les filtres n’ont pas d’entonnoir (lib 2.9.0). Un administrateur ne peut ni suspendre ni
   supprimer son propre compte. Un clic sur la ligne ouvre la fiche (identité, service, rôle, état,
   sessions ouvertes et des 30 derniers jours, déconnexion d’une session ou de toutes après
   confirmation).

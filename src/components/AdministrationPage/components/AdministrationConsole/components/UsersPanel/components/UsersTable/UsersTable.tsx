@@ -30,11 +30,11 @@ export interface UsersTableProps {
  */
 export function UsersTable({ users, state, sort, currentUserId, locked, emptyTitle, emptyDescription, emptyAction, errorTitle, onRetry, onSort, onOpen, onEdit, onToggleSuspension, onDelete }: UsersTableProps) {
   const columns: DataTableColumn<AdministrationUser>[] = [
-    { key: "name", header: "Utilisateur", sortable: true, kind: "content", cell: (user) => <UserIdentity name={fullName(user)} email={user.email} size="s" /> },
+    { key: "name", header: "Utilisateur", sortable: true, kind: "content", cell: (user) => <UserIdentity name={fullName(user)} email={user.email} size="l" emailIcon /> },
     // The administrator role stands out (highlighted tag), every other role is a plain tag.
     { key: "role", header: "Rôle", kind: "content", cell: (user) => isAdministrator(user)
-      ? <Tag label={roleName(user)} size="s" data-role="admin" className="!border-transparent !bg-[var(--mairie-purple-surface)] !text-[var(--mairie-purple-text)]" />
-      : <Tag label={roleName(user)} size="s" /> },
+      ? <Tag label={roleName(user)} size="s" shape="pill" tone="purple" data-role="admin" />
+      : <Tag label={roleName(user)} size="s" shape="pill" /> },
     {
       key: "status", header: "Statut", kind: "content",
       cell: (user) => <StatusPill data-status={user.account_status} label={accountStatuses[user.account_status].label} tone={accountStatuses[user.account_status].tone} dot size="s" />,

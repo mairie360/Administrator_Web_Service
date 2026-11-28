@@ -46,4 +46,17 @@ describe('UsersTable', () => {
     expect(colours).toHaveLength(2);
     for (const colour of colours) expect(['dashboard', 'projects', 'calendar', 'messaging', 'training']).toContain(colour);
   });
+
+  it('MAIR-1259 shows role tags as pills (administrator in purple), 40 px avatars and a mail icon before the e-mail', () => {
+    render(<UsersTable users={[userRow(1, { roles: [{ id: 1, name: 'Admin' }] }), userRow(2, { first_name: 'Inès' })]} state="default" sort="name" currentUserId={null} locked={false} emptyTitle="" {...handlers()} />);
+    const admin = document.querySelector('[data-role="admin"]')!;
+    expect(admin.getAttribute('data-shape')).toBe('pill'); expect(admin.getAttribute('data-tone')).toBe('purple');
+    const agent = screen.getByText('Agent');
+    expect(agent.getAttribute('data-shape')).toBe('pill'); expect(agent.getAttribute('data-tone')).toBe('neutral');
+    for (const identity of document.querySelectorAll('[data-m360-component~="UserIdentity"]')) {
+      expect(identity.getAttribute('data-size')).toBe('l');
+      expect(identity.querySelector('svg')).toBeTruthy();
+    }
+    expect(screen.getByText('user1@mairie.test').closest('[data-m360-component~="UserIdentity"]')).toBeTruthy();
+  });
 });

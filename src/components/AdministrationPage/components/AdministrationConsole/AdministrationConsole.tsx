@@ -31,9 +31,13 @@ export function AdministrationConsole({ initialState, initialSearch, currentUser
   // « N actifs » under the users counter: the total of the active accounts, read with the same list operation
   // (one row) each time the whole list total is known again; « — » until then. The server render's read is kept.
   const [activeUsers, setActiveUsers] = useState<number | null>(initial?.activeUsers ?? null);
-  const seededActiveUsers = useRef(typeof initial?.activeUsers === "number");
+  // The server render's read covers the first (total, refresh) pair: keyed rather than a one-shot flag, so the
+  // StrictMode effect replay of that same pair does not read again from the browser.
+  const seededActiveKey = useRef<string | null>(typeof initial?.activeUsers === "number" ? `${initial?.users?.total ?? null}:0` : null);
   useEffect(() => {
-    if (seededActiveUsers.current) { seededActiveUsers.current = false; return; }
+    const key = `${usersTotal}:${usersRefresh}`;
+    if (seededActiveKey.current === key) return;
+    seededActiveKey.current = null;
     setActiveUsers(null);
     if (usersTotal === null) return;
     let current = true;

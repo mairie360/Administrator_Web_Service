@@ -35,7 +35,8 @@ describe('ConsoleMetrics', () => {
     expect(users.textContent).toContain('28 actifs');
     expect(users.querySelector('[data-trend="up"]')).toBeTruthy();
     expect(screen.getByRole('button', { name: /^Rôles/ }).querySelector('[data-trend="none"]')).toBeTruthy();
-    // The lib overline (uppercase) is turned back to plain text, as in the mockup.
-    for (const card of container.querySelectorAll('[data-trend]')) expect(card.className).toContain('[&_[data-preset=Overline]]:normal-case');
+    // MAIR-1260 lib labelCase="normal": the label is body text, never the uppercase Overline.
+    expect(container.querySelectorAll('[data-preset="Overline"]')).toHaveLength(0);
+    for (const label of ['Utilisateurs', 'Rôles', 'Groupes']) expect(screen.getByText(label).textContent).toBe(label);
   });
 });

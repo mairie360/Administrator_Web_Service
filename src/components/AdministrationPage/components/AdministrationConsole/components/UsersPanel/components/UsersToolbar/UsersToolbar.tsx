@@ -33,9 +33,9 @@ export const UsersToolbar = ({ searchInput, status, roleId, roles, locked, onTyp
       <SearchField id="users-search" label="Rechercher" placeholder="Nom, e-mail ou service" maxLength={100} value={searchInput}
         onChange={(event) => onType(event.target.value)} />
     </AdministrationMutationForm>
-    <FilterSelect<string> mode="menu" label={filterLabel("Rôle", roleId !== null)} allLabel="Tous les rôles" options={roles.map((role) => ({ value: String(role.id), label: role.name }))}
+    <FilterSelect<string> mode="menu" icon={false} label={filterLabel("Rôle", roleId !== null)} allLabel="Tous les rôles" options={roles.map((role) => ({ value: String(role.id), label: role.name }))}
       value={roleId ? String(roleId) : ""} disabled={locked} onChange={(value) => onRole(value ? Number(value) : null)} />
-    <FilterSelect<AccountStatus> mode="menu" label={filterLabel("Statut", status !== "")} allLabel="Tous les statuts" options={accountStatusOptions} value={status}
+    <FilterSelect<AccountStatus> mode="menu" icon={false} label={filterLabel("Statut", status !== "")} allLabel="Tous les statuts" options={accountStatusOptions} value={status}
       disabled={locked} onChange={onStatus} />
     <CreateButton label="Nouvel utilisateur" className="sm:ml-auto" disabled={locked} onClick={onCreate} />
   </div>

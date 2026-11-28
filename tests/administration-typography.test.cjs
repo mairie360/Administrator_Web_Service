@@ -20,7 +20,8 @@ test('actual published sidebar receives the reference shadow and seven nonshrink
   assert.equal(dom.style(sidebar).position, 'relative'); assert.equal(dom.style(sidebar).zIndex, '20');
   assert.deepEqual(shadow(dom.window, dom.style(sidebar).boxShadow), [{ lengths: [8, 0, 24, 0], color: 'rgba(12, 28, 48, 0.28)' }]);
   const buttons = [...sidebar.querySelectorAll('nav button')];
-  assert.deepEqual(buttons.map(button => button.textContent), ['Tableau de bord', 'Projets', 'Messagerie', 'Formation', 'Calendrier', 'Administration', 'Paramètres']);
+  // MAIR-1260 (lib 2.9.0): the artifact order, « E-learning » after Messagerie, then Administration and Paramètres.
+  assert.deepEqual(buttons.map(button => button.textContent), ['Tableau de bord', 'Projets', 'Calendrier', 'Messagerie', 'E-learning', 'Administration', 'Paramètres']);
   for (const button of buttons) {
     assert.equal(dom.style(button).minHeight, '44px'); assert.equal(dom.style(button).flexShrink, '0');
   }

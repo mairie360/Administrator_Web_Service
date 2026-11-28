@@ -3,7 +3,7 @@
 ## Administration V2 — MAIR-824
 
 The console follows the V2 mock-up (Figma Administrator_Web_Service, epic MAIR-824) on
-`@mairie360/lib-components` 2.8.0. Three tabs, each with its count: Users, Roles and Groups; the Sessions
+`@mairie360/lib-components` 2.9.0. Three tabs, each with its count: Users, Roles and Groups; the Sessions
 tab is gone, the sessions of an account live in its record, and the Services and Security tabs were removed
 from the console (the service of an agent is still chosen in the user modal).
 
@@ -15,9 +15,9 @@ from the console (the service of an agent is still chosen in the user modal).
 - **Users**: search « Nom, e-mail ou service » (Core API matches the service name too), then the
   « Rôle : tous » and « Statut : tous » filters (Active, Invited, Inactive, Suspended), order by name,
   6 rows per page. The list stands in a bordered frame, without a titled panel; columns Utilisateur,
-  Rôle (the administrator role highlighted), Statut, Service, Dernière connexion (« En ligne · N
-  sessions » or the last sign-in) and Actions: edit, suspend / reactivate, delete. Initials avatars take
-  a colour derived from the name (lib 2.8.0). An administrator cannot suspend or delete their own
+  Rôle (pill tags, the administrator role in purple), Statut, Service, Dernière connexion (« En ligne · N
+  sessions » or the last sign-in) and Actions: edit, suspend / reactivate, delete. Initials avatars (40 px) take
+  a colour derived from the name (lib 2.8.0), the e-mail follows a mail icon and the filters have no funnel (lib 2.9.0). An administrator cannot suspend or delete their own
   account. A click on the row opens the user record (identity, service, role, state, open sessions and
   those of the last 30 days, sign-out of one or of every session after a confirmation).
 - **Suspension** (MAIR-904): confirmed first, it closes every session of the account and refuses

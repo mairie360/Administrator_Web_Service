@@ -1,6 +1,10 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { administrationDom } = require('./support/administration-dom.cjs');
+// MAIR-1259: the « N actifs » counter reads one active account (account_status=active, page_size=1); the
+// list reads asserted here are the others.
+const isActiveCount = request => request.url.searchParams.get('account_status') === 'active' && request.url.searchParams.get('page_size') === '1';
+const pageReads = dom => dom.bff.calls('/admin/users', 'GET').filter(request => !isActiveCount(request));
 const bob = { id: 7, first_name: 'Bob', last_name: 'Martin', email: 'bob@mairie.test', phone_number: null, status: 'active', is_archived: false, roles: [], account_status: 'active', active_sessions: 0, last_login_at: null, two_factor: { methods: [], last_verified_at: null } };
 const page = users => ({ users, page: 1, page_size: 6, total: users.length, total_pages: users.length ? 1 : 0 });
 function configure(bff) { bff.on('get', '/admin/users', { body: page([bob]) }).on('get', '/admin/services', { body: { services: [] } }); }
@@ -31,7 +35,10 @@ test('a local deletion alertdialog inerts the sole shared skip link and cancella
 test('a confirmed SSR receipt survives real React StrictMode effect replay without any duplicate bootstrap', async t => {
   const dom = await administrationDom(t, { serverPage: true, strict: true, configure, expected: 'Bob Martin' });
   assert.equal(dom.bff.calls('/me', 'GET').length, 1);
-  for (const path of ['/admin/users', '/admin/roles', '/admin/groups']) assert.equal(dom.bff.calls(path, 'GET').length, 1, path);
+  for (const path of ['/admin/roles', '/admin/groups']) assert.equal(dom.bff.calls(path, 'GET').length, 1, path);
+  // One page read and one « N actifs » read, both by the server render: StrictMode replays neither.
+  assert.equal(pageReads(dom).length, 1, '/admin/users');
+  assert.equal(dom.bff.calls('/admin/users', 'GET').filter(isActiveCount).length, 1, '/admin/users?account_status=active');
   assert.equal(dom.front.browserCalls.length, 0);
 });
 test('returning to Users after a confirmed deletion never resurrects the original SSR row', async t => {
@@ -44,13 +51,13 @@ test('returning to Users after a confirmed deletion never resurrects the origina
   // The deletion re-reads the page and locks the tabs until that read ends: wait for both.
   const tabs = () => [...dom.document.querySelectorAll('[role="tab"]')];
   await dom.waitFor(() => !dom.document.querySelector('tbody')?.textContent.includes('Bob Martin') && dom.bff.calls('/admin/users/{userId}', 'DELETE').length === 1
-    && dom.bff.calls('/admin/users', 'GET').length >= 2 && tabs().every(tab => !tab.disabled && tab.getAttribute('aria-disabled') !== 'true'));
+    && pageReads(dom).length >= 2 && tabs().every(tab => !tab.disabled && tab.getAttribute('aria-disabled') !== 'true'));
   assert.equal(dom.bff.calls('/admin/users/{userId}', 'DELETE').length, 1);
-  const before = dom.bff.calls('/admin/users', 'GET').length;
+  const before = pageReads(dom).length;
   await dom.click([...dom.document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.trim().startsWith('Rôles')));
   await dom.click([...dom.document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.trim().startsWith('Utilisateurs')));
-  await dom.waitFor(() => dom.bff.calls('/admin/users', 'GET').length > before);
-  assert.equal(dom.bff.calls('/admin/users', 'GET').length, before + 1);
+  await dom.waitFor(() => pageReads(dom).length > before);
+  assert.equal(pageReads(dom).length, before + 1);
   assert.ok(!dom.document.querySelector('tbody')?.textContent.includes('Bob Martin'));
 });
 
@@ -62,14 +69,14 @@ test('changing the seeded users query and returning to its original URL performs
     dom.window.history.pushState(dom.window.history.state, '', '/' + search);
     dom.window.dispatchEvent(new dom.window.PopStateEvent('popstate'));
   });
-  assert.equal(dom.bff.calls('/admin/users', 'GET').length, 1);
+  assert.equal(pageReads(dom).length, 1);
   await navigate('?usersSearch=Alice');
   await dom.waitFor(() => dom.document.querySelector('tbody')?.textContent.includes('Alice Remplaçante'));
-  assert.equal(dom.bff.calls('/admin/users', 'GET').length, 2);
+  assert.equal(pageReads(dom).length, 2);
   await navigate('');
   await dom.waitFor(() => dom.document.querySelector('tbody')?.textContent.includes('Bob Martin'));
-  assert.equal(dom.bff.calls('/admin/users', 'GET').length, 3);
-  assert.deepEqual(dom.bff.calls('/admin/users', 'GET').map(request => request.url.searchParams.get('search')), [null, 'Alice', null]);
+  assert.equal(pageReads(dom).length, 3);
+  assert.deepEqual(pageReads(dom).map(request => request.url.searchParams.get('search')), [null, 'Alice', null]);
 });
 
 test('the first Users visit after a confirmed role mutation reads the current role membership', async t => {
@@ -78,7 +85,7 @@ test('the first Users visit after a confirmed role mutation reads the current ro
     bff.on('get', '/admin/users', { body: page([{ ...bob, roles: [{ id: 4, name: deletedRole.name }] }]) });
     bff.on('get', '/admin/roles', { body: { roles: [deletedRole] } });
   } });
-  assert.equal(dom.bff.calls('/admin/users', 'GET').length, 1);
+  assert.equal(pageReads(dom).length, 1);
   dom.bff.on('delete', '/admin/roles/{roleId}', { status: 204 });
   // F17: the deletion first counts the holders of the role (one more users read), then asks.
   await dom.click(dom.button('Supprimer Rôle temporaire'));
@@ -90,7 +97,7 @@ test('the first Users visit after a confirmed role mutation reads the current ro
   await dom.click([...dom.document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.trim().startsWith('Utilisateurs')));
   await dom.waitFor(() => dom.document.querySelector('tbody')?.textContent.includes('Bob Martin'));
   assert.ok(!dom.document.querySelector('tbody').textContent.includes('Rôle temporaire'));
-  assert.equal(dom.bff.calls('/admin/users', 'GET').length, 3);
+  assert.equal(pageReads(dom).length, 3);
 });
 
 for (const foreground of [false, true]) test(`an initial Roles tab never reuses its hidden users snapshot on the first Users visit${foreground ? ' after foreground recovery' : ''}`, async t => {
@@ -100,20 +107,21 @@ for (const foreground of [false, true]) test(`an initial Roles tab never reuses 
     await require('react').act(async () => dom.window.dispatchEvent(new dom.window.Event('focus')));
     await dom.waitFor(() => dom.bff.calls('/admin/roles', 'GET').length === 2 && !dom.button('Actualiser').disabled);
   }
-  assert.equal(dom.bff.calls('/admin/users', 'GET').length, 1);
+  assert.equal(pageReads(dom).length, 1);
   await dom.click([...dom.document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.trim().startsWith('Utilisateurs')));
   assert.ok(!dom.document.querySelector('tbody')?.textContent.includes('Bob Martin'), 'An offscreen initial snapshot must never be displayed as the newly requested users page.');
   await dom.waitFor(() => dom.document.querySelector('tbody')?.textContent.includes('Alice Distante'));
-  assert.equal(dom.bff.calls('/admin/users', 'GET').length, 2);
+  assert.equal(pageReads(dom).length, 2);
 });
 
 test('native administration forms use POST, including user creation, profile editing and group creation', async t => {
   const dom = await administrationDom(t, { serverPage: true, configure, expected: 'Bob Martin' });
-  const postForms = () => {
-    const forms = [...dom.document.querySelectorAll('form')]; assert.ok(forms.length);
+  const postForms = (expectForm = true) => {
+    // The shell header search (role="search") submits nothing: it only drives the users search of the URL.
+    const forms = [...dom.document.querySelectorAll('form:not([role="search"])')]; if (expectForm) assert.ok(forms.length);
     for (const form of forms) assert.equal(form.method, 'post', 'Native submission must keep form values out of a GET URL.');
   };
-  postForms();
+  postForms(false);
   await dom.click(dom.button('Nouvel utilisateur')); postForms();
   assert.equal(dom.document.getElementById('create-password').form.method, 'post');
   await dom.click(dom.button('Annuler'));
