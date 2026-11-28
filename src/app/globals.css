@@ -2,8 +2,9 @@
 
 @source "../../node_modules/@mairie360/lib-components/dist/";
 
+/* MAIR-1259: the artifacts keep the browser root size (16 px); 17 px made every rem-based block 6 % larger. */
 html {
-  font-size: 17px;
+  font-size: 16px;
 }
 
 :root {

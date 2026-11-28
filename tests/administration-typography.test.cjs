@@ -5,7 +5,7 @@ const { administrationDom, shadow } = require('./support/administration-dom.cjs'
 test('actual administration page retains root typography after a later shared body font', async t => {
   const dom = await administrationDom(t);
   const later = dom.document.createElement('style'); later.textContent = 'body { font-family: Arial; }'; dom.document.head.append(later);
-  assert.equal(dom.style(dom.document.documentElement).fontSize, '17px');
+  assert.equal(dom.style(dom.document.documentElement).fontSize, '16px'); // MAIR-1259: root size of the artifacts
   assert.equal(dom.style(dom.document.body).fontFamily, 'system-ui, sans-serif');
   assert.equal(dom.document.querySelector('.administration-console') !== null, true);
   // The second users read is the one-row count of the active accounts (« N actifs »).
